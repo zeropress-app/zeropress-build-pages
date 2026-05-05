@@ -1,0 +1,2 @@
+[zeropress-prebuild] Invalid site config: test/fixtures/prebuild-errors/missing-custom-html-file/documents/.zeropress/config.json
+Reason: custom_html.head_end.file does not exist: test/fixtures/prebuild-errors/missing-custom-html-file/documents/.zeropress/head-end.html

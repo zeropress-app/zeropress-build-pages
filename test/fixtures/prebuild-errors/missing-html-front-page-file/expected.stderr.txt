@@ -1,0 +1,2 @@
+[zeropress-prebuild] Invalid site config: test/fixtures/prebuild-errors/missing-html-front-page-file/documents/.zeropress/config.json
+Reason: front_page.file does not exist: test/fixtures/prebuild-errors/missing-html-front-page-file/documents/.zeropress/index.html

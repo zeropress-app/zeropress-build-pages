@@ -1,0 +1,10 @@
+Wrote .zeropress/preview-data.json with 0 pages
+ZeroPress prebuild report
+- Public root: test/fixtures/prebuild-errors/skip-untitled/documents
+- Markdown discovered: 1
+- Markdown pages generated: 0
+- Markdown skipped: 1
+- Total preview pages: 0
+- Front page: theme_index -> /
+- Custom HTML slots: none
+- Report: .zeropress/prebuild-report.json

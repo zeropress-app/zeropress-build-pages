@@ -1,0 +1,5 @@
+[zeropress-prebuild] Invalid site config: test/fixtures/prebuild-errors/invalid-html-front-page-path/documents/.zeropress/config.json
+Reason: front_page.file must be an HTML file inside .zeropress/ when front_page.type is "html".
+Expected:
+  "front_page": { "type": "html", "file": ".zeropress/index.html" }
+  "front_page": { "type": "html", "file": ".zeropress/campaign.html", "layout": false }

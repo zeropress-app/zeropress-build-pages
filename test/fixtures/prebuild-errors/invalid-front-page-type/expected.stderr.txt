@@ -1,0 +1,6 @@
+[zeropress-prebuild] Invalid site config: test/fixtures/prebuild-errors/invalid-front-page-type/documents/.zeropress/config.json
+Reason: front_page.type must be one of "theme_index", "markdown", or "html".
+Expected:
+  "front_page": { "type": "theme_index" }
+  "front_page": { "type": "markdown" }
+  "front_page": { "type": "html" }

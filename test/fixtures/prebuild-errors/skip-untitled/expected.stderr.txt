@@ -1,0 +1,3 @@
+[zeropress-prebuild] Skipped untitled Markdown: test/fixtures/prebuild-errors/skip-untitled/documents/page.md
+Reason: missing top-level heading.
+This file was not added to preview-data pages.
