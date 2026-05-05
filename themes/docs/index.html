@@ -1,0 +1,20 @@
+<section class="hero">
+  <div class="shell hero__inner">
+    <p class="eyebrow">Documentation</p>
+    <h1>{{site.title}}</h1>
+    <p class="lede">{{site.description}}</p>
+  </div>
+</section>
+
+<section class="shell docs-grid" aria-label="Documentation sections">
+  {{#for item in menus.primary.items}}
+    {{#if_eq item.url "/"}}
+    {{#else}}
+    <a class="docs-card" href="{{item.url}}">
+      <span class="docs-card__kicker">Section</span>
+      <strong>{{item.title}}</strong>
+      <span>Open this documentation section.</span>
+    </a>
+    {{/if_eq}}
+  {{/for}}
+</section>

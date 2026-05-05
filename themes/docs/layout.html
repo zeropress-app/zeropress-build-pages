@@ -1,0 +1,37 @@
+<html lang="{{site.locale}}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{meta.title}}</title>
+    <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#111316" media="(prefers-color-scheme: dark)">
+    <link rel="stylesheet" href="/assets/style.css">
+    {{meta.head_tags}}
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+    <header class="site-header">
+      <div class="shell site-header__inner">
+        <a class="brand" href="/">{{site.title}}</a>
+        <nav class="site-nav" aria-label="Primary navigation">
+          {{menu:primary}}
+        </nav>
+      </div>
+    </header>
+    <main id="content">
+      {{slot:content}}
+    </main>
+    <footer class="site-footer">
+      <div class="shell site-footer__inner">
+        {{#if site.footer.copyright_text}}
+          <p>{{site.footer.copyright_text}}</p>
+        {{#else_if site.title}}
+          <p>{{site.title}}</p>
+        {{/if}}
+        {{#if site.footer.attribution.enabled}}
+          <p>Published with <a href="https://zeropress.app" target="_blank" rel="noreferrer noopener">ZeroPress</a>.</p>
+        {{/if}}
+      </div>
+    </footer>
+  </body>
+</html>

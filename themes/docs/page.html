@@ -1,0 +1,33 @@
+<article class="shell doc-layout{{#if page.toc}} doc-layout--with-toc{{/if}}">
+  <div class="doc-content">
+    {{#if route.is_front_page}}
+    <div class="prose">
+      {{page.html}}
+    </div>
+    {{#else}}
+    <header class="doc-header">
+      <p class="eyebrow">Documentation</p>
+      <h1>{{page.title}}</h1>
+      {{#if page.excerpt}}<p class="lede">{{page.excerpt}}</p>{{/if}}
+    </header>
+    <div class="prose">
+      {{page.html}}
+    </div>
+    {{/if}}
+    {{#if page.meta.source_markdown_url}}
+    <footer class="doc-source">
+      <a href="{{page.meta.source_markdown_url}}">View this page as Markdown</a>
+    </footer>
+    {{/if}}
+  </div>
+  {{#if page.toc}}
+  <aside class="doc-toc" aria-label="Table of contents">
+    <p class="doc-toc__title">On this page</p>
+    <nav>
+      <ol>
+        {{#for item in page.toc}}<li class="doc-toc__item doc-toc__item--level-{{item.level}}"><a href="{{item.href}}">{{item.title}}</a></li>{{/for}}
+      </ol>
+    </nav>
+  </aside>
+  {{/if}}
+</article>
