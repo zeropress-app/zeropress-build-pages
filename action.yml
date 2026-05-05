@@ -1,0 +1,36 @@
+name: Build ZeroPress Pages
+description: Build ZeroPress static output for GitHub Pages, Cloudflare Pages, Netlify, Vercel, and other static hosts.
+author: ZeroPress
+inputs:
+  source:
+    description: Source directory containing Markdown files and optional .zeropress/config.json.
+    required: false
+    default: ./
+  destination:
+    description: Output directory for the generated static site.
+    required: false
+    default: ./_site
+  theme:
+    description: Bundled theme name. Currently supports "docs".
+    required: false
+    default: docs
+  theme-path:
+    description: Custom ZeroPress theme directory. Takes precedence over theme.
+    required: false
+  config:
+    description: Config file path. Defaults to <source>/.zeropress/config.json.
+    required: false
+  site-url:
+    description: Canonical site URL override.
+    required: false
+  skip-untitled-markdown:
+    description: Skip Markdown files without an H1 instead of failing.
+    required: false
+    default: "false"
+  check-links:
+    description: Warn about broken internal links after build.
+    required: false
+    default: "true"
+runs:
+  using: node24
+  main: dist/action.js

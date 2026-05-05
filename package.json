@@ -1,0 +1,48 @@
+{
+  "name": "@zeropress/build-pages",
+  "version": "0.5.1",
+  "description": "ZeroPress Markdown build action and CLI for static hosting",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "zeropress-build-pages": "bin/zeropress-build-pages.js"
+  },
+  "files": [
+    "action.yml",
+    "bin",
+    "dist",
+    "schemas",
+    "src",
+    "themes"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeropress-app/zeropress-build-pages.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zeropress-app/zeropress-build-pages/issues"
+  },
+  "homepage": "https://github.com/zeropress-app/zeropress-build-pages#readme",
+  "keywords": [
+    "zeropress",
+    "github-pages",
+    "cloudflare-pages",
+    "netlify",
+    "vercel",
+    "markdown",
+    "static-site-generator"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "build:action": "node scripts/build-action.mjs"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "dependencies": {
+    "@zeropress/build": "0.5.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.0"
+  }
+}
