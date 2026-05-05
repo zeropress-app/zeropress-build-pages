@@ -1,6 +1,9 @@
 name: Build ZeroPress Pages
 description: Build ZeroPress static output for GitHub Pages, Cloudflare Pages, Netlify, Vercel, and other static hosts.
 author: ZeroPress
+branding:
+  icon: book-open
+  color: blue
 inputs:
   source:
     description: Source directory containing Markdown files and optional .zeropress/config.json.
