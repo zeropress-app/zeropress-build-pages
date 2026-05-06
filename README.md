@@ -2,9 +2,52 @@
 
 Build ZeroPress static output for modern hosting platforms.
 
-`@zeropress/build-pages` turns a directory of Markdown files and public assets into static ZeroPress output. It discovers Markdown files, converts them to preview-data v0.5, stages public files, and runs `@zeropress/build`.
+`@zeropress/build-pages` turns a directory of Markdown files and public assets into a static ZeroPress site. It discovers Markdown pages, prepares the site data, stages public files, and runs `@zeropress/build`.
 
 The generated output is plain static files that can be deployed to GitHub Pages, Cloudflare Pages, Netlify, Vercel, or any static hosting provider.
+
+## Build Flow
+
+```txt
+source directory
+  Markdown pages + .zeropress/config.json + public files
+        |
+        v
+@zeropress/build-pages
+  generates .zeropress/preview-data.json
+  stages public files
+        |
+        v
+@zeropress/build + ZeroPress theme
+        |
+        v
+static output directory
+  HTML pages + assets + copied public files
+```
+
+```mermaid
+flowchart TD
+  source["Source directory"] --> markdown["Markdown pages (*.md)"]
+  source --> config[".zeropress/config.json"]
+  source --> publicFiles["Public files<br/>images, CSS, JS, PDF, JSON, Markdown"]
+
+  markdown --> buildPages["@zeropress/build-pages"]
+  config --> buildPages
+  publicFiles --> buildPages
+
+  buildPages --> previewData[".zeropress/preview-data.json<br/>internal generated build input"]
+  buildPages --> stagedPublic["Staged public files"]
+
+  previewData --> build["@zeropress/build"]
+  stagedPublic --> build
+  theme["ZeroPress theme"] --> build
+
+  build --> output["Static output directory"]
+  output --> html["HTML pages"]
+  output --> assets["Theme assets"]
+  output --> copied["Copied public files"]
+  output --> special["sitemap.xml / robots.txt / feed.xml"]
+```
 
 ## GitHub Action
 
@@ -173,7 +216,7 @@ Build Pages writes:
   build-pages-public/
 ```
 
-`preview-data.json` is the generated preview-data v0.5 input passed to `@zeropress/build`.
+`preview-data.json` is an internal generated build input for the ZeroPress renderer. Most users do not need to edit or understand this file.
 
 ## Development
 
