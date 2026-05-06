@@ -262,8 +262,8 @@ Build Pages writes:
 ```txt
 .zeropress/
   preview-data.json
-  prebuild-report.json
-  build-pages-public/
+  build-report.json
+  public-assets/
 ```
 
 `preview-data.json` is an internal generated build input for the ZeroPress renderer. Most users do not need to edit or understand this file.

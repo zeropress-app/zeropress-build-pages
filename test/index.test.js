@@ -175,6 +175,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.match(indexHtml, /Copyright 2026 Example Corp\./);
   assert.doesNotMatch(indexHtml, /Published with/);
   const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'preview-data.json'), 'utf8'));
+  assert.equal(previewData.$schema, 'https://zeropress.dev/schemas/preview-data.v0.5.schema.json');
   assert.deepEqual(previewData.site.footer, {
     copyright_text: 'Copyright 2026 Example Corp.',
     attribution: {

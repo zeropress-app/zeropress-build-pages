@@ -9,9 +9,10 @@ const defaultConfigPath = path.join(sourceDir, '.zeropress', 'config.json');
 const configPath = resolveOptionalEnvPath(['ZEROPRESS_BUILD_PAGES_CONFIG'], defaultConfigPath);
 const outDir = path.join(rootDir, '.zeropress');
 const previewDataPath = path.join(outDir, 'preview-data.json');
-const prebuildReportPath = path.join(outDir, 'prebuild-report.json');
+const buildReportPath = path.join(outDir, 'build-report.json');
 const skipUntitledMarkdown = readBooleanEnv('ZEROPRESS_SKIP_UNTITLED_MARKDOWN');
 const FRONT_PAGE_TYPES = new Set(['theme_index', 'markdown', 'html']);
+const PREVIEW_DATA_SCHEMA_URL = 'https://zeropress.dev/schemas/preview-data.v0.5.schema.json';
 
 class PrebuildMarkdownError extends Error {
   constructor(sourcePath, reason, expected = '', code = 'invalid_markdown') {
@@ -89,6 +90,7 @@ async function main() {
   const customHtml = await buildCustomHtmlData(config.custom_html);
 
   const previewData = {
+    $schema: PREVIEW_DATA_SCHEMA_URL,
     version: '0.5',
     generator: 'zeropress-build-pages',
     generated_at: new Date().toISOString(),
@@ -119,7 +121,7 @@ async function main() {
     frontPage: frontPageResult.frontPage,
     customHtml,
   });
-  await fs.writeFile(prebuildReportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  await fs.writeFile(buildReportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 
   console.log(`Wrote ${path.relative(rootDir, previewDataPath)} with ${pages.length} pages`);
   printPrebuildSummary(report);
@@ -630,7 +632,7 @@ function buildPrebuildReport({
     source_dir: formatSourcePath(sourceDir),
     config_path: formatSourcePath(configPath),
     preview_data_path: formatSourcePath(previewDataPath),
-    report_path: formatSourcePath(prebuildReportPath),
+    report_path: formatSourcePath(buildReportPath),
     skip_untitled_markdown: skipUntitledMarkdown,
     markdown: {
       discovered: sourceFiles.length,
@@ -651,7 +653,7 @@ function buildPrebuildReport({
 
 function printPrebuildSummary(report) {
   const lines = [
-    'ZeroPress prebuild report',
+    'ZeroPress build report',
     `- Public root: ${report.source_dir}`,
     `- Markdown discovered: ${report.markdown.discovered}`,
     `- Markdown pages generated: ${report.markdown.generated_pages}`,

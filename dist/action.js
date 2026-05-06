@@ -62139,7 +62139,7 @@ var __dirname = path3.dirname(fileURLToPath(import.meta.url));
 var packageDir = path3.resolve(__dirname, "..");
 var prebuildScript = path3.join(packageDir, "src", "prebuild.js");
 var PREVIEW_DATA_PATH = ".zeropress/preview-data.json";
-var STAGING_DIR = ".zeropress/build-pages-public";
+var STAGING_DIR = ".zeropress/public-assets";
 var DEFAULT_THEME = "docs";
 async function runBuildPages(options2) {
   const cwd = path3.resolve(options2.cwd || process.cwd());
