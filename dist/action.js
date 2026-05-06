@@ -62276,7 +62276,7 @@ function formatPath(cwd, targetPath) {
 
 // src/action.js
 var options = {
-  source: input("source") || "./",
+  source: input("source") || "./docs",
   destination: input("destination") || "./_site",
   theme: input("theme") || "docs",
   themePath: input("theme-path"),

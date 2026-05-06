@@ -97,6 +97,11 @@ jobs:
 
 The action `zeropress-build-pages` builds the static files only. Uploading and deploying are handled by your hosting provider's deployment action or CLI.
 
+In the action inputs:
+
+- `source` is the directory that contains your Markdown pages, public files, and optional `.zeropress/config.json`. The default is `./docs`.
+- `destination` is the directory where the generated static site is written. The default is `./_site`.
+
 For GitHub Pages, the generated `destination` directory can be passed to `actions/upload-pages-artifact`. For Cloudflare Pages, Netlify, Vercel, or another static host, pass the same `destination` directory to that provider's deploy step.
 
 ### npx
@@ -129,13 +134,12 @@ npm run build
 
 ## CLI Options
 
-Options:
+The CLI requires explicit input and output paths. The GitHub Action keeps safe defaults for workflow convenience.
 
 | Option | Default | Purpose |
 | --- | --- | --- |
-| `--source <dir>` | `.` | Source directory containing Markdown and public files |
-| `--destination <dir>` | `_site` | Output directory |
-| `--out <dir>` | `_site` | Alias for `--destination` |
+| `--source <dir>` | required | Source directory containing Markdown and public files |
+| `--destination <dir>` | required | Output directory |
 | `--theme docs` | `docs` | Bundled docs theme |
 | `--theme-path <dir>` | none | Custom ZeroPress theme directory |
 | `--config <path>` | `<source>/.zeropress/config.json` | Build Pages config |
@@ -159,7 +163,7 @@ CLI options take precedence over environment variables.
 
 ## Source Tree
 
-The source directory is both the Markdown source root and the public passthrough root.
+The source directory is both the Markdown source root and the public passthrough root. GitHub Action usage defaults to `./docs`; CLI usage requires `--source` or `ZEROPRESS_PUBLIC_DIR`.
 
 ```txt
 docs/
@@ -170,7 +174,7 @@ docs/
     config.json
 ```
 
-Build Pages stages the source tree before calling `@zeropress/build`, so `--source ./` and `--destination ./_site` are supported. Generated ZeroPress output wins over staged public files.
+Build Pages stages the source tree before calling `@zeropress/build`, so `--source ./` and `--destination ./_site` are supported when you intentionally want to build from the repository root. Generated ZeroPress output wins over staged public files.
 
 Ignored while staging and Markdown discovery:
 

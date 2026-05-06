@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = process.cwd();
-const sourceDir = resolveEnvPath(['ZEROPRESS_BUILD_PAGES_SOURCE', 'ZEROPRESS_PUBLIC_DIR'], '.');
+const sourceDir = resolveEnvPath(['ZEROPRESS_BUILD_PAGES_SOURCE', 'ZEROPRESS_PUBLIC_DIR'], 'docs');
 const defaultConfigPath = path.join(sourceDir, '.zeropress', 'config.json');
 const configPath = resolveOptionalEnvPath(['ZEROPRESS_BUILD_PAGES_CONFIG'], defaultConfigPath);
 const outDir = path.join(rootDir, '.zeropress');

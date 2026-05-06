@@ -24,6 +24,7 @@ test('CLI prints help and version', () => {
   assert.equal(help.status, 0);
   assert.match(help.stdout, /zeropress-build-pages/);
   assert.match(help.stdout, /--source <dir>/);
+  assert.match(help.stdout, /Source directory \(required, or ZEROPRESS_PUBLIC_DIR\)/);
 
   const version = spawnSync(process.execPath, [binPath, '--version'], {
     cwd: packageDir,
@@ -34,6 +35,19 @@ test('CLI prints help and version', () => {
 });
 
 test('parseArgs applies CLI, env, and default precedence', () => {
+  assert.throws(
+    () => parseArgs([], {}),
+    /--source <dir> is required/,
+  );
+  assert.throws(
+    () => parseArgs(['--source', 'docs'], {}),
+    /--destination <dir> is required/,
+  );
+  assert.throws(
+    () => parseArgs(['--source', 'docs', '--out', '_site'], {}),
+    /unknown option --out/,
+  );
+
   assert.deepEqual(parseArgs([], {
     ZEROPRESS_PUBLIC_DIR: 'docs',
     ZEROPRESS_OUT_DIR: 'site',
@@ -202,14 +216,15 @@ test('action metadata and entrypoint use supported inputs', async () => {
   for (const inputName of ['source', 'destination', 'theme', 'theme-path', 'config', 'site-url', 'skip-untitled-markdown', 'check-links']) {
     assert.match(action, new RegExp(`\\n  ${inputName}:`));
   }
+  assert.match(action, /default: \.\/docs/);
 
   const tempDir = await makeTempDir();
-  await fs.writeFile(path.join(tempDir, 'index.md'), '# Home\n\nAction build.', 'utf8');
+  await fs.mkdir(path.join(tempDir, 'docs'), { recursive: true });
+  await fs.writeFile(path.join(tempDir, 'docs', 'index.md'), '# Home\n\nAction build.', 'utf8');
   const result = spawnSync(process.execPath, [actionPath], {
     cwd: tempDir,
     env: {
       ...process.env,
-      INPUT_SOURCE: '.',
       INPUT_DESTINATION: '_site',
       INPUT_THEME: 'docs',
       INPUT_CHECK_LINKS: 'false',

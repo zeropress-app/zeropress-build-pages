@@ -8,7 +8,7 @@ inputs:
   source:
     description: Source directory containing Markdown files and optional .zeropress/config.json.
     required: false
-    default: ./
+    default: ./docs
   destination:
     description: Output directory for the generated static site.
     required: false

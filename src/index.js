@@ -126,7 +126,6 @@ export function parseArgs(argv, env = process.env) {
     const valueOptions = new Set([
       '--source',
       '--destination',
-      '--out',
       '--theme',
       '--theme-path',
       '--config',
@@ -145,9 +144,18 @@ export function parseArgs(argv, env = process.env) {
     throw new Error(`Invalid arguments: unknown option ${arg}`);
   }
 
+  const source = flags.source || env.ZEROPRESS_PUBLIC_DIR || '';
+  const destination = flags.destination || env.ZEROPRESS_OUT_DIR || '';
+  if (!source) {
+    throw new Error('Invalid arguments: --source <dir> is required. You can also set ZEROPRESS_PUBLIC_DIR.');
+  }
+  if (!destination) {
+    throw new Error('Invalid arguments: --destination <dir> is required. You can also set ZEROPRESS_OUT_DIR.');
+  }
+
   return {
-    source: flags.source || env.ZEROPRESS_PUBLIC_DIR || '.',
-    destination: flags.destination || flags.out || env.ZEROPRESS_OUT_DIR || '_site',
+    source,
+    destination,
     theme: flags.theme || DEFAULT_THEME,
     themePath: flags['theme-path'] || env.ZEROPRESS_THEME_DIR || '',
     config: flags.config || env.ZEROPRESS_BUILD_PAGES_CONFIG || '',
@@ -164,9 +172,8 @@ Usage:
   zeropress-build-pages [options]
 
 Options:
-  --source <dir>                Source directory (default: .)
-  --destination <dir>           Output directory (default: _site)
-  --out <dir>                   Alias for --destination
+  --source <dir>                Source directory (required, or ZEROPRESS_PUBLIC_DIR)
+  --destination <dir>           Output directory (required, or ZEROPRESS_OUT_DIR)
   --theme docs                  Bundled theme name (default: docs)
   --theme-path <dir>            Custom ZeroPress theme directory
   --config <path>               Config file (default: <source>/.zeropress/config.json)
