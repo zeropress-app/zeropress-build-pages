@@ -1,0 +1,56 @@
+name: Move major tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Target tag, branch, or commit SHA, e.g. v0.5.1"
+        required: true
+        type: string
+      tag:
+        description: "Movable major tag to update, e.g. v0"
+        required: true
+        default: "v0"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  move-major-tag:
+    name: Move major tag
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Move tag
+        env:
+          TAG: ${{ inputs.tag }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$TAG" =~ ^v[0-9]+$ ]]; then
+            echo "::error::Movable tag must be a major tag such as v0, v1, or v2."
+            exit 1
+          fi
+
+          if [[ "$TARGET" =~ [[:space:]] || "$TARGET" == -* || "$TARGET" == *..* || "$TARGET" == *@\{* || "$TARGET" == *\\* ]]; then
+            echo "::error::Target contains unsupported characters or ref syntax: ${TARGET}"
+            exit 1
+          fi
+
+          git fetch --tags --force origin
+
+          if ! TARGET_COMMIT="$(git rev-parse --verify --quiet "${TARGET}^{commit}")"; then
+            echo "::error::Target not found or does not resolve to a commit: ${TARGET}"
+            exit 1
+          fi
+
+          echo "Moving ${TAG} to ${TARGET_COMMIT} (${TARGET})"
+          git tag -f "$TAG" "$TARGET_COMMIT"
+          git push --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
