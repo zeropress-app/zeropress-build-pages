@@ -93,6 +93,7 @@ const failureCases = [
   'invalid-html-front-page-path',
   'missing-html-front-page-file',
   'missing-custom-html-file',
+  'removed-site-field',
   'missing-h1',
   'empty-markdown',
 ];
@@ -159,6 +160,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     site: {
       title: 'Configured Docs',
       description: 'A configured docs site.',
+      url: 'https://config.example',
       footer: {
         copyright_text: 'Copyright 2026 Example Corp.',
         attribution: {
@@ -191,6 +193,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     destination: '_site',
     theme: 'docs',
     themePath: path.join(packageDir, 'themes', 'docs'),
+    siteUrl: 'https://override.example',
     checkLinks: false,
   });
 
@@ -211,6 +214,21 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
       enabled: false,
     },
   });
+  assert.equal(previewData.site.url, 'https://override.example');
+  assert.equal(previewData.site.mediaBaseUrl, '');
+  assert.equal(previewData.site.locale, 'en-US');
+  assert.equal(previewData.site.postsPerPage, 10);
+  assert.equal(previewData.site.dateFormat, 'YYYY-MM-DD');
+  assert.equal(previewData.site.timeFormat, 'HH:mm');
+  assert.equal(previewData.site.timezone, 'UTC');
+  assert.deepEqual(previewData.site.permalinks, {
+    output_style: 'html-extension',
+    posts: '/posts/:slug/',
+    pages: '/:slug/',
+    categories: '/categories/:slug/',
+    tags: '/tags/:slug/',
+  });
+  assert.equal(previewData.site.disallowComments, true);
   const resolvedConfig = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'build-pages-config.json'), 'utf8'));
   assert.equal(resolvedConfig.$schema, 'https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json');
   assert.equal(resolvedConfig.version, '0.1');
@@ -223,8 +241,20 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
       file: '.zeropress/head-end.html',
     },
   });
-  assert.equal(resolvedConfig.site.title, 'Configured Docs');
-  assert.equal(resolvedConfig.site.permalinks.output_style, 'html-extension');
+  assert.deepEqual(resolvedConfig.site, {
+    title: 'Configured Docs',
+    description: 'A configured docs site.',
+    url: 'https://override.example',
+    footer: {
+      copyright_text: 'Copyright 2026 Example Corp.',
+      attribution: {
+        enabled: false,
+      },
+    },
+  });
+  for (const key of ['mediaBaseUrl', 'locale', 'postsPerPage', 'dateFormat', 'timeFormat', 'timezone', 'permalinks', 'disallowComments']) {
+    assert.equal(Object.hasOwn(resolvedConfig.site, key), false);
+  }
   assert.deepEqual(resolvedConfig.menus.primary.items[1], {
     title: 'Topic',
     url: '/topic',

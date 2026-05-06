@@ -270,7 +270,7 @@ Build Pages writes:
   public-assets/
 ```
 
-`build-pages-config.json` is the resolved Build Pages config used for the current run. It combines `.zeropress/config.json`, defaults, and CLI/env overrides where applicable.
+`build-pages-config.json` is the resolved user-facing Build Pages config used for the current run. It combines `.zeropress/config.json`, defaults, and CLI/env overrides where applicable.
 
 `preview-data.json` is an internal generated build input for the ZeroPress renderer. Most users do not need to edit or understand this file.
 

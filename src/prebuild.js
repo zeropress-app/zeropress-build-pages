@@ -200,15 +200,29 @@ async function loadPrebuildConfig() {
 }
 
 function buildSiteData(config, frontPage) {
-  const configuredSite = buildResolvedSiteConfig(config.site);
+  const configuredSite = isPlainObject(config.site) ? config.site : normalizeSiteConfig(undefined);
 
   const site = {
-    ...configuredSite,
+    title: configuredSite.title,
+    description: configuredSite.description,
+    url: configuredSite.url,
+    mediaBaseUrl: '',
+    locale: 'en-US',
+    postsPerPage: 10,
+    dateFormat: 'YYYY-MM-DD',
+    timeFormat: 'HH:mm',
+    timezone: 'UTC',
+    permalinks: defaultPermalinks(),
     front_page: frontPage,
     post_index: {
       enabled: false,
     },
+    disallowComments: true,
   };
+
+  if (configuredSite.footer) {
+    site.footer = configuredSite.footer;
+  }
 
   return site;
 }
@@ -217,7 +231,7 @@ function buildResolvedConfig(config, { frontPageConfig, menus, customHtmlConfig 
   const resolvedConfig = {
     $schema: BUILD_PAGES_CONFIG_SCHEMA_URL,
     version: '0.1',
-    site: buildResolvedSiteConfig(config.site),
+    site: normalizeSiteConfig(config.site),
     front_page: frontPageConfig,
     menus,
   };
@@ -229,20 +243,20 @@ function buildResolvedConfig(config, { frontPageConfig, menus, customHtmlConfig 
   return resolvedConfig;
 }
 
-function buildResolvedSiteConfig(value) {
+function normalizeSiteConfig(value) {
+  if (value !== undefined && !isPlainObject(value)) {
+    throw new PrebuildConfigError(
+      'site must be an object.',
+      '  "site": { "title": "My Docs", "description": "Project documentation" }',
+    );
+  }
+
   const configuredSite = isPlainObject(value) ? value : {};
+  assertKnownConfigKeys(configuredSite, ['title', 'description', 'url', 'footer'], 'site');
   const site = {
     title: readConfigString(configuredSite.title, 'ZeroPress Site'),
     description: readConfigString(configuredSite.description, 'Documentation built with ZeroPress.'),
     url: readEnv('ZEROPRESS_SITE_URL', readConfigString(configuredSite.url, '')),
-    mediaBaseUrl: readConfigString(configuredSite.mediaBaseUrl, ''),
-    locale: readConfigString(configuredSite.locale, 'en-US'),
-    postsPerPage: readConfigInteger(configuredSite.postsPerPage, 10),
-    dateFormat: readConfigString(configuredSite.dateFormat, 'YYYY-MM-DD'),
-    timeFormat: readConfigString(configuredSite.timeFormat, 'HH:mm'),
-    timezone: readConfigString(configuredSite.timezone, 'UTC'),
-    permalinks: normalizePermalinks(configuredSite.permalinks),
-    disallowComments: configuredSite.disallowComments !== false,
   };
 
   const footer = normalizeFooter(configuredSite.footer);
@@ -254,9 +268,13 @@ function buildResolvedSiteConfig(value) {
 }
 
 function normalizeFooter(value) {
-  if (!isPlainObject(value)) {
+  if (value === undefined) {
     return undefined;
   }
+  if (!isPlainObject(value)) {
+    throw new PrebuildConfigError('site.footer must be an object.');
+  }
+  assertKnownConfigKeys(value, ['copyright_text', 'attribution'], 'site.footer');
 
   const footer = {};
   const copyrightText = readConfigString(value.copyright_text, '');
@@ -264,6 +282,15 @@ function normalizeFooter(value) {
     footer.copyright_text = copyrightText;
   }
 
+  if (value.attribution !== undefined && !isPlainObject(value.attribution)) {
+    throw new PrebuildConfigError('site.footer.attribution must be an object.');
+  }
+  if (isPlainObject(value.attribution)) {
+    assertKnownConfigKeys(value.attribution, ['enabled'], 'site.footer.attribution');
+    if (value.attribution.enabled !== undefined && typeof value.attribution.enabled !== 'boolean') {
+      throw new PrebuildConfigError('site.footer.attribution.enabled must be a boolean when provided.');
+    }
+  }
   if (isPlainObject(value.attribution) && typeof value.attribution.enabled === 'boolean') {
     footer.attribution = {
       enabled: value.attribution.enabled,
@@ -607,13 +634,13 @@ function isPathInside(parentPath, childPath) {
   return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
 }
 
-function normalizePermalinks(value) {
+function defaultPermalinks() {
   return {
-    output_style: readConfigString(value?.output_style, 'html-extension'),
-    posts: readConfigString(value?.posts, '/posts/:slug/'),
-    pages: readConfigString(value?.pages, '/:slug/'),
-    categories: readConfigString(value?.categories, '/categories/:slug/'),
-    tags: readConfigString(value?.tags, '/tags/:slug/'),
+    output_style: 'html-extension',
+    posts: '/posts/:slug/',
+    pages: '/:slug/',
+    categories: '/categories/:slug/',
+    tags: '/tags/:slug/',
   };
 }
 

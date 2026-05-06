@@ -35,8 +35,8 @@
     "site": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Site metadata and output policy defaults used while generating preview-data.",
-      "markdownDescription": "Site metadata and output policy defaults used while generating preview-data.",
+      "description": "User-facing site metadata used by Build Pages.",
+      "markdownDescription": "User-facing site metadata used by Build Pages.",
       "properties": {
         "title": {
           "type": "string",
@@ -50,37 +50,8 @@
           "description": "Canonical site URL. Use an empty string or omit this field for local builds without canonical output.",
           "markdownDescription": "Canonical site URL. Use an empty string or omit this field for local builds without canonical output."
         },
-        "mediaBaseUrl": {
-          "type": "string"
-        },
-        "locale": {
-          "type": "string",
-          "minLength": 1
-        },
-        "postsPerPage": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "dateFormat": {
-          "type": "string",
-          "minLength": 1
-        },
-        "timeFormat": {
-          "type": "string",
-          "minLength": 1
-        },
-        "timezone": {
-          "type": "string",
-          "minLength": 1
-        },
-        "permalinks": {
-          "$ref": "#/$defs/permalinks"
-        },
         "footer": {
           "$ref": "#/$defs/siteFooter"
-        },
-        "disallowComments": {
-          "type": "boolean"
         }
       }
     },
@@ -113,37 +84,6 @@
           "markdownDescription": "When `false`, bundled themes hide the Published with ZeroPress attribution. Missing or `true` means attribution may be shown."
         }
       }
-    },
-    "permalinks": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Preview-data permalink defaults emitted by Build Pages.",
-      "markdownDescription": "Preview-data permalink defaults emitted by Build Pages.",
-      "properties": {
-        "output_style": {
-          "type": "string",
-          "enum": ["directory", "html-extension"]
-        },
-        "posts": {
-          "$ref": "#/$defs/permalinkPattern"
-        },
-        "pages": {
-          "$ref": "#/$defs/permalinkPattern"
-        },
-        "categories": {
-          "$ref": "#/$defs/permalinkPattern"
-        },
-        "tags": {
-          "$ref": "#/$defs/permalinkPattern"
-        }
-      }
-    },
-    "permalinkPattern": {
-      "type": "string",
-      "minLength": 1,
-      "pattern": "^/",
-      "description": "Absolute URL path pattern passed through to preview-data site.permalinks.",
-      "markdownDescription": "Absolute URL path pattern passed through to preview-data `site.permalinks`."
     },
     "frontPage": {
       "type": "object",
