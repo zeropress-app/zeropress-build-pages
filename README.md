@@ -49,7 +49,9 @@ flowchart TD
   output --> special["sitemap.xml / robots.txt / feed.xml"]
 ```
 
-## GitHub Action
+## Usage
+
+### GitHub Action
 
 A basic Pages deployment workflow with the `zeropress-build-pages` action looks like this.
 
@@ -97,11 +99,35 @@ The action `zeropress-build-pages` builds the static files only. Uploading and d
 
 For GitHub Pages, the generated `destination` directory can be passed to `actions/upload-pages-artifact`. For Cloudflare Pages, Netlify, Vercel, or another static host, pass the same `destination` directory to that provider's deploy step.
 
-## CLI
+### npx
+
+Use `npx` when you want to run Build Pages without adding it to your project dependencies.
 
 ```bash
 npx @zeropress/build-pages --source ./documents --destination ./_site
 ```
+
+### package.json script
+
+Use a package script when your project already has a Node.js toolchain.
+
+```bash
+npm install --save-dev @zeropress/build-pages
+```
+
+```json
+{
+  "scripts": {
+    "build": "zeropress-build-pages --source ./documents --destination ./_site"
+  }
+}
+```
+
+```bash
+npm run build
+```
+
+## CLI Options
 
 Options:
 
