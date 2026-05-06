@@ -94,6 +94,9 @@ const failureCases = [
   'missing-html-front-page-file',
   'missing-custom-html-file',
   'removed-site-field',
+  'malformed-front-matter',
+  'invalid-front-matter-path',
+  'invalid-front-matter-meta',
   'missing-h1',
   'empty-markdown',
 ];
@@ -119,17 +122,55 @@ test('prebuild warning output: skip untitled markdown', () => {
   assert.equal(normalizeOutput(result.stdout), readExpected('skip-untitled', 'expected.stdout.txt'));
 });
 
+test('prebuild warning output: invalid front matter status', () => {
+  const result = runPrebuild('invalid-front-matter-status');
+
+  assert.equal(result.status, 0);
+  assert.equal(normalizeOutput(result.stderr), readExpected('invalid-front-matter-status', 'expected.stderr.txt'));
+  assert.equal(normalizeOutput(result.stdout), readExpected('invalid-front-matter-status', 'expected.stdout.txt'));
+});
+
 test('builds a source root without config and preserves markdown passthrough', async () => {
   const tempDir = await makeTempDir();
   await fs.writeFile(path.join(tempDir, 'index.md'), [
-    '# Home',
+    '---',
+    'title: Front Matter Home',
+    'description: Home from front matter.',
+    '---',
     '',
     'Welcome to the docs. See [Guide](guide.md).',
   ].join('\n'), 'utf8');
   await fs.writeFile(path.join(tempDir, 'guide.md'), [
     '# Guide',
     '',
+    'See [Custom](custom.md).',
+    '',
     '- [x] Built with ZeroPress.',
+  ].join('\n'), 'utf8');
+  await fs.writeFile(path.join(tempDir, 'custom.md'), [
+    '---',
+    'title: Custom Front Matter Title',
+    'description: Custom front matter excerpt.',
+    'path: guides/custom-page',
+    'status: published',
+    'unknown_key: ignored',
+    'meta:',
+    '  source: docs',
+    '  featured: true',
+    '---',
+    '',
+    '# Body Heading',
+    '',
+    'Custom content.',
+  ].join('\n'), 'utf8');
+  await fs.writeFile(path.join(tempDir, 'draft.md'), [
+    '---',
+    'status: draft',
+    '---',
+    '',
+    '# Draft',
+    '',
+    'Draft content.',
   ].join('\n'), 'utf8');
 
   await runBuildPages({
@@ -142,9 +183,36 @@ test('builds a source root without config and preserves markdown passthrough', a
 
   const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
   const guideHtml = await fs.readFile(path.join(tempDir, '_site', 'guide.html'), 'utf8');
+  const customHtml = await fs.readFile(path.join(tempDir, '_site', 'guides', 'custom-page.html'), 'utf8');
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'preview-data.json'), 'utf8'));
+  const buildReport = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'build-report.json'), 'utf8'));
+  const homePage = previewData.content.pages.find((page) => page.slug === 'index');
+  const customPage = previewData.content.pages.find((page) => page.slug === 'custom-page');
+
+  assert.equal(homePage.title, 'Front Matter Home');
+  assert.equal(homePage.excerpt, 'Home from front matter.');
+  assert.equal(customPage.title, 'Custom Front Matter Title');
+  assert.equal(customPage.excerpt, 'Custom front matter excerpt.');
+  assert.equal(customPage.path, 'guides/custom-page');
+  assert.deepEqual(customPage.meta, {
+    source: 'docs',
+    featured: true,
+    source_markdown_url: '/custom.md',
+  });
+  assert.equal(Object.hasOwn(customPage, 'unknown_key'), false);
+  assert.doesNotMatch(customPage.content, /title: Custom Front Matter Title|---/);
+  assert.equal(previewData.content.pages.some((page) => page.slug === 'draft'), false);
+  assert.equal(buildReport.markdown.skipped_files.length, 1);
+  assert.match(buildReport.markdown.skipped_files[0].file, /draft\.md$/);
+  assert.equal(buildReport.markdown.skipped_files[0].reason, 'front matter status is "draft".');
+  assert.match(indexHtml, /Front Matter Home/);
   assert.match(indexHtml, /href="\/guide"/);
+  assert.match(guideHtml, /href="\/guides\/custom-page"/);
   assert.match(guideHtml, /contains-task-list/);
+  assert.match(customHtml, /Body Heading/);
+  assert.doesNotMatch(customHtml, /title: Custom Front Matter Title|---/);
   await fs.access(path.join(tempDir, '_site', 'guide.md'));
+  await fs.access(path.join(tempDir, '_site', 'custom.md'));
   await fs.access(path.join(tempDir, '.zeropress', 'preview-data.json'));
 });
 

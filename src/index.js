@@ -174,7 +174,7 @@ Options:
   --theme-path <dir>            Custom ZeroPress theme directory
   --config <path>               Config file (default: <source>/.zeropress/config.json)
   --site-url <url>              Canonical site URL override
-  --skip-untitled-markdown      Skip Markdown files without an H1
+  --skip-untitled-markdown      Skip Markdown files without a page title
   --no-check-links              Skip internal link checking
   --help, -h                    Show help
   --version, -v                 Show version`);

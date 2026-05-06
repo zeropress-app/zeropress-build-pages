@@ -1,0 +1,4 @@
+[zeropress-prebuild] Invalid Markdown page: test/fixtures/prebuild-errors/malformed-front-matter/documents/page.md
+Reason: invalid YAML front matter: unexpected end of the stream within a flow collection at line 3, column 1:
+    
+    ^

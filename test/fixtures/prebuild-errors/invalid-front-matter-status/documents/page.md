@@ -1,0 +1,7 @@
+---
+status: publish
+---
+
+# Page
+
+Content.

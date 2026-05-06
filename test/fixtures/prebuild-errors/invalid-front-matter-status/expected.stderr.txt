@@ -1,0 +1,4 @@
+[zeropress-prebuild] Skipped Markdown: test/fixtures/prebuild-errors/invalid-front-matter-status/documents/page.md
+Reason: unsupported front matter status "publish".
+Expected status: published or draft.
+This file was not added to preview-data pages.

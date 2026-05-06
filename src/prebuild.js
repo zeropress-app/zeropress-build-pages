@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import matter from 'gray-matter';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = process.cwd();
@@ -57,17 +58,30 @@ async function main() {
 
   for (const sourcePath of sourceFiles) {
     const rawMarkdown = await fs.readFile(sourcePath, 'utf8');
-    const title = extractTitleOrSkip(rawMarkdown, sourcePath, skippedMarkdown);
+    const parsedMarkdown = parseMarkdownSource(rawMarkdown, sourcePath);
+    const frontMatterStatus = readFrontMatterStatus(parsedMarkdown.frontMatter.status, sourcePath);
+    if (frontMatterStatus !== 'published') {
+      recordSkippedMarkdown(skippedMarkdown, sourcePath, frontMatterStatus.reason);
+      if (frontMatterStatus.warning) {
+        console.warn(formatSkippedMarkdownWarning(sourcePath, frontMatterStatus.reason, frontMatterStatus.expected));
+      }
+      continue;
+    }
+
+    const frontMatter = normalizePublishedFrontMatter(parsedMarkdown.frontMatter, sourcePath);
+    const title = extractTitleOrSkip(parsedMarkdown.bodyMarkdown, sourcePath, skippedMarkdown, frontMatter.title);
     if (!title) {
       continue;
     }
 
     pageInputs.push({
       sourcePath,
-      rawMarkdown,
+      bodyMarkdown: parsedMarkdown.bodyMarkdown,
+      frontMatter,
       title,
       route: buildPageRoute(sourcePath, {
         allowRootIndex: shouldAllowRootMarkdownIndex(frontPageConfig),
+        routePath: frontMatter.path,
       }),
     });
   }
@@ -76,16 +90,17 @@ async function main() {
     pageInputs.map(({ sourcePath, route }) => [sourcePath, route]),
   );
 
-  const pages = pageInputs.map(({ sourcePath, rawMarkdown, title, route }) => ({
+  const pages = pageInputs.map(({ sourcePath, bodyMarkdown, frontMatter, title, route }) => ({
     title,
     slug: route.slug,
     path: route.path,
     meta: {
+      ...frontMatter.meta,
       source_markdown_url: buildSourceMarkdownUrl(sourcePath),
     },
-    content: rewriteMarkdownLinks(rawMarkdown, sourcePath, routeBySourcePath),
+    content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath),
     document_type: 'markdown',
-    excerpt: extractExcerpt(rawMarkdown, title),
+    excerpt: frontMatter.description || extractExcerpt(bodyMarkdown, title),
     status: 'published',
   }));
 
@@ -767,7 +782,171 @@ function formatFrontPageSummary(frontPageReport) {
   return `html ${config.file} -> / (${previewData.page_slug})`;
 }
 
-function extractTitleOrSkip(markdown, sourcePath, skippedMarkdown) {
+function parseMarkdownSource(rawMarkdown, sourcePath) {
+  try {
+    const parsed = matter(rawMarkdown);
+    if (!isPlainObject(parsed.data)) {
+      throw new PrebuildMarkdownError(
+        sourcePath,
+        'front matter must be a YAML object.',
+      );
+    }
+
+    return {
+      bodyMarkdown: parsed.content,
+      frontMatter: parsed.data,
+    };
+  } catch (error) {
+    if (error instanceof PrebuildMarkdownError) {
+      throw error;
+    }
+
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      `invalid YAML front matter: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+function readFrontMatterStatus(value, sourcePath) {
+  if (value === undefined || value === 'published') {
+    return 'published';
+  }
+  if (value === 'draft') {
+    return {
+      reason: 'front matter status is "draft".',
+    };
+  }
+
+  return {
+    reason: `unsupported front matter status ${formatFrontMatterValue(value)}.`,
+    expected: 'Expected status: published or draft.',
+    warning: true,
+  };
+}
+
+function normalizePublishedFrontMatter(frontMatter, sourcePath) {
+  return {
+    title: normalizeFrontMatterTitle(frontMatter.title, sourcePath),
+    description: normalizeFrontMatterDescription(frontMatter.description, sourcePath),
+    path: normalizeFrontMatterRoutePath(frontMatter.path, sourcePath),
+    meta: normalizeFrontMatterMeta(frontMatter.meta, sourcePath),
+  };
+}
+
+function normalizeFrontMatterTitle(value, sourcePath) {
+  if (value === undefined) {
+    return '';
+  }
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      'front matter title must be a non-empty string when provided.',
+    );
+  }
+
+  return value.trim();
+}
+
+function normalizeFrontMatterDescription(value, sourcePath) {
+  if (value === undefined) {
+    return '';
+  }
+  if (typeof value !== 'string') {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      'front matter description must be a string when provided.',
+    );
+  }
+
+  return value.trim();
+}
+
+function normalizeFrontMatterRoutePath(value, sourcePath) {
+  if (value === undefined) {
+    return '';
+  }
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      'front matter path must be a non-empty string when provided.',
+    );
+  }
+
+  const routePath = value.trim();
+  const segments = routePath.split('/');
+  if (
+    routePath.startsWith('/')
+    || routePath.endsWith('/')
+    || routePath.includes('\\')
+    || routePath.includes('?')
+    || routePath.includes('#')
+    || segments.some((segment) => !isSafeRoutePathSegment(segment))
+  ) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      'front matter path must be a safe generated route path.',
+      '  path: guides/install\n  path: spec/preview-data-v0.5',
+    );
+  }
+
+  return routePath;
+}
+
+function isSafeRoutePathSegment(segment) {
+  return (
+    /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/.test(segment)
+    && !segment.includes('..')
+  );
+}
+
+function normalizeFrontMatterMeta(value, sourcePath) {
+  if (value === undefined) {
+    return {};
+  }
+  if (!isPlainObject(value)) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      'front matter meta must be an object when provided.',
+    );
+  }
+
+  const meta = {};
+  for (const [key, metaValue] of Object.entries(value)) {
+    if (!isPreviewMetaValue(metaValue)) {
+      throw new PrebuildMarkdownError(
+        sourcePath,
+        `front matter meta.${key} must be a string, number, boolean, or null.`,
+      );
+    }
+    meta[key] = metaValue;
+  }
+
+  return meta;
+}
+
+function isPreviewMetaValue(value) {
+  return (
+    value === null
+    || typeof value === 'string'
+    || typeof value === 'number'
+    || typeof value === 'boolean'
+  );
+}
+
+function formatFrontMatterValue(value) {
+  if (typeof value === 'string') {
+    return `"${value}"`;
+  }
+  const serialized = JSON.stringify(value);
+  return serialized === undefined ? String(value) : serialized;
+}
+
+function extractTitleOrSkip(markdown, sourcePath, skippedMarkdown, frontMatterTitle = '') {
+  if (frontMatterTitle) {
+    return frontMatterTitle;
+  }
+
   try {
     return extractTitle(markdown, sourcePath);
   } catch (error) {
@@ -776,11 +955,8 @@ function extractTitleOrSkip(markdown, sourcePath, skippedMarkdown) {
       && error instanceof PrebuildMarkdownError
       && error.code === 'untitled_markdown'
     ) {
-      console.warn(formatSkippedUntitledMarkdownWarning(error));
-      skippedMarkdown.push({
-        file: formatSourcePath(error.sourcePath),
-        reason: error.reason,
-      });
+      console.warn(formatSkippedMarkdownWarning(error.sourcePath, error.reason, '', 'Skipped untitled Markdown'));
+      recordSkippedMarkdown(skippedMarkdown, error.sourcePath, error.reason);
       return '';
     }
 
@@ -788,12 +964,23 @@ function extractTitleOrSkip(markdown, sourcePath, skippedMarkdown) {
   }
 }
 
-function formatSkippedUntitledMarkdownWarning(error) {
-  return [
-    `[zeropress-build-pages] Skipped untitled Markdown: ${formatSourcePath(error.sourcePath)}`,
-    `Reason: ${error.reason}`,
-    'This file was not added to preview-data pages.',
-  ].join('\n');
+function recordSkippedMarkdown(skippedMarkdown, sourcePath, reason) {
+  skippedMarkdown.push({
+    file: formatSourcePath(sourcePath),
+    reason,
+  });
+}
+
+function formatSkippedMarkdownWarning(sourcePath, reason, expected = '', label = 'Skipped Markdown') {
+  const lines = [
+    `[zeropress-build-pages] ${label}: ${formatSourcePath(sourcePath)}`,
+    `Reason: ${reason}`,
+  ];
+  if (expected) {
+    lines.push(expected);
+  }
+  lines.push('This file was not added to preview-data pages.');
+  return lines.join('\n');
 }
 
 async function listMarkdownFiles(dir) {
@@ -867,6 +1054,17 @@ function buildHtmlPageRoute(sourcePath, options = {}) {
 }
 
 function buildRoutePath(relativeSourcePath, sourcePath, options = {}) {
+  if (options.routePath) {
+    if (options.routePath === 'index' && !options.allowRootIndex) {
+      throw new PrebuildMarkdownError(
+        sourcePath,
+        'front matter path "index" is reserved for the front page.',
+        '  path: docs/index\n  path: guide',
+      );
+    }
+    return options.routePath;
+  }
+
   const extensionPattern = options.extensionPattern || /\.md$/i;
   const withoutExtension = relativeSourcePath.replace(extensionPattern, '').toLowerCase();
   const segments = withoutExtension

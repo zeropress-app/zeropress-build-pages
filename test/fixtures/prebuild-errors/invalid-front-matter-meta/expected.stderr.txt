@@ -1,0 +1,2 @@
+[zeropress-prebuild] Invalid Markdown page: test/fixtures/prebuild-errors/invalid-front-matter-meta/documents/page.md
+Reason: front matter meta.nested must be a string, number, boolean, or null.

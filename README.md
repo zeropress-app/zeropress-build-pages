@@ -144,7 +144,7 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | `--theme-path <dir>` | none | Custom ZeroPress theme directory |
 | `--config <path>` | `<source>/.zeropress/config.json` | Build Pages config |
 | `--site-url <url>` | config `site.url` | Canonical URL override |
-| `--skip-untitled-markdown` | `false` | Skip Markdown without an H1 |
+| `--skip-untitled-markdown` | `false` | Skip Markdown without a page title |
 | `--no-check-links` | false | Skip link checking |
 
 Equivalent environment variables:
@@ -191,16 +191,46 @@ Additional Markdown discovery ignores:
 - path segments ending with `~`
 - `vendor`
 
-## Markdown Discovery
+## Markdown Pages
 
 - `*.md` files are discovered recursively.
-- Each Markdown page needs an ATX H1 (`# Title`) or Setext H1 (`Title` + `====`).
-- Missing or empty H1 fails the build unless `--skip-untitled-markdown` is used.
+- Each Markdown page needs a page title. Build Pages uses front matter `title`, then an ATX H1 (`# Title`), then a Setext H1 (`Title` + `====`).
+- If no title can be found, the build fails unless `--skip-untitled-markdown` is used.
+- `--skip-untitled-markdown` skips those Markdown files. It does not create untitled pages.
 - Root `index.md` becomes the front page when no config is present.
 - Nested `index.md` maps to a directory route, such as `cli/index.md` -> `/cli/`.
 - Other Markdown files map to extensionless routes, such as `cli/tool.md` -> `/cli/tool`.
 - Markdown links to other discovered `.md` files are rewritten to generated public URLs.
 - Original Markdown files remain available as public passthrough files.
+
+Optional YAML front matter is supported at the top of Markdown files:
+
+```md
+---
+title: Install ZeroPress
+description: Build a static docs site from Markdown.
+path: guides/install
+status: published
+meta:
+  source: docs
+---
+
+Body content...
+```
+
+All supported front matter fields are optional. When `status` is omitted, the page is treated as `published`.
+
+Supported front matter fields:
+
+| Field | Purpose |
+| --- | --- |
+| `title` | Page title. Takes priority over Markdown H1. |
+| `description` | Page excerpt and description. |
+| `path` | Generated route path, such as `guides/install` for `/guides/install`. |
+| `status` | `published` includes the page. `draft` skips the page. Other values warn and skip. |
+| `meta` | Optional scalar/null metadata copied to the generated page. |
+
+Unknown front matter fields are ignored to make migration from existing Markdown sites easier.
 
 ## Config
 
