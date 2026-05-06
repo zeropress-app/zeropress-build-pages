@@ -254,8 +254,8 @@ function normalizeSiteConfig(value) {
   const configuredSite = isPlainObject(value) ? value : {};
   assertKnownConfigKeys(configuredSite, ['title', 'description', 'url', 'footer'], 'site');
   const site = {
-    title: readConfigString(configuredSite.title, 'ZeroPress Site'),
-    description: readConfigString(configuredSite.description, 'Documentation built with ZeroPress.'),
+    title: readConfigString(configuredSite.title, 'Documentation'),
+    description: readConfigString(configuredSite.description, 'A documentation site.'),
     url: readEnv('ZEROPRESS_SITE_URL', readConfigString(configuredSite.url, '')),
   };
 
