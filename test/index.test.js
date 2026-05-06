@@ -13,6 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageDir = path.resolve(__dirname, '..');
 const binPath = path.join(packageDir, 'bin', 'zeropress-build-pages.js');
 const actionPath = path.join(packageDir, 'dist', 'action.js');
+const bundledPrebuildPath = path.join(packageDir, 'dist', 'prebuild.js');
 const fixtureRoot = path.join(packageDir, 'test', 'fixtures', 'prebuild-errors');
 const prebuildScript = path.join(packageDir, 'src', 'prebuild.js');
 
@@ -351,6 +352,7 @@ test('action metadata and entrypoint use supported inputs', async () => {
     assert.match(action, new RegExp(`\\n  ${inputName}:`));
   }
   assert.match(action, /default: \.\/docs/);
+  await fs.access(bundledPrebuildPath);
 
   const tempDir = await makeTempDir();
   await fs.mkdir(path.join(tempDir, 'docs'), { recursive: true });

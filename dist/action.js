@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { createRequire as __zeropressCreateRequire } from "node:module";
+const require = __zeropressCreateRequire(import.meta.url);
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -62137,7 +62139,7 @@ async function linkExists(siteDir, link2) {
 // src/index.js
 var __dirname = path3.dirname(fileURLToPath(import.meta.url));
 var packageDir = path3.resolve(__dirname, "..");
-var prebuildScript = path3.join(packageDir, "src", "prebuild.js");
+var prebuildScript = __dirname === path3.join(packageDir, "dist") ? path3.join(__dirname, "prebuild.js") : path3.join(packageDir, "src", "prebuild.js");
 var PREVIEW_DATA_PATH = ".zeropress/preview-data.json";
 var STAGING_DIR = ".zeropress/public-assets";
 var DEFAULT_THEME = "docs";

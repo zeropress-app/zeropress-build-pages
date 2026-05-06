@@ -7,7 +7,9 @@ import { checkInternalLinks } from './check-links.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageDir = path.resolve(__dirname, '..');
-const prebuildScript = path.join(packageDir, 'src', 'prebuild.js');
+const prebuildScript = __dirname === path.join(packageDir, 'dist')
+  ? path.join(__dirname, 'prebuild.js')
+  : path.join(packageDir, 'src', 'prebuild.js');
 const PREVIEW_DATA_PATH = '.zeropress/preview-data.json';
 const STAGING_DIR = '.zeropress/public-assets';
 const DEFAULT_THEME = 'docs';
