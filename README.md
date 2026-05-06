@@ -51,32 +51,56 @@ flowchart TD
 
 ## GitHub Action
 
+A basic Pages deployment workflow with the `zeropress-build-pages` action looks like this.
+
 ```yaml
+name: Build and Deploy Docs to GitHub Pages
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
       - name: Build ZeroPress Pages
         uses: zeropress-app/zeropress-build-pages@v0
         with:
-          source: ./
+          source: ./documents
           destination: ./_site
-          theme: docs
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./_site
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
 ```
 
-The action builds the static files only. Uploading and deploying are handled by your hosting provider's deployment action or CLI.
+The action `zeropress-build-pages` builds the static files only. Uploading and deploying are handled by your hosting provider's deployment action or CLI.
 
 For GitHub Pages, the generated `destination` directory can be passed to `actions/upload-pages-artifact`. For Cloudflare Pages, Netlify, Vercel, or another static host, pass the same `destination` directory to that provider's deploy step.
 
 ## CLI
 
 ```bash
-npx @zeropress/build-pages --source ./docs --destination ./_site
+npx @zeropress/build-pages --source ./documents --destination ./_site
 ```
 
 Options:
@@ -155,7 +179,7 @@ Build Pages reads `<source>/.zeropress/config.json` when present. Missing config
 
 ```json
 {
-  "$schema": "../schemas/zeropress-build-pages.config.v0.1.schema.json",
+  "$schema": "https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json",
   "version": "0.1",
   "site": {
     "title": "My Docs",
