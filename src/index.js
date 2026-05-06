@@ -114,10 +114,6 @@ export function parseArgs(argv, env = process.env) {
       flags.skipUntitledMarkdown = true;
       continue;
     }
-    if (arg === '--check-links') {
-      flags.checkLinks = true;
-      continue;
-    }
     if (arg === '--no-check-links') {
       flags.checkLinks = false;
       continue;
@@ -179,7 +175,6 @@ Options:
   --config <path>               Config file (default: <source>/.zeropress/config.json)
   --site-url <url>              Canonical site URL override
   --skip-untitled-markdown      Skip Markdown files without an H1
-  --check-links                 Warn about broken internal links (default)
   --no-check-links              Skip internal link checking
   --help, -h                    Show help
   --version, -v                 Show version`);

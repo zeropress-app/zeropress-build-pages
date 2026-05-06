@@ -145,7 +145,6 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | `--config <path>` | `<source>/.zeropress/config.json` | Build Pages config |
 | `--site-url <url>` | config `site.url` | Canonical URL override |
 | `--skip-untitled-markdown` | `false` | Skip Markdown without an H1 |
-| `--check-links` | `true` | Warn about broken internal links |
 | `--no-check-links` | false | Skip link checking |
 
 Equivalent environment variables:
@@ -265,10 +264,13 @@ Build Pages writes:
 
 ```txt
 .zeropress/
+  build-pages-config.json
   preview-data.json
   build-report.json
   public-assets/
 ```
+
+`build-pages-config.json` is the resolved Build Pages config used for the current run. It combines `.zeropress/config.json`, defaults, and CLI/env overrides where applicable.
 
 `preview-data.json` is an internal generated build input for the ZeroPress renderer. Most users do not need to edit or understand this file.
 

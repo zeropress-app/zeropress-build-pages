@@ -47,6 +47,10 @@ test('parseArgs applies CLI, env, and default precedence', () => {
     () => parseArgs(['--source', 'docs', '--out', '_site'], {}),
     /unknown option --out/,
   );
+  assert.throws(
+    () => parseArgs(['--source', 'docs', '--destination', '_site', '--check-links'], {}),
+    /unknown option --check-links/,
+  );
 
   assert.deepEqual(parseArgs([], {
     ZEROPRESS_PUBLIC_DIR: 'docs',
@@ -149,6 +153,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
   await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nConfigured home.', 'utf8');
   await fs.writeFile(path.join(sourceDir, 'topic.md'), '# Topic\n\nContent.', 'utf8');
+  await fs.writeFile(path.join(sourceDir, '.zeropress', 'head-end.html'), '<meta name="test-head" content="ok">', 'utf8');
   await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
     version: '0.1',
     site: {
@@ -163,6 +168,11 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     },
     front_page: {
       type: 'markdown',
+    },
+    custom_html: {
+      head_end: {
+        file: '.zeropress/head-end.html',
+      },
     },
     menus: {
       primary: {
@@ -190,11 +200,37 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.doesNotMatch(indexHtml, /Published with/);
   const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'preview-data.json'), 'utf8'));
   assert.equal(previewData.$schema, 'https://zeropress.dev/schemas/preview-data.v0.5.schema.json');
+  assert.deepEqual(previewData.custom_html, {
+    head_end: {
+      content: '<meta name="test-head" content="ok">',
+    },
+  });
   assert.deepEqual(previewData.site.footer, {
     copyright_text: 'Copyright 2026 Example Corp.',
     attribution: {
       enabled: false,
     },
+  });
+  const resolvedConfig = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'build-pages-config.json'), 'utf8'));
+  assert.equal(resolvedConfig.$schema, 'https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json');
+  assert.equal(resolvedConfig.version, '0.1');
+  assert.deepEqual(resolvedConfig.front_page, {
+    type: 'markdown',
+    file: 'index.md',
+  });
+  assert.deepEqual(resolvedConfig.custom_html, {
+    head_end: {
+      file: '.zeropress/head-end.html',
+    },
+  });
+  assert.equal(resolvedConfig.site.title, 'Configured Docs');
+  assert.equal(resolvedConfig.site.permalinks.output_style, 'html-extension');
+  assert.deepEqual(resolvedConfig.menus.primary.items[1], {
+    title: 'Topic',
+    url: '/topic',
+    type: 'custom',
+    target: '_self',
+    children: [],
   });
   await fs.access(path.join(tempDir, '_site', 'topic.html'));
   await fs.access(path.join(tempDir, '_site', 'topic.md'));

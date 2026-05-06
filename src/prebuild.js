@@ -8,10 +8,12 @@ const sourceDir = resolveEnvPath(['ZEROPRESS_BUILD_PAGES_SOURCE', 'ZEROPRESS_PUB
 const defaultConfigPath = path.join(sourceDir, '.zeropress', 'config.json');
 const configPath = resolveOptionalEnvPath(['ZEROPRESS_BUILD_PAGES_CONFIG'], defaultConfigPath);
 const outDir = path.join(rootDir, '.zeropress');
+const buildPagesConfigPath = path.join(outDir, 'build-pages-config.json');
 const previewDataPath = path.join(outDir, 'preview-data.json');
 const buildReportPath = path.join(outDir, 'build-report.json');
 const skipUntitledMarkdown = readBooleanEnv('ZEROPRESS_SKIP_UNTITLED_MARKDOWN');
 const FRONT_PAGE_TYPES = new Set(['theme_index', 'markdown', 'html']);
+const BUILD_PAGES_CONFIG_SCHEMA_URL = 'https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json';
 const PREVIEW_DATA_SCHEMA_URL = 'https://zeropress.dev/schemas/preview-data.v0.5.schema.json';
 
 class PrebuildMarkdownError extends Error {
@@ -42,6 +44,13 @@ async function main() {
     normalizeFrontPageConfig(config.front_page),
     config.front_page,
   );
+  const menus = normalizeMenus(config.menus);
+  const customHtmlConfig = normalizeCustomHtmlConfig(config.custom_html);
+  const resolvedConfig = buildResolvedConfig(config, {
+    frontPageConfig,
+    menus,
+    customHtmlConfig,
+  });
   const sourceFiles = await listMarkdownFiles(sourceDir);
   const skippedMarkdown = [];
   const pageInputs = [];
@@ -80,14 +89,13 @@ async function main() {
     status: 'published',
   }));
 
-  const frontPageResult = await buildFrontPageData(frontPageConfig, pageInputs, config);
+  const frontPageResult = await buildFrontPageData(frontPageConfig, pageInputs, resolvedConfig);
   if (frontPageResult.page) {
     pages.push(frontPageResult.page);
   }
 
-  const site = buildSiteData(config, frontPageResult.frontPage);
-  const menus = normalizeMenus(config.menus);
-  const customHtml = await buildCustomHtmlData(config.custom_html);
+  const site = buildSiteData(resolvedConfig, frontPageResult.frontPage);
+  const customHtml = await buildCustomHtmlData(customHtmlConfig);
 
   const previewData = {
     $schema: PREVIEW_DATA_SCHEMA_URL,
@@ -110,6 +118,7 @@ async function main() {
   }
 
   await fs.mkdir(outDir, { recursive: true });
+  await fs.writeFile(buildPagesConfigPath, `${JSON.stringify(resolvedConfig, null, 2)}\n`, 'utf8');
   await fs.writeFile(previewDataPath, `${JSON.stringify(previewData, null, 2)}\n`, 'utf8');
 
   const report = buildPrebuildReport({
@@ -191,9 +200,37 @@ async function loadPrebuildConfig() {
 }
 
 function buildSiteData(config, frontPage) {
-  const configuredSite = isPlainObject(config.site) ? config.site : {};
-  const footer = normalizeFooter(configuredSite.footer);
+  const configuredSite = buildResolvedSiteConfig(config.site);
 
+  const site = {
+    ...configuredSite,
+    front_page: frontPage,
+    post_index: {
+      enabled: false,
+    },
+  };
+
+  return site;
+}
+
+function buildResolvedConfig(config, { frontPageConfig, menus, customHtmlConfig }) {
+  const resolvedConfig = {
+    $schema: BUILD_PAGES_CONFIG_SCHEMA_URL,
+    version: '0.1',
+    site: buildResolvedSiteConfig(config.site),
+    front_page: frontPageConfig,
+    menus,
+  };
+
+  if (customHtmlConfig) {
+    resolvedConfig.custom_html = customHtmlConfig;
+  }
+
+  return resolvedConfig;
+}
+
+function buildResolvedSiteConfig(value) {
+  const configuredSite = isPlainObject(value) ? value : {};
   const site = {
     title: readConfigString(configuredSite.title, 'ZeroPress Site'),
     description: readConfigString(configuredSite.description, 'Documentation built with ZeroPress.'),
@@ -205,13 +242,10 @@ function buildSiteData(config, frontPage) {
     timeFormat: readConfigString(configuredSite.timeFormat, 'HH:mm'),
     timezone: readConfigString(configuredSite.timezone, 'UTC'),
     permalinks: normalizePermalinks(configuredSite.permalinks),
-    front_page: frontPage,
-    post_index: {
-      enabled: false,
-    },
     disallowComments: configuredSite.disallowComments !== false,
   };
 
+  const footer = normalizeFooter(configuredSite.footer);
   if (footer) {
     site.footer = footer;
   }
@@ -392,7 +426,7 @@ function isZeropressHtmlFile(filePath) {
   return filePath.startsWith('.zeropress/') && filePath.toLowerCase().endsWith('.html');
 }
 
-async function buildCustomHtmlData(value) {
+function normalizeCustomHtmlConfig(value) {
   if (value === undefined) {
     return undefined;
   }
@@ -410,18 +444,18 @@ async function buildCustomHtmlData(value) {
     );
   }
 
-  const customHtml = {};
+  const customHtmlConfig = {};
   if (value.head_end !== undefined) {
-    customHtml.head_end = await buildCustomHtmlSlotData(value.head_end, 'custom_html.head_end');
+    customHtmlConfig.head_end = normalizeCustomHtmlSlotConfig(value.head_end, 'custom_html.head_end');
   }
   if (value.body_end !== undefined) {
-    customHtml.body_end = await buildCustomHtmlSlotData(value.body_end, 'custom_html.body_end');
+    customHtmlConfig.body_end = normalizeCustomHtmlSlotConfig(value.body_end, 'custom_html.body_end');
   }
 
-  return customHtml;
+  return customHtmlConfig;
 }
 
-async function buildCustomHtmlSlotData(value, pathLabel) {
+function normalizeCustomHtmlSlotConfig(value, pathLabel) {
   if (!isPlainObject(value)) {
     throw new PrebuildConfigError(`${pathLabel} must be an object.`);
   }
@@ -441,7 +475,29 @@ async function buildCustomHtmlSlotData(value, pathLabel) {
     );
   }
 
-  const sourcePath = resolveConfiguredSourceFile(file, '.html', `${pathLabel}.file`);
+  return {
+    file,
+  };
+}
+
+async function buildCustomHtmlData(config) {
+  if (!config) {
+    return undefined;
+  }
+
+  const customHtml = {};
+  if (config.head_end) {
+    customHtml.head_end = await buildCustomHtmlSlotData(config.head_end, 'custom_html.head_end');
+  }
+  if (config.body_end) {
+    customHtml.body_end = await buildCustomHtmlSlotData(config.body_end, 'custom_html.body_end');
+  }
+
+  return customHtml;
+}
+
+async function buildCustomHtmlSlotData(slotConfig, pathLabel) {
+  const sourcePath = resolveConfiguredSourceFile(slotConfig.file, '.html', `${pathLabel}.file`);
   return {
     content: await readRequiredSourceFile(sourcePath, `${pathLabel}.file`),
   };
@@ -631,6 +687,7 @@ function buildPrebuildReport({
     generated_at: new Date().toISOString(),
     source_dir: formatSourcePath(sourceDir),
     config_path: formatSourcePath(configPath),
+    build_pages_config_path: formatSourcePath(buildPagesConfigPath),
     preview_data_path: formatSourcePath(previewDataPath),
     report_path: formatSourcePath(buildReportPath),
     skip_untitled_markdown: skipUntitledMarkdown,
@@ -661,6 +718,7 @@ function printPrebuildSummary(report) {
     `- Total preview pages: ${report.pages.total}`,
     `- Front page: ${formatFrontPageSummary(report.front_page)}`,
     `- Custom HTML slots: ${report.custom_html.length ? report.custom_html.join(', ') : 'none'}`,
+    `- Resolved config: ${report.build_pages_config_path}`,
     `- Report: ${report.report_path}`,
   ];
 
