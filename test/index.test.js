@@ -25,7 +25,7 @@ test('CLI prints help and version', () => {
   assert.equal(help.status, 0);
   assert.match(help.stdout, /zeropress-build-pages/);
   assert.match(help.stdout, /--source <dir>/);
-  assert.match(help.stdout, /Source directory \(required, or ZEROPRESS_PUBLIC_DIR\)/);
+  assert.match(help.stdout, /Source directory \(required\)/);
 
   const version = spawnSync(process.execPath, [binPath, '--version'], {
     cwd: packageDir,
@@ -35,41 +35,46 @@ test('CLI prints help and version', () => {
   assert.match(version.stdout.trim(), /^\d+\.\d+\.\d+$/);
 });
 
-test('parseArgs applies CLI, env, and default precedence', () => {
+test('parseArgs requires explicit CLI options and applies flag defaults', () => {
   assert.throws(
-    () => parseArgs([], {}),
+    () => parseArgs([]),
     /--source <dir> is required/,
   );
   assert.throws(
-    () => parseArgs(['--source', 'docs'], {}),
+    () => parseArgs(['--source', 'docs']),
     /--destination <dir> is required/,
   );
   assert.throws(
-    () => parseArgs(['--source', 'docs', '--out', '_site'], {}),
+    () => parseArgs(['--source', 'docs', '--out', '_site']),
     /unknown option --out/,
   );
   assert.throws(
-    () => parseArgs(['--source', 'docs', '--destination', '_site', '--no-check-links'], {}),
+    () => parseArgs(['--source', 'docs', '--destination', '_site', '--no-check-links']),
     /unknown option --no-check-links/,
   );
 
-  assert.deepEqual(parseArgs([], {
-    ZEROPRESS_PUBLIC_DIR: 'docs',
-    ZEROPRESS_OUT_DIR: 'site',
-    ZEROPRESS_THEME_DIR: 'theme',
-    ZEROPRESS_SITE_URL: 'https://example.com',
-    ZEROPRESS_SKIP_UNTITLED_MARKDOWN: 'true',
-    ZEROPRESS_SKIP_LINK_CHECK: 'true',
-  }), {
+  assert.deepEqual(parseArgs(['--source', 'docs', '--destination', 'site']), {
     source: 'docs',
     destination: 'site',
     theme: 'docs',
-    themePath: 'theme',
+    themePath: '',
     config: '',
-    siteUrl: 'https://example.com',
-    skipUntitledMarkdown: true,
-    skipLinkCheck: true,
+    siteUrl: '',
+    skipUntitledMarkdown: false,
+    skipLinkCheck: false,
   });
+
+  assert.throws(
+    () => parseArgs([], {
+      ZEROPRESS_PUBLIC_DIR: 'docs',
+      ZEROPRESS_OUT_DIR: 'site',
+      ZEROPRESS_THEME_DIR: 'theme',
+      ZEROPRESS_SITE_URL: 'https://example.com',
+      ZEROPRESS_SKIP_UNTITLED_MARKDOWN: 'true',
+      ZEROPRESS_SKIP_LINK_CHECK: 'true',
+    }),
+    /--source <dir> is required/,
+  );
 
   const parsed = parseArgs([
     '--source', 'src',
@@ -78,10 +83,7 @@ test('parseArgs applies CLI, env, and default precedence', () => {
     '--site-url', 'https://override.example',
     '--skip-untitled-markdown',
     '--skip-link-check',
-  ], {
-    ZEROPRESS_PUBLIC_DIR: 'docs',
-    ZEROPRESS_OUT_DIR: 'site',
-  });
+  ]);
   assert.equal(parsed.source, 'src');
   assert.equal(parsed.destination, 'dist');
   assert.equal(parsed.themePath, 'custom-theme');

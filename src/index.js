@@ -107,7 +107,7 @@ export async function runBuildPages(options) {
   }
 }
 
-export function parseArgs(argv, env = process.env) {
+export function parseArgs(argv) {
   const flags = {};
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -142,24 +142,24 @@ export function parseArgs(argv, env = process.env) {
     throw new Error(`Invalid arguments: unknown option ${arg}`);
   }
 
-  const source = flags.source || env.ZEROPRESS_PUBLIC_DIR || '';
-  const destination = flags.destination || env.ZEROPRESS_OUT_DIR || '';
+  const source = flags.source || '';
+  const destination = flags.destination || '';
   if (!source) {
-    throw new Error('Invalid arguments: --source <dir> is required. You can also set ZEROPRESS_PUBLIC_DIR.');
+    throw new Error('Invalid arguments: --source <dir> is required.');
   }
   if (!destination) {
-    throw new Error('Invalid arguments: --destination <dir> is required. You can also set ZEROPRESS_OUT_DIR.');
+    throw new Error('Invalid arguments: --destination <dir> is required.');
   }
 
   return {
     source,
     destination,
     theme: flags.theme || DEFAULT_THEME,
-    themePath: flags['theme-path'] || env.ZEROPRESS_THEME_DIR || '',
-    config: flags.config || env.ZEROPRESS_BUILD_PAGES_CONFIG || '',
-    siteUrl: flags['site-url'] || env.ZEROPRESS_SITE_URL || '',
-    skipUntitledMarkdown: flags.skipUntitledMarkdown ?? env.ZEROPRESS_SKIP_UNTITLED_MARKDOWN === 'true',
-    skipLinkCheck: flags.skipLinkCheck ?? env.ZEROPRESS_SKIP_LINK_CHECK === 'true',
+    themePath: flags['theme-path'] || '',
+    config: flags.config || '',
+    siteUrl: flags['site-url'] || '',
+    skipUntitledMarkdown: flags.skipUntitledMarkdown === true,
+    skipLinkCheck: flags.skipLinkCheck === true,
   };
 }
 
@@ -170,8 +170,8 @@ Usage:
   zeropress-build-pages [options]
 
 Options:
-  --source <dir>                Source directory (required, or ZEROPRESS_PUBLIC_DIR)
-  --destination <dir>           Output directory (required, or ZEROPRESS_OUT_DIR)
+  --source <dir>                Source directory (required)
+  --destination <dir>           Output directory (required)
   --theme docs                  Bundled theme name (default: docs)
   --theme-path <dir>            Custom ZeroPress theme directory
   --config <path>               Config file (default: <source>/.zeropress/config.json)

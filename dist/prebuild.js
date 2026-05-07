@@ -3523,7 +3523,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var rootDir = process.cwd();
-var sourceDir = resolveEnvPath(["ZEROPRESS_BUILD_PAGES_SOURCE", "ZEROPRESS_PUBLIC_DIR"], "docs");
+var sourceDir = resolveEnvPath(["ZEROPRESS_BUILD_PAGES_SOURCE"], "docs");
 var defaultConfigPath = path.join(sourceDir, ".zeropress", "config.json");
 var configPath = resolveOptionalEnvPath(["ZEROPRESS_BUILD_PAGES_CONFIG"], defaultConfigPath);
 var outDir = path.join(rootDir, ".zeropress");

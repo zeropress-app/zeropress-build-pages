@@ -147,23 +147,9 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | `--skip-untitled-markdown` | `false` | Skip Markdown without a page title |
 | `--skip-link-check` | `false` | Skip link checking |
 
-Equivalent environment variables:
-
-| Env | Maps to |
-| --- | --- |
-| `ZEROPRESS_PUBLIC_DIR` | `--source` |
-| `ZEROPRESS_OUT_DIR` | `--destination` |
-| `ZEROPRESS_THEME_DIR` | `--theme-path` |
-| `ZEROPRESS_BUILD_PAGES_CONFIG` | `--config` |
-| `ZEROPRESS_SITE_URL` | `--site-url` |
-| `ZEROPRESS_SKIP_UNTITLED_MARKDOWN=true` | `--skip-untitled-markdown` |
-| `ZEROPRESS_SKIP_LINK_CHECK=true` | `--skip-link-check` |
-
-CLI options take precedence over environment variables.
-
 ## Source Tree
 
-The source directory is both the Markdown source root and the public passthrough root. GitHub Action usage defaults to `./docs`; CLI usage requires `--source` or `ZEROPRESS_PUBLIC_DIR`.
+The source directory is both the Markdown source root and the public passthrough root. GitHub Action usage defaults to `./docs`; CLI usage requires `--source`.
 
 ```txt
 docs/
