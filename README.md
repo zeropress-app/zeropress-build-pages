@@ -275,9 +275,9 @@ Schemas:
 - `schemas/zeropress-build-pages.config.v0.1.schema.json`
 - `schemas/zeropress-build-pages.config.schema.json`
 
-## Generated Files
+## Internal `.zeropress/` Files
 
-Build Pages writes:
+Build Pages writes internal working files to `.zeropress/` in the current working directory. These files are not the final deploy output. The final static site is written to the `destination` directory.
 
 ```txt
 .zeropress/
@@ -287,9 +287,17 @@ Build Pages writes:
   public-assets/
 ```
 
-`build-pages-config.json` is the resolved user-facing Build Pages config used for the current run. It combines `.zeropress/config.json`, defaults, and CLI/env overrides where applicable.
+`build-pages-config.json` is the resolved user-facing Build Pages config used for the current run. It combines source config, defaults, and CLI or Action input overrides where applicable.
 
 `preview-data.json` is an internal generated build input for the ZeroPress renderer. Most users do not need to edit or understand this file.
+
+`build-report.json` records discovered Markdown counts, skipped Markdown files, front page resolution, and custom HTML slots.
+
+`public-assets/` is a temporary staged public root used before the final ZeroPress render.
+
+## Destination Output
+
+The `destination` directory contains the deployable static site. It includes generated ZeroPress HTML, copied public files, and original Markdown files unless they are excluded by the public passthrough rules.
 
 ## Development
 
