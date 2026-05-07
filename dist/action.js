@@ -62151,6 +62151,13 @@ async function runBuildPages(options2) {
   const stagingDir = path3.join(cwd, STAGING_DIR);
   const previewDataPath = path3.join(cwd, PREVIEW_DATA_PATH);
   const themeDir = resolveThemeDir(cwd, options2);
+  assertBuildPagesPathLayout({
+    cwd,
+    sourceDir,
+    destinationDir,
+    themeDir,
+    generatedDir
+  });
   await assertDirectory(sourceDir, "Source directory");
   await fs3.rm(generatedDir, { recursive: true, force: true });
   await fs3.mkdir(generatedDir, { recursive: true });
@@ -62231,6 +62238,26 @@ async function assertDirectory(dir, label) {
     throw new Error(`${label} is not a directory: ${dir}`);
   }
 }
+function assertBuildPagesPathLayout({ cwd, sourceDir, destinationDir, themeDir, generatedDir }) {
+  if (samePath(sourceDir, cwd)) {
+    throw new Error(
+      `Source directory must be a dedicated content directory, not the current working directory. Received: ${formatPath(cwd, sourceDir)}`
+    );
+  }
+  assertNoPathOverlap(cwd, "Source directory", sourceDir, "internal .zeropress working directory", generatedDir);
+  assertNoPathOverlap(cwd, "Destination directory", destinationDir, "internal .zeropress working directory", generatedDir);
+  assertNoPathOverlap(cwd, "Theme directory", themeDir, "internal .zeropress working directory", generatedDir);
+  assertNoPathOverlap(cwd, "Source directory", sourceDir, "destination directory", destinationDir);
+  assertNoPathOverlap(cwd, "Source directory", sourceDir, "theme directory", themeDir);
+}
+function assertNoPathOverlap(cwd, firstLabel, firstPath, secondLabel, secondPath) {
+  if (!pathsOverlap2(firstPath, secondPath)) {
+    return;
+  }
+  throw new Error(
+    `${firstLabel} must not overlap the ${secondLabel}. ${firstLabel}: ${formatPath(cwd, firstPath)}; ${secondLabel}: ${formatPath(cwd, secondPath)}`
+  );
+}
 async function copyPublicStaging(sourceDir, targetDir, options2) {
   const entries = await fs3.readdir(sourceDir, { withFileTypes: true });
   for (const entry of entries) {
@@ -62266,6 +62293,9 @@ function pathsOverlap2(firstPath, secondPath) {
   const first = path3.resolve(firstPath);
   const second = path3.resolve(secondPath);
   return first === second || isPathInside2(first, second) || isPathInside2(second, first);
+}
+function samePath(firstPath, secondPath) {
+  return path3.resolve(firstPath) === path3.resolve(secondPath);
 }
 function isPathInside2(parentPath, childPath) {
   const relativePath = path3.relative(parentPath, childPath);

@@ -44,6 +44,13 @@ export async function runBuildPages(options) {
   const previewDataPath = path.join(cwd, PREVIEW_DATA_PATH);
   const themeDir = resolveThemeDir(cwd, options);
 
+  assertBuildPagesPathLayout({
+    cwd,
+    sourceDir,
+    destinationDir,
+    themeDir,
+    generatedDir,
+  });
   await assertDirectory(sourceDir, 'Source directory');
   await fs.rm(generatedDir, { recursive: true, force: true });
   await fs.mkdir(generatedDir, { recursive: true });
@@ -170,7 +177,7 @@ Usage:
   zeropress-build-pages [options]
 
 Options:
-  --source <dir>                Source directory (required)
+  --source <dir>                Dedicated source directory (required)
   --destination <dir>           Output directory (required)
   --theme docs                  Bundled theme name (default: docs)
   --theme-path <dir>            Custom ZeroPress theme directory
@@ -205,6 +212,32 @@ async function assertDirectory(dir, label) {
   if (!stat.isDirectory()) {
     throw new Error(`${label} is not a directory: ${dir}`);
   }
+}
+
+function assertBuildPagesPathLayout({ cwd, sourceDir, destinationDir, themeDir, generatedDir }) {
+  if (samePath(sourceDir, cwd)) {
+    throw new Error(
+      'Source directory must be a dedicated content directory, not the current working directory. '
+      + `Received: ${formatPath(cwd, sourceDir)}`,
+    );
+  }
+
+  assertNoPathOverlap(cwd, 'Source directory', sourceDir, 'internal .zeropress working directory', generatedDir);
+  assertNoPathOverlap(cwd, 'Destination directory', destinationDir, 'internal .zeropress working directory', generatedDir);
+  assertNoPathOverlap(cwd, 'Theme directory', themeDir, 'internal .zeropress working directory', generatedDir);
+  assertNoPathOverlap(cwd, 'Source directory', sourceDir, 'destination directory', destinationDir);
+  assertNoPathOverlap(cwd, 'Source directory', sourceDir, 'theme directory', themeDir);
+}
+
+function assertNoPathOverlap(cwd, firstLabel, firstPath, secondLabel, secondPath) {
+  if (!pathsOverlap(firstPath, secondPath)) {
+    return;
+  }
+  throw new Error(
+    `${firstLabel} must not overlap the ${secondLabel}. `
+    + `${firstLabel}: ${formatPath(cwd, firstPath)}; `
+    + `${secondLabel}: ${formatPath(cwd, secondPath)}`,
+  );
 }
 
 async function copyPublicStaging(sourceDir, targetDir, options) {
@@ -256,6 +289,10 @@ function pathsOverlap(firstPath, secondPath) {
   const first = path.resolve(firstPath);
   const second = path.resolve(secondPath);
   return first === second || isPathInside(first, second) || isPathInside(second, first);
+}
+
+function samePath(firstPath, secondPath) {
+  return path.resolve(firstPath) === path.resolve(secondPath);
 }
 
 function isPathInside(parentPath, childPath) {

@@ -138,7 +138,7 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 
 | Option | Default | Purpose |
 | --- | --- | --- |
-| `--source <dir>` | required | Source directory containing Markdown and public files |
+| `--source <dir>` | required | Dedicated source directory containing Markdown and public files |
 | `--destination <dir>` | required | Output directory |
 | `--theme docs` | `docs` | Bundled docs theme |
 | `--theme-path <dir>` | none | Custom ZeroPress theme directory |
@@ -151,6 +151,8 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 
 The source directory is both the Markdown source root and the public passthrough root. GitHub Action usage defaults to `./docs`; CLI usage requires `--source`.
 
+Use a dedicated content directory such as `docs/` or `documents/`. Repository root source (`--source ./`) is not supported, because Build Pages uses `.zeropress/` in the current working directory for internal working files.
+
 ```txt
 docs/
   index.md
@@ -160,7 +162,9 @@ docs/
     config.json
 ```
 
-Build Pages stages the source tree before calling `@zeropress/build`, so `--source ./` and `--destination ./_site` are supported when you intentionally want to build from the repository root. Generated ZeroPress output wins over staged public files.
+Build Pages stages the source tree before calling `@zeropress/build`. Generated ZeroPress output wins over staged public files.
+
+The source directory must not overlap the destination directory, the selected theme directory, or the internal `.zeropress/` working directory.
 
 Ignored while staging and Markdown discovery:
 

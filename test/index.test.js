@@ -25,7 +25,7 @@ test('CLI prints help and version', () => {
   assert.equal(help.status, 0);
   assert.match(help.stdout, /zeropress-build-pages/);
   assert.match(help.stdout, /--source <dir>/);
-  assert.match(help.stdout, /Source directory \(required\)/);
+  assert.match(help.stdout, /Dedicated source directory \(required\)/);
 
   const version = spawnSync(process.execPath, [binPath, '--version'], {
     cwd: packageDir,
@@ -134,9 +134,11 @@ test('prebuild warning output: invalid front matter status', () => {
   assert.equal(normalizeOutput(result.stdout), readExpected('invalid-front-matter-status', 'expected.stdout.txt'));
 });
 
-test('builds a source root without config and preserves markdown passthrough', async () => {
+test('builds a source directory without config and preserves markdown passthrough', async () => {
   const tempDir = await makeTempDir();
-  await fs.writeFile(path.join(tempDir, 'index.md'), [
+  const sourceDir = path.join(tempDir, 'docs');
+  await fs.mkdir(sourceDir, { recursive: true });
+  await fs.writeFile(path.join(sourceDir, 'index.md'), [
     '---',
     'title: Front Matter Home',
     'description: Home from front matter.',
@@ -144,14 +146,14 @@ test('builds a source root without config and preserves markdown passthrough', a
     '',
     'Welcome to the docs. See [Guide](guide.md).',
   ].join('\n'), 'utf8');
-  await fs.writeFile(path.join(tempDir, 'guide.md'), [
+  await fs.writeFile(path.join(sourceDir, 'guide.md'), [
     '# Guide',
     '',
     'See [Custom](custom.md).',
     '',
     '- [x] Built with ZeroPress.',
   ].join('\n'), 'utf8');
-  await fs.writeFile(path.join(tempDir, 'custom.md'), [
+  await fs.writeFile(path.join(sourceDir, 'custom.md'), [
     '---',
     'title: Custom Front Matter Title',
     'description: Custom front matter excerpt.',
@@ -167,7 +169,7 @@ test('builds a source root without config and preserves markdown passthrough', a
     '',
     'Custom content.',
   ].join('\n'), 'utf8');
-  await fs.writeFile(path.join(tempDir, 'draft.md'), [
+  await fs.writeFile(path.join(sourceDir, 'draft.md'), [
     '---',
     'status: draft',
     '---',
@@ -179,7 +181,7 @@ test('builds a source root without config and preserves markdown passthrough', a
 
   await runBuildPages({
     cwd: tempDir,
-    source: '.',
+    source: 'docs',
     destination: '_site',
     theme: 'docs',
     skipLinkCheck: false,
@@ -218,6 +220,89 @@ test('builds a source root without config and preserves markdown passthrough', a
   await fs.access(path.join(tempDir, '_site', 'guide.md'));
   await fs.access(path.join(tempDir, '_site', 'custom.md'));
   await fs.access(path.join(tempDir, '.zeropress', 'preview-data.json'));
+});
+
+test('rejects repository root source before touching internal working files', async () => {
+  const tempDir = await makeTempDir();
+  await fs.mkdir(path.join(tempDir, '.zeropress'), { recursive: true });
+  await fs.writeFile(path.join(tempDir, '.zeropress', 'config.json'), '{"version":"0.1"}', 'utf8');
+  await fs.writeFile(path.join(tempDir, 'index.md'), '# Home\n\nRoot source should be rejected.', 'utf8');
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: '.',
+      destination: '_site',
+      theme: 'docs',
+      skipLinkCheck: true,
+    }),
+    /Source directory must be a dedicated content directory/,
+  );
+
+  await fs.access(path.join(tempDir, '.zeropress', 'config.json'));
+});
+
+test('rejects source, destination, and theme overlap with build-pages working paths', async () => {
+  const tempDir = await makeTempDir();
+  await fs.mkdir(path.join(tempDir, 'docs'), { recursive: true });
+  await fs.writeFile(path.join(tempDir, 'docs', 'index.md'), '# Home\n\nOverlap checks.', 'utf8');
+  await fs.mkdir(path.join(tempDir, '.zeropress', 'source'), { recursive: true });
+  await fs.mkdir(path.join(tempDir, 'custom-theme'), { recursive: true });
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: '.zeropress/source',
+      destination: '_site',
+      theme: 'docs',
+      skipLinkCheck: true,
+    }),
+    /Source directory must not overlap the internal \.zeropress working directory/,
+  );
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      destination: '.zeropress/site',
+      theme: 'docs',
+      skipLinkCheck: true,
+    }),
+    /Destination directory must not overlap the internal \.zeropress working directory/,
+  );
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      destination: '_site',
+      themePath: '.zeropress/theme',
+      skipLinkCheck: true,
+    }),
+    /Theme directory must not overlap the internal \.zeropress working directory/,
+  );
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      destination: 'docs/_site',
+      theme: 'docs',
+      skipLinkCheck: true,
+    }),
+    /Source directory must not overlap the destination directory/,
+  );
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      destination: '_site',
+      themePath: 'docs/theme',
+      skipLinkCheck: true,
+    }),
+    /Source directory must not overlap the theme directory/,
+  );
 });
 
 test('builds with config, custom theme path, and source inside a subdirectory', async () => {

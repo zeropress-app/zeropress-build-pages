@@ -6,7 +6,7 @@ branding:
   color: blue
 inputs:
   source:
-    description: Source directory containing Markdown files and optional .zeropress/config.json.
+    description: Dedicated source directory containing Markdown files and optional .zeropress/config.json. Repository root source is not supported.
     required: false
     default: ./docs
   destination:
