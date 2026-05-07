@@ -95,7 +95,7 @@ export async function runBuildPages(options) {
     }
   }
 
-  if (options.checkLinks) {
+  if (!options.skipLinkCheck) {
     const result = await checkInternalLinks(destinationDir);
     if (result.brokenLinks.length) {
       console.warn('Warning: broken internal links found:');
@@ -116,8 +116,8 @@ export function parseArgs(argv, env = process.env) {
       flags.skipUntitledMarkdown = true;
       continue;
     }
-    if (arg === '--no-check-links') {
-      flags.checkLinks = false;
+    if (arg === '--skip-link-check') {
+      flags.skipLinkCheck = true;
       continue;
     }
 
@@ -159,7 +159,7 @@ export function parseArgs(argv, env = process.env) {
     config: flags.config || env.ZEROPRESS_BUILD_PAGES_CONFIG || '',
     siteUrl: flags['site-url'] || env.ZEROPRESS_SITE_URL || '',
     skipUntitledMarkdown: flags.skipUntitledMarkdown ?? env.ZEROPRESS_SKIP_UNTITLED_MARKDOWN === 'true',
-    checkLinks: flags.checkLinks ?? true,
+    skipLinkCheck: flags.skipLinkCheck ?? env.ZEROPRESS_SKIP_LINK_CHECK === 'true',
   };
 }
 
@@ -177,7 +177,7 @@ Options:
   --config <path>               Config file (default: <source>/.zeropress/config.json)
   --site-url <url>              Canonical site URL override
   --skip-untitled-markdown      Skip Markdown files without a page title
-  --no-check-links              Skip internal link checking
+  --skip-link-check             Skip internal link checking
   --help, -h                    Show help
   --version, -v                 Show version`);
 }

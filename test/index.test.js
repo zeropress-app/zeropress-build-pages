@@ -49,8 +49,8 @@ test('parseArgs applies CLI, env, and default precedence', () => {
     /unknown option --out/,
   );
   assert.throws(
-    () => parseArgs(['--source', 'docs', '--destination', '_site', '--check-links'], {}),
-    /unknown option --check-links/,
+    () => parseArgs(['--source', 'docs', '--destination', '_site', '--no-check-links'], {}),
+    /unknown option --no-check-links/,
   );
 
   assert.deepEqual(parseArgs([], {
@@ -59,6 +59,7 @@ test('parseArgs applies CLI, env, and default precedence', () => {
     ZEROPRESS_THEME_DIR: 'theme',
     ZEROPRESS_SITE_URL: 'https://example.com',
     ZEROPRESS_SKIP_UNTITLED_MARKDOWN: 'true',
+    ZEROPRESS_SKIP_LINK_CHECK: 'true',
   }), {
     source: 'docs',
     destination: 'site',
@@ -67,7 +68,7 @@ test('parseArgs applies CLI, env, and default precedence', () => {
     config: '',
     siteUrl: 'https://example.com',
     skipUntitledMarkdown: true,
-    checkLinks: true,
+    skipLinkCheck: true,
   });
 
   const parsed = parseArgs([
@@ -76,7 +77,7 @@ test('parseArgs applies CLI, env, and default precedence', () => {
     '--theme-path', 'custom-theme',
     '--site-url', 'https://override.example',
     '--skip-untitled-markdown',
-    '--no-check-links',
+    '--skip-link-check',
   ], {
     ZEROPRESS_PUBLIC_DIR: 'docs',
     ZEROPRESS_OUT_DIR: 'site',
@@ -86,7 +87,7 @@ test('parseArgs applies CLI, env, and default precedence', () => {
   assert.equal(parsed.themePath, 'custom-theme');
   assert.equal(parsed.siteUrl, 'https://override.example');
   assert.equal(parsed.skipUntitledMarkdown, true);
-  assert.equal(parsed.checkLinks, false);
+  assert.equal(parsed.skipLinkCheck, true);
 });
 
 const failureCases = [
@@ -179,7 +180,7 @@ test('builds a source root without config and preserves markdown passthrough', a
     source: '.',
     destination: '_site',
     theme: 'docs',
-    checkLinks: true,
+    skipLinkCheck: false,
   });
 
   const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
@@ -263,7 +264,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     theme: 'docs',
     themePath: path.join(packageDir, 'themes', 'docs'),
     siteUrl: 'https://override.example',
-    checkLinks: false,
+    skipLinkCheck: true,
   });
 
   const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
@@ -348,7 +349,7 @@ test('link checker reports broken links without throwing', async () => {
 
 test('action metadata and entrypoint use supported inputs', async () => {
   const action = await fs.readFile(path.join(packageDir, 'action.yml'), 'utf8');
-  for (const inputName of ['source', 'destination', 'theme', 'theme-path', 'config', 'site-url', 'skip-untitled-markdown', 'check-links']) {
+  for (const inputName of ['source', 'destination', 'theme', 'theme-path', 'config', 'site-url', 'skip-untitled-markdown', 'skip-link-check']) {
     assert.match(action, new RegExp(`\\n  ${inputName}:`));
   }
   assert.match(action, /default: \.\/docs/);
@@ -363,7 +364,7 @@ test('action metadata and entrypoint use supported inputs', async () => {
       ...process.env,
       INPUT_DESTINATION: '_site',
       INPUT_THEME: 'docs',
-      INPUT_CHECK_LINKS: 'false',
+      INPUT_SKIP_LINK_CHECK: 'true',
     },
     encoding: 'utf8',
   });

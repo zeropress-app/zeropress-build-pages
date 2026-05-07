@@ -27,13 +27,13 @@ inputs:
     description: Canonical site URL override.
     required: false
   skip-untitled-markdown:
-    description: Skip Markdown files without an H1 instead of failing.
+    description: Skip Markdown files without a page title instead of failing.
     required: false
     default: "false"
-  check-links:
-    description: Warn about broken internal links after build.
+  skip-link-check:
+    description: Skip internal link checking after the site is built.
     required: false
-    default: "true"
+    default: "false"
 runs:
   using: node24
   main: dist/action.js

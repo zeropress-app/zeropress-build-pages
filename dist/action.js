@@ -62197,7 +62197,7 @@ async function runBuildPages(options2) {
       process.env.ZEROPRESS_PUBLIC_DIR = previousPublicDir;
     }
   }
-  if (options2.checkLinks) {
+  if (!options2.skipLinkCheck) {
     const result = await checkInternalLinks(destinationDir);
     if (result.brokenLinks.length) {
       console.warn("Warning: broken internal links found:");
@@ -62285,7 +62285,7 @@ var options = {
   config: input("config"),
   siteUrl: input("site-url"),
   skipUntitledMarkdown: booleanInput("skip-untitled-markdown", false),
-  checkLinks: booleanInput("check-links", true)
+  skipLinkCheck: booleanInput("skip-link-check", false)
 };
 try {
   await runBuildPages(options);

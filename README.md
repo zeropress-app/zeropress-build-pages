@@ -145,7 +145,7 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | `--config <path>` | `<source>/.zeropress/config.json` | Build Pages config |
 | `--site-url <url>` | config `site.url` | Canonical URL override |
 | `--skip-untitled-markdown` | `false` | Skip Markdown without a page title |
-| `--no-check-links` | false | Skip link checking |
+| `--skip-link-check` | `false` | Skip link checking |
 
 Equivalent environment variables:
 
@@ -157,6 +157,7 @@ Equivalent environment variables:
 | `ZEROPRESS_BUILD_PAGES_CONFIG` | `--config` |
 | `ZEROPRESS_SITE_URL` | `--site-url` |
 | `ZEROPRESS_SKIP_UNTITLED_MARKDOWN=true` | `--skip-untitled-markdown` |
+| `ZEROPRESS_SKIP_LINK_CHECK=true` | `--skip-link-check` |
 
 CLI options take precedence over environment variables.
 

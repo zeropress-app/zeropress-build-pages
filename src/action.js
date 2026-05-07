@@ -8,7 +8,7 @@ const options = {
   config: input('config'),
   siteUrl: input('site-url'),
   skipUntitledMarkdown: booleanInput('skip-untitled-markdown', false),
-  checkLinks: booleanInput('check-links', true),
+  skipLinkCheck: booleanInput('skip-link-check', false),
 };
 
 try {
