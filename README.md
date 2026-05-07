@@ -1,8 +1,11 @@
 # @zeropress/build-pages
 
+![npm](https://img.shields.io/npm/v/%40zeropress%2Fbuild-pages)
+![license](https://img.shields.io/npm/l/%40zeropress%2Fbuild-pages)
+
 Build ZeroPress static output for modern hosting platforms.
 
-`@zeropress/build-pages` turns a directory of Markdown files and public assets into a static ZeroPress site. It discovers Markdown pages, prepares the site data, stages public files, and runs `@zeropress/build`.
+`@zeropress/build-pages` turns a directory of Markdown files and public assets into a static ZeroPress site. It discovers Markdown pages, prepares the site data, stages public files, and runs [`@zeropress/build`](https://github.com/zeropress-app/zeropress-build).
 
 The generated output is plain static files that can be deployed to GitHub Pages, Cloudflare Pages, Netlify, Vercel, or any static hosting provider.
 
@@ -97,10 +100,49 @@ jobs:
 
 The action `zeropress-build-pages` builds the static files only. Uploading and deploying are handled by your hosting provider's deployment action or CLI.
 
+Minimal action usage:
+
+```yaml
+- name: Build ZeroPress Pages
+  uses: zeropress-app/zeropress-build-pages@v0
+```
+
+That is equivalent to:
+
+```yaml
+- name: Build ZeroPress Pages
+  uses: zeropress-app/zeropress-build-pages@v0
+  with:
+    source: ./docs
+    destination: ./_site
+    theme: docs
+    skip-untitled-markdown: false
+    skip-link-check: false
+```
+
+Custom input example:
+
+```yaml
+- name: Build ZeroPress Pages
+  uses: zeropress-app/zeropress-build-pages@v0
+  with:
+    source: ./documents
+    destination: ./_site
+    theme-path: ./theme-docs
+    config: ./documents/.zeropress/config.json
+    site-url: https://example.com/docs
+```
+
 In the action inputs:
 
 - `source` is the directory that contains your Markdown pages, public files, and optional `.zeropress/config.json`. The default is `./docs`.
 - `destination` is the directory where the generated static site is written. The default is `./_site`.
+- `theme` is the bundled theme name. The default is `docs`.
+- `theme-path` is a custom local ZeroPress theme directory. It takes precedence over `theme`.
+- `config` is the config file path. The default is `<source>/.zeropress/config.json`.
+- `site-url` overrides the canonical site URL from config.
+- `skip-untitled-markdown` skips Markdown files without a page title instead of failing. The default is `false`.
+- `skip-link-check` skips internal link checking after build. The default is `false`.
 
 For GitHub Pages, the generated `destination` directory can be passed to `actions/upload-pages-artifact`. For Cloudflare Pages, Netlify, Vercel, or another static host, pass the same `destination` directory to that provider's deploy step.
 
@@ -149,20 +191,23 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 
 ## Source Tree
 
-The source directory is both the Markdown source root and the public passthrough root. GitHub Action usage defaults to `./docs`; CLI usage requires `--source`.
+The source directory is the folder that Build Pages reads. It is both the Markdown source root and the public passthrough root. GitHub Action usage defaults to `./docs`; CLI usage requires `--source`.
 
-Use a dedicated content directory such as `docs/` or `documents/`. Repository root source (`--source ./`) is not supported, because Build Pages uses `.zeropress/` in the current working directory for internal working files.
+Use a dedicated content directory such as `docs/` or `documents/`. Repository root source (`--source ./`) is not supported.
 
 ```txt
-docs/
-  index.md
-  guide.md
-  assets/
-  .zeropress/
-    config.json
+my-site/
+  docs/                 # source
+    index.md
+    guide.md
+    assets/
+      logo.png
+    .zeropress/
+      config.json
+  _site/                # destination, generated
 ```
 
-Build Pages stages the source tree before calling `@zeropress/build`. Generated ZeroPress output wins over staged public files.
+Build Pages stages the source tree before calling [`@zeropress/build`](https://github.com/zeropress-app/zeropress-build). Generated ZeroPress output wins over staged public files.
 
 The source directory must not overlap the destination directory, the selected theme directory, or the internal `.zeropress/` working directory.
 
@@ -227,6 +272,8 @@ Unknown front matter fields are ignored to make migration from existing Markdown
 
 Build Pages reads `<source>/.zeropress/config.json` when present. Missing config falls back to defaults.
 
+See the public config reference at [zeropress.dev/build-pages-config](https://zeropress.dev/build-pages-config/).
+
 ```json
 {
   "$schema": "https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json",
@@ -276,8 +323,7 @@ The bundled docs theme shows `Published with ZeroPress.` by default. Set `site.f
 
 Schemas:
 
-- `schemas/zeropress-build-pages.config.v0.1.schema.json`
-- `schemas/zeropress-build-pages.config.schema.json`
+- [ZeroPress Build Pages Config v0.1](https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json)
 
 ## Internal `.zeropress/` Files
 
@@ -303,10 +349,6 @@ Build Pages writes internal working files to `.zeropress/` in the current workin
 
 The `destination` directory contains the deployable static site. It includes generated ZeroPress HTML, copied public files, and original Markdown files unless they are excluded by the public passthrough rules.
 
-## Development
+## Demo
 
-```bash
-npm install
-npm run build:action
-npm test
-```
+- [zeropress.dev](https://github.com/zeropress-app/zeropress.dev) is built with `@zeropress/build-pages`.
