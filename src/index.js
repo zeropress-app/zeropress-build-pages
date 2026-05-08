@@ -37,6 +37,7 @@ export async function runCli(argv = process.argv.slice(2)) {
 
 export async function runBuildPages(options) {
   const cwd = path.resolve(options.cwd || process.cwd());
+  const copyMarkdownSource = options.copyMarkdownSource !== false;
   const sourceDir = path.resolve(cwd, options.source);
   const destinationDir = path.resolve(cwd, options.destination);
   const generatedDir = path.join(cwd, '.zeropress');
@@ -60,6 +61,7 @@ export async function runBuildPages(options) {
     ZEROPRESS_BUILD_PAGES_SOURCE: sourceDir,
     ZEROPRESS_PUBLIC_DIR: sourceDir,
     ZEROPRESS_SKIP_UNTITLED_MARKDOWN: String(Boolean(options.skipUntitledMarkdown)),
+    ZEROPRESS_COPY_MARKDOWN_SOURCE: String(copyMarkdownSource),
   };
   if (options.config) {
     env.ZEROPRESS_BUILD_PAGES_CONFIG = path.resolve(cwd, options.config);
@@ -85,6 +87,7 @@ export async function runBuildPages(options) {
   await fs.mkdir(stagingDir, { recursive: true });
   await copyPublicStaging(sourceDir, stagingDir, {
     excludePaths: [destinationDir, themeDir, generatedDir],
+    copyMarkdownSource,
   });
 
   const previousPublicDir = process.env.ZEROPRESS_PUBLIC_DIR;
@@ -127,6 +130,10 @@ export function parseArgs(argv) {
       flags.skipLinkCheck = true;
       continue;
     }
+    if (arg === '--no-copy-markdown-source') {
+      flags.copyMarkdownSource = false;
+      continue;
+    }
 
     const valueOptions = new Set([
       '--source',
@@ -167,6 +174,7 @@ export function parseArgs(argv) {
     siteUrl: flags['site-url'] || '',
     skipUntitledMarkdown: flags.skipUntitledMarkdown === true,
     skipLinkCheck: flags.skipLinkCheck === true,
+    copyMarkdownSource: flags.copyMarkdownSource !== false,
   };
 }
 
@@ -185,6 +193,7 @@ Options:
   --site-url <url>              Canonical site URL override
   --skip-untitled-markdown      Skip Markdown files without a page title
   --skip-link-check             Skip internal link checking
+  --no-copy-markdown-source     Do not copy original Markdown files to output
   --help, -h                    Show help
   --version, -v                 Show version`);
 }
@@ -261,6 +270,10 @@ async function copyPublicStaging(sourceDir, targetDir, options) {
     }
 
     if (!entry.isFile()) {
+      continue;
+    }
+
+    if (options.copyMarkdownSource === false && entry.name.toLowerCase().endsWith('.md')) {
       continue;
     }
 

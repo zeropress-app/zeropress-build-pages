@@ -13,6 +13,7 @@ const buildPagesConfigPath = path.join(outDir, 'build-pages-config.json');
 const previewDataPath = path.join(outDir, 'preview-data.json');
 const buildReportPath = path.join(outDir, 'build-report.json');
 const skipUntitledMarkdown = readBooleanEnv('ZEROPRESS_SKIP_UNTITLED_MARKDOWN');
+const copyMarkdownSource = readBooleanEnv('ZEROPRESS_COPY_MARKDOWN_SOURCE', true);
 const FRONT_PAGE_TYPES = new Set(['theme_index', 'markdown', 'html']);
 const BUILD_PAGES_CONFIG_SCHEMA_URL = 'https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json';
 const PREVIEW_DATA_SCHEMA_URL = 'https://zeropress.dev/schemas/preview-data.v0.5.schema.json';
@@ -96,7 +97,7 @@ async function main() {
     path: route.path,
     meta: {
       ...frontMatter.meta,
-      source_markdown_url: buildSourceMarkdownUrl(sourcePath),
+      ...(copyMarkdownSource ? { source_markdown_url: buildSourceMarkdownUrl(sourcePath) } : {}),
     },
     content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath),
     document_type: 'markdown',
@@ -733,6 +734,7 @@ function buildPrebuildReport({
     preview_data_path: formatSourcePath(previewDataPath),
     report_path: formatSourcePath(buildReportPath),
     skip_untitled_markdown: skipUntitledMarkdown,
+    copy_markdown_source: copyMarkdownSource,
     markdown: {
       discovered: sourceFiles.length,
       generated_pages: pageInputs.length,
@@ -1305,8 +1307,12 @@ function readConfigInteger(value, fallback) {
   return Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
-function readBooleanEnv(name) {
-  return process.env[name]?.trim().toLowerCase() === 'true';
+function readBooleanEnv(name, fallback = false) {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    return fallback;
+  }
+  return value.toLowerCase() === 'true';
 }
 
 function resolveEnvPath(names, fallback) {

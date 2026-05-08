@@ -9,6 +9,7 @@ const options = {
   siteUrl: input('site-url'),
   skipUntitledMarkdown: booleanInput('skip-untitled-markdown', false),
   skipLinkCheck: booleanInput('skip-link-check', false),
+  copyMarkdownSource: falseOnlyInput('copy-markdown-source'),
 };
 
 try {
@@ -29,4 +30,8 @@ function booleanInput(name, fallback) {
     return fallback;
   }
   return value.toLowerCase() === 'true';
+}
+
+function falseOnlyInput(name) {
+  return input(name).toLowerCase() !== 'false';
 }

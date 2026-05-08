@@ -3531,6 +3531,7 @@ var buildPagesConfigPath = path.join(outDir, "build-pages-config.json");
 var previewDataPath = path.join(outDir, "preview-data.json");
 var buildReportPath = path.join(outDir, "build-report.json");
 var skipUntitledMarkdown = readBooleanEnv("ZEROPRESS_SKIP_UNTITLED_MARKDOWN");
+var copyMarkdownSource = readBooleanEnv("ZEROPRESS_COPY_MARKDOWN_SOURCE", true);
 var FRONT_PAGE_TYPES = /* @__PURE__ */ new Set(["theme_index", "markdown", "html"]);
 var BUILD_PAGES_CONFIG_SCHEMA_URL = "https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json";
 var PREVIEW_DATA_SCHEMA_URL = "https://zeropress.dev/schemas/preview-data.v0.5.schema.json";
@@ -3605,7 +3606,7 @@ async function main() {
     path: route.path,
     meta: {
       ...frontMatter.meta,
-      source_markdown_url: buildSourceMarkdownUrl(sourcePath)
+      ...copyMarkdownSource ? { source_markdown_url: buildSourceMarkdownUrl(sourcePath) } : {}
     },
     content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath),
     document_type: "markdown",
@@ -4161,6 +4162,7 @@ function buildPrebuildReport({
     preview_data_path: formatSourcePath(previewDataPath),
     report_path: formatSourcePath(buildReportPath),
     skip_untitled_markdown: skipUntitledMarkdown,
+    copy_markdown_source: copyMarkdownSource,
     markdown: {
       discovered: sourceFiles.length,
       generated_pages: pageInputs.length,
@@ -4588,8 +4590,12 @@ function readEnv(name, fallback) {
 function readConfigString(value, fallback) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
-function readBooleanEnv(name) {
-  return process.env[name]?.trim().toLowerCase() === "true";
+function readBooleanEnv(name, fallback = false) {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    return fallback;
+  }
+  return value.toLowerCase() === "true";
 }
 function resolveEnvPath(names, fallback) {
   const rawValue = names.map((name) => process.env[name]?.trim()).find(Boolean) || fallback;

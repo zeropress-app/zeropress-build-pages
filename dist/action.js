@@ -62145,6 +62145,7 @@ var STAGING_DIR = ".zeropress/public-assets";
 var DEFAULT_THEME = "docs";
 async function runBuildPages(options2) {
   const cwd = path3.resolve(options2.cwd || process.cwd());
+  const copyMarkdownSource = options2.copyMarkdownSource !== false;
   const sourceDir = path3.resolve(cwd, options2.source);
   const destinationDir = path3.resolve(cwd, options2.destination);
   const generatedDir = path3.join(cwd, ".zeropress");
@@ -62165,7 +62166,8 @@ async function runBuildPages(options2) {
     ...process.env,
     ZEROPRESS_BUILD_PAGES_SOURCE: sourceDir,
     ZEROPRESS_PUBLIC_DIR: sourceDir,
-    ZEROPRESS_SKIP_UNTITLED_MARKDOWN: String(Boolean(options2.skipUntitledMarkdown))
+    ZEROPRESS_SKIP_UNTITLED_MARKDOWN: String(Boolean(options2.skipUntitledMarkdown)),
+    ZEROPRESS_COPY_MARKDOWN_SOURCE: String(copyMarkdownSource)
   };
   if (options2.config) {
     env.ZEROPRESS_BUILD_PAGES_CONFIG = path3.resolve(cwd, options2.config);
@@ -62188,7 +62190,8 @@ async function runBuildPages(options2) {
   await fs3.rm(stagingDir, { recursive: true, force: true });
   await fs3.mkdir(stagingDir, { recursive: true });
   await copyPublicStaging(sourceDir, stagingDir, {
-    excludePaths: [destinationDir, themeDir, generatedDir]
+    excludePaths: [destinationDir, themeDir, generatedDir],
+    copyMarkdownSource
   });
   const previousPublicDir = process.env.ZEROPRESS_PUBLIC_DIR;
   process.env.ZEROPRESS_PUBLIC_DIR = stagingDir;
@@ -62277,6 +62280,9 @@ async function copyPublicStaging(sourceDir, targetDir, options2) {
     if (!entry.isFile()) {
       continue;
     }
+    if (options2.copyMarkdownSource === false && entry.name.toLowerCase().endsWith(".md")) {
+      continue;
+    }
     await fs3.mkdir(path3.dirname(targetPath), { recursive: true });
     await fs3.copyFile(sourcePath, targetPath);
   }
@@ -62315,7 +62321,8 @@ var options = {
   config: input("config"),
   siteUrl: input("site-url"),
   skipUntitledMarkdown: booleanInput("skip-untitled-markdown", false),
-  skipLinkCheck: booleanInput("skip-link-check", false)
+  skipLinkCheck: booleanInput("skip-link-check", false),
+  copyMarkdownSource: falseOnlyInput("copy-markdown-source")
 };
 try {
   await runBuildPages(options);
@@ -62333,4 +62340,7 @@ function booleanInput(name, fallback) {
     return fallback;
   }
   return value.toLowerCase() === "true";
+}
+function falseOnlyInput(name) {
+  return input(name).toLowerCase() !== "false";
 }

@@ -52,6 +52,10 @@ test('parseArgs requires explicit CLI options and applies flag defaults', () => 
     () => parseArgs(['--source', 'docs', '--destination', '_site', '--no-check-links']),
     /unknown option --no-check-links/,
   );
+  assert.throws(
+    () => parseArgs(['--source', 'docs', '--destination', '_site', '--copy-markdown-source']),
+    /unknown option --copy-markdown-source/,
+  );
 
   assert.deepEqual(parseArgs(['--source', 'docs', '--destination', 'site']), {
     source: 'docs',
@@ -62,6 +66,7 @@ test('parseArgs requires explicit CLI options and applies flag defaults', () => 
     siteUrl: '',
     skipUntitledMarkdown: false,
     skipLinkCheck: false,
+    copyMarkdownSource: true,
   });
 
   assert.throws(
@@ -83,6 +88,7 @@ test('parseArgs requires explicit CLI options and applies flag defaults', () => 
     '--site-url', 'https://override.example',
     '--skip-untitled-markdown',
     '--skip-link-check',
+    '--no-copy-markdown-source',
   ]);
   assert.equal(parsed.source, 'src');
   assert.equal(parsed.destination, 'dist');
@@ -90,6 +96,7 @@ test('parseArgs requires explicit CLI options and applies flag defaults', () => 
   assert.equal(parsed.siteUrl, 'https://override.example');
   assert.equal(parsed.skipUntitledMarkdown, true);
   assert.equal(parsed.skipLinkCheck, true);
+  assert.equal(parsed.copyMarkdownSource, false);
 });
 
 const failureCases = [
@@ -208,6 +215,7 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.equal(Object.hasOwn(customPage, 'unknown_key'), false);
   assert.doesNotMatch(customPage.content, /title: Custom Front Matter Title|---/);
   assert.equal(previewData.content.pages.some((page) => page.slug === 'draft'), false);
+  assert.equal(buildReport.copy_markdown_source, true);
   assert.equal(buildReport.markdown.skipped_files.length, 1);
   assert.match(buildReport.markdown.skipped_files[0].file, /draft\.md$/);
   assert.equal(buildReport.markdown.skipped_files[0].reason, 'front matter status is "draft".');
@@ -216,10 +224,45 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.match(guideHtml, /href="\/guides\/custom-page"/);
   assert.match(guideHtml, /contains-task-list/);
   assert.match(customHtml, /Body Heading/);
+  assert.match(customHtml, /View this page as Markdown/);
   assert.doesNotMatch(customHtml, /title: Custom Front Matter Title|---/);
   await fs.access(path.join(tempDir, '_site', 'guide.md'));
   await fs.access(path.join(tempDir, '_site', 'custom.md'));
   await fs.access(path.join(tempDir, '.zeropress', 'preview-data.json'));
+});
+
+test('can build without copying original markdown source', async () => {
+  const tempDir = await makeTempDir();
+  const sourceDir = path.join(tempDir, 'docs');
+  await fs.mkdir(sourceDir, { recursive: true });
+  await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nSee [Guide](guide.md).', 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'guide.md'), '# Guide\n\nPrivate source.', 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'README.MD'), '# Uppercase Markdown\n\nPublic passthrough only.', 'utf8');
+
+  await runBuildPages({
+    cwd: tempDir,
+    source: 'docs',
+    destination: '_site',
+    theme: 'docs',
+    skipLinkCheck: true,
+    copyMarkdownSource: false,
+  });
+
+  const guideHtml = await fs.readFile(path.join(tempDir, '_site', 'guide.html'), 'utf8');
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'preview-data.json'), 'utf8'));
+  const buildReport = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'build-report.json'), 'utf8'));
+  const resolvedConfig = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'build-pages-config.json'), 'utf8'));
+  const guidePage = previewData.content.pages.find((page) => page.slug === 'guide');
+
+  assert.equal(buildReport.copy_markdown_source, false);
+  assert.equal(Object.hasOwn(resolvedConfig, 'copy_markdown_source'), false);
+  assert.equal(Object.hasOwn(guidePage.meta, 'source_markdown_url'), false);
+  assert.doesNotMatch(guideHtml, /View this page as Markdown/);
+  assert.equal(await pathExists(path.join(tempDir, '_site', 'index.md')), false);
+  assert.equal(await pathExists(path.join(tempDir, '_site', 'guide.md')), false);
+  assert.equal(await pathExists(path.join(tempDir, '_site', 'README.MD')), false);
+  await fs.access(path.join(tempDir, '_site', 'index.html'));
+  await fs.access(path.join(tempDir, '_site', 'guide.html'));
 });
 
 test('rejects repository root source before touching internal working files', async () => {
@@ -436,7 +479,7 @@ test('link checker reports broken links without throwing', async () => {
 
 test('action metadata and entrypoint use supported inputs', async () => {
   const action = await fs.readFile(path.join(packageDir, 'action.yml'), 'utf8');
-  for (const inputName of ['source', 'destination', 'theme', 'theme-path', 'config', 'site-url', 'skip-untitled-markdown', 'skip-link-check']) {
+  for (const inputName of ['source', 'destination', 'theme', 'theme-path', 'config', 'site-url', 'skip-untitled-markdown', 'skip-link-check', 'copy-markdown-source']) {
     assert.match(action, new RegExp(`\\n  ${inputName}:`));
   }
   assert.match(action, /default: \.\/docs/);
@@ -458,6 +501,26 @@ test('action metadata and entrypoint use supported inputs', async () => {
 
   assert.equal(result.status, 0, result.stderr);
   await fs.access(path.join(tempDir, '_site', 'index.html'));
+  await fs.access(path.join(tempDir, '_site', 'index.md'));
+
+  const privateTempDir = await makeTempDir();
+  await fs.mkdir(path.join(privateTempDir, 'docs'), { recursive: true });
+  await fs.writeFile(path.join(privateTempDir, 'docs', 'index.md'), '# Private Home\n\nAction build.', 'utf8');
+  const privateResult = spawnSync(process.execPath, [actionPath], {
+    cwd: privateTempDir,
+    env: {
+      ...process.env,
+      INPUT_DESTINATION: '_site',
+      INPUT_THEME: 'docs',
+      INPUT_SKIP_LINK_CHECK: 'true',
+      INPUT_COPY_MARKDOWN_SOURCE: 'false',
+    },
+    encoding: 'utf8',
+  });
+
+  assert.equal(privateResult.status, 0, privateResult.stderr);
+  await fs.access(path.join(privateTempDir, '_site', 'index.html'));
+  assert.equal(await pathExists(path.join(privateTempDir, '_site', 'index.md')), false);
 });
 
 function runPrebuild(caseName, env = {}) {
@@ -487,4 +550,16 @@ function normalizeOutput(value) {
 
 async function makeTempDir() {
   return fs.mkdtemp(path.join(os.tmpdir(), 'zeropress-build-pages-'));
+}
+
+async function pathExists(targetPath) {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return false;
+    }
+    throw error;
+  }
 }

@@ -118,6 +118,7 @@ That is equivalent to:
     theme: docs
     skip-untitled-markdown: false
     skip-link-check: false
+    copy-markdown-source: true
 ```
 
 Custom input example:
@@ -131,6 +132,7 @@ Custom input example:
     theme-path: ./theme-docs
     config: ./documents/.zeropress/config.json
     site-url: https://example.com/docs
+    copy-markdown-source: false
 ```
 
 In the action inputs:
@@ -143,6 +145,7 @@ In the action inputs:
 - `site-url` overrides the canonical site URL from config.
 - `skip-untitled-markdown` skips Markdown files without a page title instead of failing. The default is `false`.
 - `skip-link-check` skips internal link checking after build. The default is `false`.
+- `copy-markdown-source` copies original Markdown files to the generated output and enables `View this page as Markdown` links in the bundled docs theme. The default is `true`.
 
 For GitHub Pages, the generated `destination` directory can be passed to `actions/upload-pages-artifact`. For Cloudflare Pages, Netlify, Vercel, or another static host, pass the same `destination` directory to that provider's deploy step.
 
@@ -188,6 +191,7 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | `--site-url <url>` | config `site.url` | Canonical URL override |
 | `--skip-untitled-markdown` | `false` | Skip Markdown without a page title |
 | `--skip-link-check` | `false` | Skip link checking |
+| `--no-copy-markdown-source` | `false` | Do not copy original Markdown files to output |
 
 ## Source Tree
 
@@ -237,7 +241,8 @@ Additional Markdown discovery ignores:
 - Nested `index.md` maps to a directory route, such as `cli/index.md` -> `/cli/`.
 - Other Markdown files map to extensionless routes, such as `cli/tool.md` -> `/cli/tool`.
 - Markdown links to other discovered `.md` files are rewritten to generated public URLs.
-- Original Markdown files remain available as public passthrough files.
+- Original Markdown files remain available as public passthrough files by default.
+- Use `--no-copy-markdown-source` or Action input `copy-markdown-source: false` to keep source Markdown out of the generated output. This also hides bundled theme `View this page as Markdown` links.
 
 Optional YAML front matter is supported at the top of Markdown files:
 
@@ -341,13 +346,13 @@ Build Pages writes internal working files to `.zeropress/` in the current workin
 
 `preview-data.json` is an internal generated build input for the ZeroPress renderer. Most users do not need to edit or understand this file.
 
-`build-report.json` records discovered Markdown counts, skipped Markdown files, front page resolution, and custom HTML slots.
+`build-report.json` records discovered Markdown counts, skipped Markdown files, front page resolution, source Markdown copy policy, and custom HTML slots.
 
 `public-assets/` is a temporary staged public root used before the final ZeroPress render.
 
 ## Destination Output
 
-The `destination` directory contains the deployable static site. It includes generated ZeroPress HTML, copied public files, and original Markdown files unless they are excluded by the public passthrough rules.
+The `destination` directory contains the deployable static site. It includes generated ZeroPress HTML, copied public files, and original Markdown files unless Markdown source copy is disabled or files are excluded by the public passthrough rules.
 
 ## Demo
 

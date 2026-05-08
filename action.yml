@@ -34,6 +34,10 @@ inputs:
     description: Skip internal link checking after the site is built.
     required: false
     default: "false"
+  copy-markdown-source:
+    description: Copy original Markdown files to output and expose View this page as Markdown links.
+    required: false
+    default: "true"
 runs:
   using: node24
   main: dist/action.js
