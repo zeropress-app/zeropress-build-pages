@@ -49,7 +49,7 @@ flowchart TD
   output --> html["HTML pages"]
   output --> assets["Theme assets"]
   output --> copied["Copied public files"]
-  output --> special["sitemap.xml / robots.txt / feed.xml"]
+  output --> special["sitemap.xml / fallback robots.txt / feed.xml"]
 ```
 
 ## Usage
@@ -287,6 +287,7 @@ See the public config reference at [zeropress.dev/build-pages-config](https://ze
     "title": "My Docs",
     "description": "Project documentation",
     "url": "https://example.github.io/project",
+    "indexing": true,
     "footer": {
       "copyright_text": "Copyright 2026 Example Corp.",
       "attribution": {
@@ -326,6 +327,8 @@ HTML front page and `custom_html` files must stay inside `.zeropress/`.
 
 The bundled docs theme shows `Published with ZeroPress.` by default. Set `site.footer.attribution.enabled` to `false` to hide it.
 
+`site.indexing` controls only the generated fallback `robots.txt`. Missing or `true` allows indexing; `false` writes `User-agent: *` / `Disallow: /`. If the source directory contains `robots.txt`, that file is copied as-is and takes priority over `site.indexing`. ZeroPress does not append a `Sitemap` directive to a source-provided `robots.txt`; add `Sitemap: https://example.com/sitemap.xml` manually when needed.
+
 Schemas:
 
 - [ZeroPress Build Pages Config v0.1](https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json)
@@ -352,7 +355,7 @@ Build Pages writes internal working files to `.zeropress/` in the current workin
 
 ## Destination Output
 
-The `destination` directory contains the deployable static site. It includes generated ZeroPress HTML, copied public files, and original Markdown files unless Markdown source copy is disabled or files are excluded by the public passthrough rules.
+The `destination` directory contains the deployable static site. It includes generated ZeroPress HTML, copied public files, and original Markdown files unless Markdown source copy is disabled or files are excluded by the public passthrough rules. A source `robots.txt` is copied as a site-owned policy file; otherwise ZeroPress writes a fallback `robots.txt` with a sitemap directive when `site.url` is available.
 
 ## Demo
 

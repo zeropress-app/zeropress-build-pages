@@ -50,6 +50,12 @@
           "description": "Canonical site URL. Use an empty string or omit this field for local builds without canonical output.",
           "markdownDescription": "Canonical site URL. Use an empty string or omit this field for local builds without canonical output."
         },
+        "indexing": {
+          "type": "boolean",
+          "default": true,
+          "description": "Fallback robots.txt indexing policy. Missing or true allows indexing; false writes a fallback robots.txt that disallows all agents unless the source directory provides robots.txt.",
+          "markdownDescription": "Fallback `robots.txt` indexing policy. Missing or `true` allows indexing; `false` writes a fallback `robots.txt` that disallows all agents unless the source directory provides `robots.txt`."
+        },
         "footer": {
           "$ref": "#/$defs/siteFooter"
         }
@@ -273,12 +279,13 @@
   },
   "examples": [
     {
-      "$schema": "../schemas/zeropress-build-pages.config.v0.1.schema.json",
+      "$schema": "https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json",
       "version": "0.1",
       "site": {
         "title": "ZeroPress Public Docs",
         "description": "Public documentation.",
-        "url": "https://zeropress.dev"
+        "url": "https://zeropress.dev",
+        "indexing": true
       },
       "front_page": {
         "type": "markdown"

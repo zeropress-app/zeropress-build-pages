@@ -1,0 +1,2 @@
+[zeropress-prebuild] Invalid site config: test/fixtures/prebuild-errors/invalid-site-indexing/documents/.zeropress/config.json
+Reason: site.indexing must be a boolean when provided.

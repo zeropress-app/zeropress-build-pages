@@ -234,6 +234,7 @@ function buildSiteData(config, frontPage) {
       enabled: false,
     },
     disallowComments: true,
+    indexing: configuredSite.indexing !== false,
   };
 
   if (configuredSite.footer) {
@@ -268,11 +269,12 @@ function normalizeSiteConfig(value) {
   }
 
   const configuredSite = isPlainObject(value) ? value : {};
-  assertKnownConfigKeys(configuredSite, ['title', 'description', 'url', 'footer'], 'site');
+  assertKnownConfigKeys(configuredSite, ['title', 'description', 'url', 'indexing', 'footer'], 'site');
   const site = {
     title: readConfigString(configuredSite.title, 'Documentation'),
     description: readConfigString(configuredSite.description, 'A documentation site.'),
     url: readEnv('ZEROPRESS_SITE_URL', readConfigString(configuredSite.url, '')),
+    indexing: readConfigBoolean(configuredSite.indexing, true, 'site.indexing'),
   };
 
   const footer = normalizeFooter(configuredSite.footer);
@@ -314,6 +316,16 @@ function normalizeFooter(value) {
   }
 
   return Object.keys(footer).length ? footer : undefined;
+}
+
+function readConfigBoolean(value, fallback, pathName) {
+  if (value === undefined) {
+    return fallback;
+  }
+  if (typeof value !== 'boolean') {
+    throw new PrebuildConfigError(`${pathName} must be a boolean when provided.`);
+  }
+  return value;
 }
 
 async function buildFrontPageData(frontPageConfig, pageInputs, config) {

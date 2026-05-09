@@ -104,6 +104,7 @@ const failureCases = [
   'invalid-html-front-page-path',
   'missing-html-front-page-file',
   'missing-custom-html-file',
+  'invalid-site-indexing',
   'removed-site-field',
   'malformed-front-matter',
   'invalid-front-matter-path',
@@ -202,6 +203,7 @@ test('builds a source directory without config and preserves markdown passthroug
   const homePage = previewData.content.pages.find((page) => page.slug === 'index');
   const customPage = previewData.content.pages.find((page) => page.slug === 'custom-page');
 
+  assert.equal(previewData.site.indexing, true);
   assert.equal(homePage.title, 'Front Matter Home');
   assert.equal(homePage.excerpt, 'Home from front matter.');
   assert.equal(customPage.title, 'Custom Front Matter Title');
@@ -263,6 +265,34 @@ test('can build without copying original markdown source', async () => {
   assert.equal(await pathExists(path.join(tempDir, '_site', 'README.MD')), false);
   await fs.access(path.join(tempDir, '_site', 'index.html'));
   await fs.access(path.join(tempDir, '_site', 'guide.html'));
+});
+
+test('uses source robots.txt before generated fallback robots', async () => {
+  const tempDir = await makeTempDir();
+  const sourceDir = path.join(tempDir, 'docs');
+  await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
+  await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nRobots test.', 'utf8');
+  await fs.writeFile(
+    path.join(sourceDir, 'robots.txt'),
+    'User-agent: *\nDisallow: /\n\nUser-agent: Cloudflare-AI-Search\nAllow: /\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
+    site: {
+      indexing: true,
+    },
+  }), 'utf8');
+
+  await runBuildPages({
+    cwd: tempDir,
+    source: 'docs',
+    destination: '_site',
+    theme: 'docs',
+    skipLinkCheck: true,
+  });
+
+  const robotsTxt = await fs.readFile(path.join(tempDir, '_site', 'robots.txt'), 'utf8');
+  assert.equal(robotsTxt, 'User-agent: *\nDisallow: /\n\nUser-agent: Cloudflare-AI-Search\nAllow: /\n');
 });
 
 test('rejects repository root source before touching internal working files', async () => {
@@ -361,6 +391,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
       title: 'Configured Docs',
       description: 'A configured docs site.',
       url: 'https://config.example',
+      indexing: false,
       footer: {
         copyright_text: 'Copyright 2026 Example Corp.',
         attribution: {
@@ -398,9 +429,11 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   });
 
   const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
+  const robotsTxt = await fs.readFile(path.join(tempDir, '_site', 'robots.txt'), 'utf8');
   assert.match(indexHtml, /Configured Docs/);
   assert.match(indexHtml, /Copyright 2026 Example Corp\./);
   assert.doesNotMatch(indexHtml, /Published with/);
+  assert.equal(robotsTxt.trim(), 'User-agent: *\nDisallow: /');
   const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'preview-data.json'), 'utf8'));
   assert.equal(previewData.$schema, 'https://zeropress.dev/schemas/preview-data.v0.5.schema.json');
   assert.deepEqual(previewData.custom_html, {
@@ -421,6 +454,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.equal(previewData.site.dateFormat, 'YYYY-MM-DD');
   assert.equal(previewData.site.timeFormat, 'HH:mm');
   assert.equal(previewData.site.timezone, 'UTC');
+  assert.equal(previewData.site.indexing, false);
   assert.deepEqual(previewData.site.permalinks, {
     output_style: 'html-extension',
     posts: '/posts/:slug/',
@@ -445,6 +479,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     title: 'Configured Docs',
     description: 'A configured docs site.',
     url: 'https://override.example',
+    indexing: false,
     footer: {
       copyright_text: 'Copyright 2026 Example Corp.',
       attribution: {
