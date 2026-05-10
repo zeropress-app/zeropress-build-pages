@@ -177,6 +177,10 @@ test('builds a source directory without config and preserves markdown passthroug
     '',
     'Custom content.',
   ].join('\n'), 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'favicon.ico'), 'icon', 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'favicon.svg'), '<svg></svg>', 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'favicon.png'), 'png', 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'apple-touch-icon.png'), 'apple', 'utf8');
   await fs.writeFile(path.join(sourceDir, 'draft.md'), [
     '---',
     'status: draft',
@@ -222,6 +226,10 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.match(buildReport.markdown.skipped_files[0].file, /draft\.md$/);
   assert.equal(buildReport.markdown.skipped_files[0].reason, 'front matter status is "draft".');
   assert.match(indexHtml, /Front Matter Home/);
+  assert.match(indexHtml, /<link rel="icon" href="\/favicon\.ico" sizes="any">/);
+  assert.match(indexHtml, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
+  assert.match(indexHtml, /<link rel="icon" href="\/favicon\.png" type="image\/png">/);
+  assert.match(indexHtml, /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png">/);
   assert.match(indexHtml, /href="\/guide"/);
   assert.match(guideHtml, /href="\/guides\/custom-page"/);
   assert.match(guideHtml, /contains-task-list/);
@@ -230,6 +238,10 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.doesNotMatch(customHtml, /title: Custom Front Matter Title|---/);
   await fs.access(path.join(tempDir, '_site', 'guide.md'));
   await fs.access(path.join(tempDir, '_site', 'custom.md'));
+  await fs.access(path.join(tempDir, '_site', 'favicon.ico'));
+  await fs.access(path.join(tempDir, '_site', 'favicon.svg'));
+  await fs.access(path.join(tempDir, '_site', 'favicon.png'));
+  await fs.access(path.join(tempDir, '_site', 'apple-touch-icon.png'));
   await fs.access(path.join(tempDir, '.zeropress', 'preview-data.json'));
 });
 

@@ -40,7 +40,7 @@
     "node": ">=18.18.0"
   },
   "dependencies": {
-    "@zeropress/build": "0.5.1",
+    "@zeropress/build": "0.5.2",
     "gray-matter": "4.0.3"
   },
   "devDependencies": {
