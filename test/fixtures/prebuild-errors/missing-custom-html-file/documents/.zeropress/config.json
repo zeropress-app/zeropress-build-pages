@@ -1,0 +1,7 @@
+{
+  "custom_html": {
+    "head_end": {
+      "file": ".zeropress/head-end.html"
+    }
+  }
+}

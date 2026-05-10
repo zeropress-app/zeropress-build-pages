@@ -1,4 +1,3 @@
 node_modules/
-.zeropress/
-_site/
+/.zeropress/
 .DS_Store
