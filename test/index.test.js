@@ -406,9 +406,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
       indexing: false,
       footer: {
         copyright_text: 'Copyright 2026 Example Corp.',
-        attribution: {
-          enabled: false,
-        },
+        attribution: false,
       },
     },
     front_page: {
@@ -447,7 +445,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.doesNotMatch(indexHtml, /Published with/);
   assert.equal(robotsTxt.trim(), 'User-agent: *\nDisallow: /');
   const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'preview-data.json'), 'utf8'));
-  assert.equal(previewData.$schema, 'https://zeropress.dev/schemas/preview-data.v0.5.schema.json');
+  assert.equal(previewData.$schema, 'https://zeropress.dev/schemas/preview-data.v0.6.schema.json');
   assert.deepEqual(previewData.custom_html, {
     head_end: {
       content: '<meta name="test-head" content="ok">',
@@ -455,16 +453,14 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   });
   assert.deepEqual(previewData.site.footer, {
     copyright_text: 'Copyright 2026 Example Corp.',
-    attribution: {
-      enabled: false,
-    },
+    attribution: false,
   });
   assert.equal(previewData.site.url, 'https://override.example');
-  assert.equal(previewData.site.mediaBaseUrl, '');
+  assert.equal(previewData.site.media_base_url, '');
   assert.equal(previewData.site.locale, 'en-US');
-  assert.equal(previewData.site.postsPerPage, 10);
-  assert.equal(previewData.site.dateFormat, 'YYYY-MM-DD');
-  assert.equal(previewData.site.timeFormat, 'HH:mm');
+  assert.equal(previewData.site.posts_per_page, 10);
+  assert.equal(previewData.site.date_format, 'YYYY-MM-DD');
+  assert.equal(previewData.site.time_format, 'HH:mm');
   assert.equal(previewData.site.timezone, 'UTC');
   assert.equal(previewData.site.indexing, false);
   assert.deepEqual(previewData.site.permalinks, {
@@ -474,7 +470,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     categories: '/categories/:slug/',
     tags: '/tags/:slug/',
   });
-  assert.equal(previewData.site.disallowComments, true);
+  assert.equal(previewData.site.disallow_comments, true);
   const resolvedConfig = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'build-pages-config.json'), 'utf8'));
   assert.equal(resolvedConfig.$schema, 'https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json');
   assert.equal(resolvedConfig.version, '0.1');
@@ -494,12 +490,10 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     indexing: false,
     footer: {
       copyright_text: 'Copyright 2026 Example Corp.',
-      attribution: {
-        enabled: false,
-      },
+      attribution: false,
     },
   });
-  for (const key of ['mediaBaseUrl', 'locale', 'postsPerPage', 'dateFormat', 'timeFormat', 'timezone', 'permalinks', 'disallowComments']) {
+  for (const key of ['media_base_url', 'locale', 'posts_per_page', 'date_format', 'time_format', 'timezone', 'permalinks', 'disallow_comments']) {
     assert.equal(Object.hasOwn(resolvedConfig.site, key), false);
   }
   assert.deepEqual(resolvedConfig.menus.primary.items[1], {

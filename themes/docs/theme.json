@@ -2,16 +2,16 @@
   "name": "ZeroPress Build Pages Docs",
   "namespace": "zeropress",
   "slug": "zeropress-docs",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "license": "MIT",
-  "runtime": "0.5",
+  "runtime": "0.6",
   "description": "Bundled documentation theme for @zeropress/build-pages",
   "features": {
     "comments": false,
     "newsletter": false,
-    "postIndex": false
+    "post_index": false
   },
-  "menuSlots": {
+  "menu_slots": {
     "primary": {
       "title": "Primary navigation",
       "description": "Top-level documentation navigation"

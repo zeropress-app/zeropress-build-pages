@@ -292,9 +292,7 @@ See the public config reference at [zeropress.dev/build-pages-config](https://ze
     "indexing": true,
     "footer": {
       "copyright_text": "Copyright 2026 Example Corp.",
-      "attribution": {
-        "enabled": true
-      }
+      "attribution": true
     }
   },
   "front_page": {
@@ -327,7 +325,7 @@ HTML front page and `custom_html` files must stay inside `.zeropress/`.
 
 `site.footer.copyright_text` is rendered by the bundled docs theme when present. If it is omitted, the bundled docs theme falls back to `site.title`. ZeroPress does not add a copyright symbol automatically.
 
-The bundled docs theme shows `Published with ZeroPress.` by default. Set `site.footer.attribution.enabled` to `false` to hide it.
+The bundled docs theme shows `Published with ZeroPress.` by default. Set `site.footer.attribution` to `false` to hide it.
 
 `site.indexing` controls only the generated fallback `robots.txt`. Missing or `true` allows indexing; `false` writes `User-agent: *` / `Disallow: /`. If the source directory contains `robots.txt`, that file is copied as-is and takes priority over `site.indexing`. ZeroPress does not append a `Sitemap` directive to a source-provided `robots.txt`; add `Sitemap: https://example.com/sitemap.xml` manually when needed.
 

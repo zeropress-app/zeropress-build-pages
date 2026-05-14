@@ -74,17 +74,6 @@
           "markdownDescription": "Footer copyright or legal text. ZeroPress does not add a copyright symbol automatically."
         },
         "attribution": {
-          "$ref": "#/$defs/siteFooterAttribution"
-        }
-      }
-    },
-    "siteFooterAttribution": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Optional ZeroPress attribution display policy for themes.",
-      "markdownDescription": "Optional ZeroPress attribution display policy for themes.",
-      "properties": {
-        "enabled": {
           "type": "boolean",
           "description": "When false, bundled themes hide the Published with ZeroPress attribution. Missing or true means attribution may be shown.",
           "markdownDescription": "When `false`, bundled themes hide the Published with ZeroPress attribution. Missing or `true` means attribution may be shown."
