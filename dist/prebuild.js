@@ -3534,7 +3534,7 @@ var skipUntitledMarkdown = readBooleanEnv("ZEROPRESS_SKIP_UNTITLED_MARKDOWN");
 var copyMarkdownSource = readBooleanEnv("ZEROPRESS_COPY_MARKDOWN_SOURCE", true);
 var FRONT_PAGE_TYPES = /* @__PURE__ */ new Set(["theme_index", "markdown", "html"]);
 var BUILD_PAGES_CONFIG_SCHEMA_URL = "https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json";
-var PREVIEW_DATA_SCHEMA_URL = "https://zeropress.dev/schemas/preview-data.v0.5.schema.json";
+var PREVIEW_DATA_SCHEMA_URL = "https://zeropress.dev/schemas/preview-data.v0.6.schema.json";
 var PrebuildMarkdownError = class extends Error {
   constructor(sourcePath, reason, expected = "", code = "invalid_markdown") {
     super(reason);
@@ -3621,7 +3621,7 @@ async function main() {
   const customHtml = await buildCustomHtmlData(customHtmlConfig);
   const previewData = {
     $schema: PREVIEW_DATA_SCHEMA_URL,
-    version: "0.5",
+    version: "0.6",
     generator: "zeropress-build-pages",
     generated_at: (/* @__PURE__ */ new Date()).toISOString(),
     site,
@@ -3719,18 +3719,18 @@ function buildSiteData(config, frontPage) {
     title: configuredSite.title,
     description: configuredSite.description,
     url: configuredSite.url,
-    mediaBaseUrl: "",
+    media_base_url: "",
     locale: "en-US",
-    postsPerPage: 10,
-    dateFormat: "YYYY-MM-DD",
-    timeFormat: "HH:mm",
+    posts_per_page: 10,
+    date_format: "YYYY-MM-DD",
+    time_format: "HH:mm",
     timezone: "UTC",
     permalinks: defaultPermalinks(),
     front_page: frontPage,
     post_index: {
       enabled: false
     },
-    disallowComments: true,
+    disallow_comments: true,
     indexing: configuredSite.indexing !== false
   };
   if (configuredSite.footer) {
@@ -3785,19 +3785,11 @@ function normalizeFooter(value) {
   if (copyrightText) {
     footer.copyright_text = copyrightText;
   }
-  if (value.attribution !== void 0 && !isPlainObject(value.attribution)) {
-    throw new PrebuildConfigError("site.footer.attribution must be an object.");
-  }
-  if (isPlainObject(value.attribution)) {
-    assertKnownConfigKeys(value.attribution, ["enabled"], "site.footer.attribution");
-    if (value.attribution.enabled !== void 0 && typeof value.attribution.enabled !== "boolean") {
-      throw new PrebuildConfigError("site.footer.attribution.enabled must be a boolean when provided.");
+  if (value.attribution !== void 0) {
+    if (typeof value.attribution !== "boolean") {
+      throw new PrebuildConfigError("site.footer.attribution must be a boolean when provided.");
     }
-  }
-  if (isPlainObject(value.attribution) && typeof value.attribution.enabled === "boolean") {
-    footer.attribution = {
-      enabled: value.attribution.enabled
-    };
+    footer.attribution = value.attribution;
   }
   return Object.keys(footer).length ? footer : void 0;
 }
@@ -4305,7 +4297,7 @@ function normalizeFrontMatterRoutePath(value, sourcePath) {
     throw new PrebuildMarkdownError(
       sourcePath,
       "front matter path must be a safe generated route path.",
-      "  path: guides/install\n  path: spec/preview-data-v0.5"
+      "  path: guides/install\n  path: spec/preview-data-v0.6"
     );
   }
   return routePath;
