@@ -60417,7 +60417,13 @@ async function buildSite(input2) {
   if (options2.generateSpecialFiles) {
     await maybeRenderNotFoundPage(state);
     if (hasCanonicalSiteUrl(state.previewData.site.url)) {
-      await writeOutput(state.writer, state.summaries, "sitemap.xml", buildSitemapXml(state.previewData.site, state.emitted, state.generatedAt), "application/xml");
+      await writeOutput(
+        state.writer,
+        state.summaries,
+        "sitemap.xml",
+        buildSitemapXml(state.previewData.site, state.emitted, state.generatedAt, options2.sitemapStylesheetHref),
+        "application/xml"
+      );
       await writeOutput(state.writer, state.summaries, "feed.xml", buildFeedXml(state.previewData.site, state.emitted, state.generatedAt), "application/rss+xml");
     }
     if (shouldGenerateRobotsTxt(options2)) {
@@ -62385,7 +62391,7 @@ function injectCustomHtml(html, customHtml) {
   }
   return next;
 }
-function buildSitemapXml(site, emitted, generatedAt) {
+function buildSitemapXml(site, emitted, generatedAt, stylesheetHref = "") {
   const entries = [
     ...emitted.frontPage ? [{
       url: emitted.frontPage.url,
@@ -62419,7 +62425,10 @@ function buildSitemapXml(site, emitted, generatedAt) {
     <priority>${entry.priority.toFixed(1)}</priority>
   </url>`;
   }).join("\n");
-  return `<?xml version="1.0" encoding="UTF-8"?>
+  const normalizedStylesheetHref = normalizeOptionalString(stylesheetHref);
+  const stylesheet = normalizedStylesheetHref ? `
+<?xml-stylesheet type="text/xsl" href="${escapeXml(normalizedStylesheetHref)}"?>` : "";
+  return `<?xml version="1.0" encoding="UTF-8"?>${stylesheet}
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${body}
 </urlset>`;
@@ -62628,6 +62637,7 @@ var PUBLIC_FAVICON_FILES = Object.freeze({
   png: "favicon.png",
   apple_touch_icon: "apple-touch-icon.png"
 });
+var PUBLIC_SITEMAP_STYLESHEET_FILE = "sitemap.xsl";
 async function assertThemeDirectory(themeDir) {
   let stat;
   try {
@@ -62650,6 +62660,7 @@ async function runBuild(themeDir, previewData, outDir, options2 = {}) {
   await assertEmptyOutputDirectory(outDir);
   const hasPublicRobotsTxt = await publicRobotsTxtExists(publicDir);
   const publicFavicon = await discoverPublicFavicon(publicDir);
+  const sitemapStylesheetHref = await discoverPublicSitemapStylesheet(publicDir);
   await copyPublicDirectory(publicDir, outDir);
   const writer = new GeneratedOutputWriter({ outDir });
   return buildSiteFromThemeDir({
@@ -62658,6 +62669,7 @@ async function runBuild(themeDir, previewData, outDir, options2 = {}) {
     writer,
     options: {
       favicon: publicFavicon,
+      sitemapStylesheetHref,
       generateRobotsTxt: !hasPublicRobotsTxt
     }
   });
@@ -62748,6 +62760,18 @@ async function discoverPublicFavicon(publicDir) {
     }
   }
   return Object.keys(favicon).length ? favicon : void 0;
+}
+async function discoverPublicSitemapStylesheet(publicDir) {
+  let stat;
+  try {
+    stat = await fs.lstat(path.join(publicDir, PUBLIC_SITEMAP_STYLESHEET_FILE));
+  } catch (error) {
+    if (error && (error.code === "ENOENT" || error.code === "ENOTDIR")) {
+      return void 0;
+    }
+    throw error;
+  }
+  return stat.isFile() ? `/${PUBLIC_SITEMAP_STYLESHEET_FILE}` : void 0;
 }
 async function copyPublicEntries(sourceDir, targetDir) {
   const entries = await fs.readdir(sourceDir, { withFileTypes: true });

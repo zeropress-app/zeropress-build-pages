@@ -182,6 +182,7 @@ test('builds a source directory without config and preserves markdown passthroug
   await fs.writeFile(path.join(sourceDir, 'favicon.svg'), '<svg></svg>', 'utf8');
   await fs.writeFile(path.join(sourceDir, 'favicon.png'), 'png', 'utf8');
   await fs.writeFile(path.join(sourceDir, 'apple-touch-icon.png'), 'apple', 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'sitemap.xsl'), '<xsl:stylesheet version="1.0"></xsl:stylesheet>', 'utf8');
   await fs.writeFile(path.join(sourceDir, 'draft.md'), [
     '---',
     'status: draft',
@@ -197,6 +198,7 @@ test('builds a source directory without config and preserves markdown passthroug
     source: 'docs',
     destination: '_site',
     theme: 'docs',
+    siteUrl: 'https://example.com',
     skipLinkCheck: false,
   });
 
@@ -245,6 +247,11 @@ test('builds a source directory without config and preserves markdown passthroug
   await fs.access(path.join(tempDir, '_site', 'favicon.svg'));
   await fs.access(path.join(tempDir, '_site', 'favicon.png'));
   await fs.access(path.join(tempDir, '_site', 'apple-touch-icon.png'));
+  await fs.access(path.join(tempDir, '_site', 'sitemap.xsl'));
+  assert.match(
+    await fs.readFile(path.join(tempDir, '_site', 'sitemap.xml'), 'utf8'),
+    /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<\?xml-stylesheet type="text\/xsl" href="\/sitemap\.xsl"\?>\n<urlset/,
+  );
   await fs.access(path.join(tempDir, '.zeropress', 'preview-data.json'));
 });
 

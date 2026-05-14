@@ -215,6 +215,8 @@ Build Pages stages the source tree before calling [`@zeropress/build`](https://g
 
 Root-level source favicon files named `favicon.ico`, `favicon.svg`, `favicon.png`, and `apple-touch-icon.png` are copied to the destination and auto-injected into generated HTML `<head>` output.
 
+A root-level source `sitemap.xsl` is copied to the destination. When ZeroPress generates `sitemap.xml`, it auto-discovers that file and adds an XML stylesheet processing instruction for `/sitemap.xsl`.
+
 The source directory must not overlap the destination directory, the selected theme directory, or the internal `.zeropress/` working directory.
 
 Ignored while staging and Markdown discovery:
@@ -358,7 +360,7 @@ Build Pages writes internal working files to `.zeropress/` in the current workin
 
 ## Destination Output
 
-The `destination` directory contains the deployable static site. It includes generated ZeroPress HTML, copied public files, and original Markdown files unless Markdown source copy is disabled or files are excluded by the public passthrough rules. A source `robots.txt` is copied as a site-owned policy file; otherwise ZeroPress writes a fallback `robots.txt` with a sitemap directive when `site.url` is available. Root-level source favicon files are copied and represented as generated HTML head links.
+The `destination` directory contains the deployable static site. It includes generated ZeroPress HTML, copied public files, and original Markdown files unless Markdown source copy is disabled or files are excluded by the public passthrough rules. A source `robots.txt` is copied as a site-owned policy file; otherwise ZeroPress writes a fallback `robots.txt` with a sitemap directive when `site.url` is available. Root-level source favicon files are copied and represented as generated HTML head links. A root-level source `sitemap.xsl` is copied and linked from generated `sitemap.xml`.
 
 ## Demo
 
