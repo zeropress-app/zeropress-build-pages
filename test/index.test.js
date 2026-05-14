@@ -105,6 +105,7 @@ const failureCases = [
   'missing-html-front-page-file',
   'missing-custom-html-file',
   'invalid-site-indexing',
+  'invalid-site-expose-generator',
   'removed-site-field',
   'malformed-front-matter',
   'invalid-front-matter-path',
@@ -208,6 +209,7 @@ test('builds a source directory without config and preserves markdown passthroug
   const customPage = previewData.content.pages.find((page) => page.slug === 'custom-page');
 
   assert.equal(previewData.site.indexing, true);
+  assert.equal(previewData.site.expose_generator, true);
   assert.equal(homePage.title, 'Front Matter Home');
   assert.equal(homePage.excerpt, 'Home from front matter.');
   assert.equal(customPage.title, 'Custom Front Matter Title');
@@ -226,6 +228,7 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.match(buildReport.markdown.skipped_files[0].file, /draft\.md$/);
   assert.equal(buildReport.markdown.skipped_files[0].reason, 'front matter status is "draft".');
   assert.match(indexHtml, /Front Matter Home/);
+  assert.match(indexHtml, /<meta name="generator" content="ZeroPress">/);
   assert.match(indexHtml, /<link rel="icon" href="\/favicon\.ico" sizes="any">/);
   assert.match(indexHtml, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
   assert.match(indexHtml, /<link rel="icon" href="\/favicon\.png" type="image\/png">/);
@@ -403,6 +406,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
       title: 'Configured Docs',
       description: 'A configured docs site.',
       url: 'https://config.example',
+      expose_generator: false,
       indexing: false,
       footer: {
         copyright_text: 'Copyright 2026 Example Corp.',
@@ -443,6 +447,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.match(indexHtml, /Configured Docs/);
   assert.match(indexHtml, /Copyright 2026 Example Corp\./);
   assert.doesNotMatch(indexHtml, /Published with/);
+  assert.doesNotMatch(indexHtml, /<meta name="generator" content="ZeroPress">/);
   assert.equal(robotsTxt.trim(), 'User-agent: *\nDisallow: /');
   const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'preview-data.json'), 'utf8'));
   assert.equal(previewData.$schema, 'https://zeropress.dev/schemas/preview-data.v0.6.schema.json');
@@ -462,6 +467,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.equal(previewData.site.date_format, 'YYYY-MM-DD');
   assert.equal(previewData.site.time_format, 'HH:mm');
   assert.equal(previewData.site.timezone, 'UTC');
+  assert.equal(previewData.site.expose_generator, false);
   assert.equal(previewData.site.indexing, false);
   assert.deepEqual(previewData.site.permalinks, {
     output_style: 'html-extension',
@@ -487,6 +493,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     title: 'Configured Docs',
     description: 'A configured docs site.',
     url: 'https://override.example',
+    expose_generator: false,
     indexing: false,
     footer: {
       copyright_text: 'Copyright 2026 Example Corp.',

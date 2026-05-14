@@ -50,6 +50,12 @@
           "description": "Canonical site URL. Use an empty string or omit this field for local builds without canonical output.",
           "markdownDescription": "Canonical site URL. Use an empty string or omit this field for local builds without canonical output."
         },
+        "expose_generator": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether generated HTML should expose the ZeroPress generator meta tag. Set false for white-label sites.",
+          "markdownDescription": "Whether generated HTML should expose `<meta name=\"generator\" content=\"ZeroPress\">`. Set `false` for white-label sites."
+        },
         "indexing": {
           "type": "boolean",
           "default": true,
@@ -274,6 +280,7 @@
         "title": "ZeroPress Public Docs",
         "description": "Public documentation.",
         "url": "https://zeropress.dev",
+        "expose_generator": true,
         "indexing": true
       },
       "front_page": {

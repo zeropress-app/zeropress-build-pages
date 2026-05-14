@@ -52307,6 +52307,7 @@ function validateSite(site, path4, errors) {
     "media_base_url",
     "media_delivery_mode",
     "favicon",
+    "expose_generator",
     "locale",
     "posts_per_page",
     "date_format",
@@ -52332,6 +52333,9 @@ function validateSite(site, path4, errors) {
   }
   if (site.favicon !== void 0) {
     validateSiteFavicon(site.favicon, `${path4}.favicon`, errors);
+  }
+  if (site.expose_generator !== void 0) {
+    validateBoolean(site.expose_generator, `${path4}.expose_generator`, "INVALID_SITE_EXPOSE_GENERATOR", errors);
   }
   validateNonEmptyString(site.locale, `${path4}.locale`, "INVALID_SITE_LOCALE", errors);
   validateInteger(site.posts_per_page, `${path4}.posts_per_page`, "INVALID_SITE_POSTS_PER_PAGE", errors, { minimum: 1 });
@@ -52923,7 +52927,7 @@ function isOptionalKey(path4, key) {
     return key === "head_end" || key === "body_end";
   }
   if (path4 === "site") {
-    return key === "media_delivery_mode" || key === "favicon" || key === "indexing" || key === "permalinks" || key === "front_page" || key === "post_index" || key === "footer" || key === "meta";
+    return key === "media_delivery_mode" || key === "favicon" || key === "expose_generator" || key === "indexing" || key === "permalinks" || key === "front_page" || key === "post_index" || key === "footer" || key === "meta";
   }
   if (path4 === "site.favicon") {
     return key === "icon" || key === "svg" || key === "png" || key === "apple_touch_icon";
@@ -53193,6 +53197,7 @@ var FOR_TAG_REGEX = new RegExp(`^#for ([a-zA-Z_][a-zA-Z0-9_]*) in (${TEMPLATE_PA
 var IF_EQ_EXPRESSION_REGEX = new RegExp(`^(${TEMPLATE_PATH_SEGMENT_SOURCE}(?:\\.${TEMPLATE_PATH_SEGMENT_SOURCE})*)\\s+("(?:[^"\\\\]|\\\\.)*")$`);
 var PARTIAL_ARG_KEY_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 var SEMVER_REGEX = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+var LICENSE_REF_REGEX = /^LicenseRef-[A-Za-z0-9][A-Za-z0-9.-]*$/;
 var NAMESPACE_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 var SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 var ALLOWED_LICENSES = [
@@ -53203,6 +53208,8 @@ var ALLOWED_LICENSES = [
   "GPL-3.0-or-later"
 ];
 var LICENSES = new Set(ALLOWED_LICENSES);
+var THEME_LINK_KEYS = /* @__PURE__ */ new Set(["homepage", "repository", "documentation", "support", "marketplace", "license"]);
+var THEME_LINK_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:", "mailto:"]);
 var DEFAULT_RUNTIME = "0.6";
 var SUPPORTED_RUNTIMES = [DEFAULT_RUNTIME];
 var SUPPORTED_RUNTIME_SET = new Set(SUPPORTED_RUNTIMES);
@@ -53230,6 +53237,7 @@ var THEME_MANIFEST_KEYS = /* @__PURE__ */ new Set([
   "author",
   "description",
   "thumbnail",
+  "links",
   "features",
   "menu_slots",
   "widget_areas",
@@ -53276,6 +53284,64 @@ function validateFeatureFlags(rawValue, errors) {
     normalizedFeatures[featureName] = value;
   }
   return Object.keys(normalizedFeatures).length > 0 ? normalizedFeatures : void 0;
+}
+function isAllowedLicense(value) {
+  return LICENSES.has(value) || LICENSE_REF_REGEX.test(value);
+}
+function isValidThemeLinkUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return THEME_LINK_PROTOCOLS.has(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+function validateThemeLinks(rawValue, errors) {
+  if (rawValue === void 0) {
+    return void 0;
+  }
+  if (!rawValue || typeof rawValue !== "object" || Array.isArray(rawValue)) {
+    errors.push(issue2(
+      "INVALID_LINKS",
+      "theme.json.links",
+      "theme.json field 'links' must be an object when present",
+      "error"
+    ));
+    return void 0;
+  }
+  const normalizedLinks = {};
+  for (const [linkKey, value] of Object.entries(rawValue)) {
+    if (!THEME_LINK_KEYS.has(linkKey)) {
+      errors.push(issue2(
+        "INVALID_THEME_LINK",
+        `theme.json.links.${linkKey}`,
+        `Unknown theme link '${linkKey}'`,
+        "error"
+      ));
+      continue;
+    }
+    if (typeof value !== "string" || value.trim() === "") {
+      errors.push(issue2(
+        "INVALID_THEME_LINK_VALUE",
+        `theme.json.links.${linkKey}`,
+        `theme link '${linkKey}' must be a non-empty URL string`,
+        "error"
+      ));
+      continue;
+    }
+    const normalizedValue = value.trim();
+    if (!isValidThemeLinkUrl(normalizedValue)) {
+      errors.push(issue2(
+        "INVALID_THEME_LINK_VALUE",
+        `theme.json.links.${linkKey}`,
+        `theme link '${linkKey}' must be an absolute http, https, or mailto URL`,
+        "error"
+      ));
+      continue;
+    }
+    normalizedLinks[linkKey] = normalizedValue;
+  }
+  return Object.keys(normalizedLinks).length > 0 ? normalizedLinks : void 0;
 }
 function validateHelperMetadataMap(rawValue, fieldName, issueCodes, errors) {
   if (rawValue === void 0) {
@@ -53623,11 +53689,11 @@ function validateManifest(themeJson) {
   if (typeof themeJson.runtime === "string" && !SUPPORTED_RUNTIME_SET.has(themeJson.runtime.trim())) {
     errors.push(issue2("INVALID_RUNTIME_VERSION", "theme.json", `theme.json field 'runtime' must be one of: ${SUPPORTED_RUNTIMES.join(", ")}`, "error"));
   }
-  if (typeof themeJson.license === "string" && !LICENSES.has(themeJson.license.trim())) {
+  if (typeof themeJson.license === "string" && !isAllowedLicense(themeJson.license.trim())) {
     errors.push(issue2(
       "INVALID_LICENSE",
       "theme.json",
-      "theme.json field 'license' must be one of: MIT, Apache-2.0, BSD-3-Clause, GPL-3.0-only, GPL-3.0-or-later",
+      "theme.json field 'license' must be one of: MIT, Apache-2.0, BSD-3-Clause, GPL-3.0-only, GPL-3.0-or-later, or a LicenseRef-* identifier",
       "error"
     ));
   }
@@ -53690,6 +53756,10 @@ function validateManifest(themeJson) {
     } else {
       manifest.thumbnail = themeJson.thumbnail;
     }
+  }
+  const links = validateThemeLinks(themeJson.links, errors);
+  if (links) {
+    manifest.links = links;
   }
   const features = validateFeatureFlags(themeJson.features, errors);
   if (features) {
@@ -60389,6 +60459,7 @@ async function createBuildState(input2, options2) {
     customCssHref: customCssAsset ? `/${customCssAsset.path}` : "",
     customHtml: previewData.custom_html,
     favicon: previewData.site.favicon,
+    exposeGenerator: previewData.site.expose_generator !== false,
     commentPolicyContent: buildCommentPolicyManifest(renderData.posts),
     options: options2,
     generatedAt: /* @__PURE__ */ new Date(),
@@ -60649,6 +60720,7 @@ function normalizePreviewData(previewData, options2 = {}) {
     timezone: normalizeNonEmptyString(previewData.site.timezone, DEFAULT_TIMEZONE),
     locale: normalizeLocale(previewData.site.locale || DEFAULT_LOCALE),
     disallow_comments: previewData.site.disallow_comments === true,
+    expose_generator: previewData.site.expose_generator !== false,
     indexing: previewData.site.indexing !== false,
     permalinks: normalizePermalinks(previewData.site.permalinks),
     front_page: normalizeFrontPage(previewData.site.front_page),
@@ -61791,6 +61863,7 @@ async function normalizeAndValidateThemePackage(themePackage) {
     ...themePackage.metadata.author ? { author: themePackage.metadata.author } : {},
     ...themePackage.metadata.description ? { description: themePackage.metadata.description } : {},
     ...themePackage.metadata.thumbnail ? { thumbnail: themePackage.metadata.thumbnail } : {},
+    ...themePackage.metadata.links ? { links: themePackage.metadata.links } : {},
     ...themePackage.metadata.features ? { features: themePackage.metadata.features } : {},
     ...themePackage.metadata.menu_slots ? { menu_slots: themePackage.metadata.menu_slots } : {},
     ...themePackage.metadata.widget_areas ? { widget_areas: themePackage.metadata.widget_areas } : {},
@@ -62253,6 +62326,7 @@ function sha256(content) {
 }
 function injectSiteCustomizations(html, state) {
   let next = injectFaviconLinks(html, state.favicon);
+  next = injectGeneratorMeta(next, state.exposeGenerator);
   next = injectCustomCssAssetLink(next, state.customCssHref);
   next = injectCustomHtml(next, state.customHtml);
   return next;
@@ -62283,6 +62357,12 @@ function buildFaviconLinks(favicon) {
     lines.push(`  <link rel="apple-touch-icon" href="${escapeHtml2(favicon.apple_touch_icon)}">`);
   }
   return lines.join("\n");
+}
+function injectGeneratorMeta(html, exposeGenerator) {
+  if (exposeGenerator === false) {
+    return html;
+  }
+  return html.replace("</head>", '  <meta name="generator" content="ZeroPress">\n</head>');
 }
 function injectCustomCssAssetLink(html, href) {
   if (!normalizeOptionalString(href)) {

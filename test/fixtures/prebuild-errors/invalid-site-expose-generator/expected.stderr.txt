@@ -1,0 +1,2 @@
+[zeropress-prebuild] Invalid site config: test/fixtures/prebuild-errors/invalid-site-expose-generator/documents/.zeropress/config.json
+Reason: site.expose_generator must be a boolean when provided.
