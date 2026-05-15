@@ -471,8 +471,9 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.equal(previewData.site.media_base_url, '');
   assert.equal(previewData.site.locale, 'en-US');
   assert.equal(previewData.site.posts_per_page, 10);
-  assert.equal(previewData.site.date_format, 'YYYY-MM-DD');
-  assert.equal(previewData.site.time_format, 'HH:mm');
+  assert.equal(previewData.site.datetime_display, 'static');
+  assert.equal(previewData.site.date_style, 'medium');
+  assert.equal(previewData.site.time_style, 'none');
   assert.equal(previewData.site.timezone, 'UTC');
   assert.equal(previewData.site.expose_generator, false);
   assert.equal(previewData.site.indexing, false);
@@ -507,7 +508,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
       attribution: false,
     },
   });
-  for (const key of ['media_base_url', 'locale', 'posts_per_page', 'date_format', 'time_format', 'timezone', 'permalinks', 'disallow_comments']) {
+  for (const key of ['media_base_url', 'locale', 'posts_per_page', 'datetime_display', 'date_style', 'time_style', 'timezone', 'permalinks', 'disallow_comments']) {
     assert.equal(Object.hasOwn(resolvedConfig.site, key), false);
   }
   assert.deepEqual(resolvedConfig.menus.primary.items[1], {
