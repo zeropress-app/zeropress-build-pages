@@ -1,0 +1,2 @@
+[zeropress-prebuild] Invalid Markdown page: test/fixtures/prebuild-errors/invalid-front-matter-data/documents/page.md
+Reason: front matter data.bad.key uses an invalid key.

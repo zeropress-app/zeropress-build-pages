@@ -258,6 +258,13 @@ path: guides/install
 status: published
 meta:
   source: docs
+data:
+  stack:
+    - ZeroPress
+    - Cloudflare
+  facts:
+    - label: Role
+      value: Documentation
 ---
 
 Body content...
@@ -274,8 +281,18 @@ Supported front matter fields:
 | `path` | Generated route path, such as `guides/install` for `/guides/install`. |
 | `status` | `published` includes the page. `draft` skips the page. Other values warn and skip. |
 | `meta` | Optional scalar/null metadata copied to the generated page. |
+| `data` | Optional structured JSON-style data for theme-facing lists, facts, galleries, timelines, or swatches. |
 
 Unknown front matter fields are ignored to make migration from existing Markdown sites easier.
+
+Use `meta` for small scalar flags and metadata. Use `data` when a theme should iterate structured content:
+
+```html
+{{#for fact in page.data.facts}}
+  <dt>{{fact.label}}</dt>
+  <dd>{{fact.value}}</dd>
+{{/for}}
+```
 
 ## Config
 

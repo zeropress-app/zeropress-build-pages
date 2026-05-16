@@ -17,6 +17,10 @@ const copyMarkdownSource = readBooleanEnv('ZEROPRESS_COPY_MARKDOWN_SOURCE', true
 const FRONT_PAGE_TYPES = new Set(['theme_index', 'markdown', 'html']);
 const BUILD_PAGES_CONFIG_SCHEMA_URL = 'https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json';
 const PREVIEW_DATA_SCHEMA_URL = 'https://zeropress.dev/schemas/preview-data.v0.6.schema.json';
+const FRONT_MATTER_DATA_KEY_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*$/;
+const FRONT_MATTER_DATA_MAX_DEPTH = 4;
+const FRONT_MATTER_DATA_MAX_KEYS = 64;
+const FRONT_MATTER_DATA_MAX_ARRAY_LENGTH = 256;
 
 class PrebuildMarkdownError extends Error {
   constructor(sourcePath, reason, expected = '', code = 'invalid_markdown') {
@@ -99,6 +103,7 @@ async function main() {
       ...frontMatter.meta,
       ...(copyMarkdownSource ? { source_markdown_url: buildSourceMarkdownUrl(sourcePath) } : {}),
     },
+    ...(frontMatter.data !== undefined ? { data: frontMatter.data } : {}),
     content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath),
     document_type: 'markdown',
     excerpt: frontMatter.description || extractExcerpt(bodyMarkdown, title),
@@ -840,6 +845,7 @@ function normalizePublishedFrontMatter(frontMatter, sourcePath) {
     description: normalizeFrontMatterDescription(frontMatter.description, sourcePath),
     path: normalizeFrontMatterRoutePath(frontMatter.path, sourcePath),
     meta: normalizeFrontMatterMeta(frontMatter.meta, sourcePath),
+    data: normalizeFrontMatterData(frontMatter.data, sourcePath),
   };
 }
 
@@ -941,6 +947,97 @@ function isPreviewMetaValue(value) {
     || typeof value === 'number'
     || typeof value === 'boolean'
   );
+}
+
+function normalizeFrontMatterData(value, sourcePath) {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isPlainObject(value)) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      'front matter data must be an object when provided.',
+    );
+  }
+
+  validateFrontMatterDataObject(value, sourcePath, 'data', 0);
+  return value;
+}
+
+function validateFrontMatterDataValue(value, sourcePath, pathLabel, depth) {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') {
+    return;
+  }
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new PrebuildMarkdownError(
+        sourcePath,
+        `front matter ${pathLabel} must be a finite number.`,
+      );
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    validateFrontMatterDataArray(value, sourcePath, pathLabel, depth);
+    return;
+  }
+  if (isPlainObject(value)) {
+    validateFrontMatterDataObject(value, sourcePath, pathLabel, depth);
+    return;
+  }
+
+  throw new PrebuildMarkdownError(
+    sourcePath,
+    `front matter ${pathLabel} must be JSON-safe structured data.`,
+  );
+}
+
+function validateFrontMatterDataObject(object, sourcePath, pathLabel, depth) {
+  if (depth > FRONT_MATTER_DATA_MAX_DEPTH) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      `front matter ${pathLabel} nesting must not exceed ${FRONT_MATTER_DATA_MAX_DEPTH} container levels.`,
+    );
+  }
+
+  const entries = Object.entries(object);
+  if (entries.length > FRONT_MATTER_DATA_MAX_KEYS) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      `front matter ${pathLabel} must not contain more than ${FRONT_MATTER_DATA_MAX_KEYS} keys.`,
+    );
+  }
+
+  for (const [key, dataValue] of entries) {
+    const childLabel = `${pathLabel}.${key}`;
+    if (!FRONT_MATTER_DATA_KEY_PATTERN.test(key)) {
+      throw new PrebuildMarkdownError(
+        sourcePath,
+        `front matter ${childLabel} uses an invalid key.`,
+      );
+    }
+    validateFrontMatterDataValue(dataValue, sourcePath, childLabel, depth + 1);
+  }
+}
+
+function validateFrontMatterDataArray(array, sourcePath, pathLabel, depth) {
+  if (depth > FRONT_MATTER_DATA_MAX_DEPTH) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      `front matter ${pathLabel} nesting must not exceed ${FRONT_MATTER_DATA_MAX_DEPTH} container levels.`,
+    );
+  }
+
+  if (array.length > FRONT_MATTER_DATA_MAX_ARRAY_LENGTH) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      `front matter ${pathLabel} must not contain more than ${FRONT_MATTER_DATA_MAX_ARRAY_LENGTH} items.`,
+    );
+  }
+
+  array.forEach((dataValue, index) => {
+    validateFrontMatterDataValue(dataValue, sourcePath, `${pathLabel}[${index}]`, depth + 1);
+  });
 }
 
 function formatFrontMatterValue(value) {

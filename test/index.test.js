@@ -110,6 +110,7 @@ const failureCases = [
   'malformed-front-matter',
   'invalid-front-matter-path',
   'invalid-front-matter-meta',
+  'invalid-front-matter-data',
   'missing-h1',
   'empty-markdown',
 ];
@@ -172,6 +173,13 @@ test('builds a source directory without config and preserves markdown passthroug
     'meta:',
     '  source: docs',
     '  featured: true',
+    'data:',
+    '  stack:',
+    '    - ZeroPress',
+    '    - Cloudflare',
+    '  facts:',
+    '    - label: Role',
+    '      value: Docs',
     '---',
     '',
     '# Body Heading',
@@ -221,6 +229,12 @@ test('builds a source directory without config and preserves markdown passthroug
     source: 'docs',
     featured: true,
     source_markdown_url: '/custom.md',
+  });
+  assert.deepEqual(customPage.data, {
+    stack: ['ZeroPress', 'Cloudflare'],
+    facts: [
+      { label: 'Role', value: 'Docs' },
+    ],
   });
   assert.equal(Object.hasOwn(customPage, 'unknown_key'), false);
   assert.doesNotMatch(customPage.content, /title: Custom Front Matter Title|---/);
