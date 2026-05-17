@@ -110,6 +110,7 @@ const failureCases = [
   'removed-site-field',
   'malformed-front-matter',
   'invalid-front-matter-path',
+  'invalid-front-matter-discoverability',
   'invalid-front-matter-meta',
   'invalid-front-matter-data',
   'missing-h1',
@@ -170,6 +171,7 @@ test('builds a source directory without config and preserves markdown passthroug
     'description: Custom front matter excerpt.',
     'path: guides/custom-page',
     'status: published',
+    'discoverability: delist',
     'unknown_key: ignored',
     'meta:',
     '  source: docs',
@@ -226,6 +228,7 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.equal(customPage.title, 'Custom Front Matter Title');
   assert.equal(customPage.excerpt, 'Custom front matter excerpt.');
   assert.equal(customPage.path, 'guides/custom-page');
+  assert.equal(customPage.discoverability, 'delist');
   assert.deepEqual(customPage.meta, {
     source: 'docs',
     featured: true,
@@ -254,8 +257,11 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.match(guideHtml, /href="\/guides\/custom-page"/);
   assert.match(guideHtml, /contains-task-list/);
   assert.match(customHtml, /Body Heading/);
+  assert.match(customHtml, /<meta name="robots" content="noindex">/);
   assert.match(customHtml, /View this page as Markdown/);
   assert.doesNotMatch(customHtml, /title: Custom Front Matter Title|---/);
+  const searchItems = JSON.parse(await fs.readFile(path.join(tempDir, '_site', '_zeropress', 'search.json'), 'utf8'));
+  assert.equal(searchItems.some((item) => item.id === 'page:custom-page'), false);
   await fs.access(path.join(tempDir, '_site', 'guide.md'));
   await fs.access(path.join(tempDir, '_site', 'custom.md'));
   await fs.access(path.join(tempDir, '_site', 'favicon.ico'));

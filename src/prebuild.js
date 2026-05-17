@@ -21,6 +21,7 @@ const FRONT_MATTER_DATA_KEY_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)
 const FRONT_MATTER_DATA_MAX_DEPTH = 4;
 const FRONT_MATTER_DATA_MAX_KEYS = 64;
 const FRONT_MATTER_DATA_MAX_ARRAY_LENGTH = 256;
+const FRONT_MATTER_DISCOVERABILITY_VALUES = new Set(['default', 'noindex', 'delist']);
 
 class PrebuildMarkdownError extends Error {
   constructor(sourcePath, reason, expected = '', code = 'invalid_markdown') {
@@ -104,6 +105,7 @@ async function main() {
       ...(copyMarkdownSource ? { source_markdown_url: buildSourceMarkdownUrl(sourcePath) } : {}),
     },
     ...(frontMatter.data !== undefined ? { data: frontMatter.data } : {}),
+    ...(frontMatter.discoverability !== 'default' ? { discoverability: frontMatter.discoverability } : {}),
     content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath),
     document_type: 'markdown',
     excerpt: frontMatter.description || extractExcerpt(bodyMarkdown, title),
@@ -861,6 +863,7 @@ function normalizePublishedFrontMatter(frontMatter, sourcePath) {
     title: normalizeFrontMatterTitle(frontMatter.title, sourcePath),
     description: normalizeFrontMatterDescription(frontMatter.description, sourcePath),
     path: normalizeFrontMatterRoutePath(frontMatter.path, sourcePath),
+    discoverability: normalizeFrontMatterDiscoverability(frontMatter.discoverability, sourcePath),
     meta: normalizeFrontMatterMeta(frontMatter.meta, sourcePath),
     data: normalizeFrontMatterData(frontMatter.data, sourcePath),
   };
@@ -923,6 +926,21 @@ function normalizeFrontMatterRoutePath(value, sourcePath) {
   }
 
   return routePath;
+}
+
+function normalizeFrontMatterDiscoverability(value, sourcePath) {
+  if (value === undefined) {
+    return 'default';
+  }
+  if (typeof value === 'string' && FRONT_MATTER_DISCOVERABILITY_VALUES.has(value)) {
+    return value;
+  }
+
+  throw new PrebuildMarkdownError(
+    sourcePath,
+    `front matter discoverability must be one of: ${Array.from(FRONT_MATTER_DISCOVERABILITY_VALUES).join(', ')}.`,
+    '  discoverability: default\n  discoverability: noindex\n  discoverability: delist',
+  );
 }
 
 function isSafeRoutePathSegment(segment) {

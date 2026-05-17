@@ -256,6 +256,7 @@ title: Install ZeroPress
 description: Build a static docs site from Markdown.
 path: guides/install
 status: published
+discoverability: default
 meta:
   source: docs
 data:
@@ -280,10 +281,21 @@ Supported front matter fields:
 | `description` | Page excerpt and description. |
 | `path` | Generated route path, such as `guides/install` for `/guides/install`. |
 | `status` | `published` includes the page. `draft` skips the page. Other values warn and skip. |
+| `discoverability` | `default`, `noindex`, or `delist`. Missing is `default`. |
 | `meta` | Optional scalar/null metadata copied to the generated page. |
 | `data` | Optional structured JSON-style data for theme-facing lists, facts, galleries, timelines, or swatches. |
 
 Unknown front matter fields are ignored to make migration from existing Markdown sites easier.
+
+`status` controls route generation. `status: draft` removes the Markdown file from generated preview-data and no HTML route is created.
+
+`discoverability` controls automatic exposure after a route is generated:
+
+- `default`: no special handling.
+- `noindex`: generate the page and add HTML robots `noindex`.
+- `delist`: generate the page, add HTML robots `noindex`, and exclude it from automatic discovery outputs such as sitemap, native search, and generated post/page listing data.
+
+`delist` is not a security or permission feature. Direct links, explicit menus, explicit collections, and body links can still expose the page.
 
 Use `meta` for small scalar flags and metadata. Use `data` when a theme should iterate structured content:
 
