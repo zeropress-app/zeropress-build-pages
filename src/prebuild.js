@@ -712,10 +712,27 @@ function normalizeMenuItem(item, pathLabel) {
     url,
     type: readConfigString(item.type, 'custom'),
     target: readConfigString(item.target, '_self'),
+    ...(item.meta !== undefined ? { meta: normalizeMenuItemMeta(item.meta, `${pathLabel}.meta`) } : {}),
     children: Array.isArray(item.children)
       ? item.children.map((child, index) => normalizeMenuItem(child, `${pathLabel}.children[${index}]`))
       : [],
   };
+}
+
+function normalizeMenuItemMeta(value, pathLabel) {
+  if (!isPlainObject(value)) {
+    throw new PrebuildConfigError(`${pathLabel} must be an object when provided.`);
+  }
+
+  const meta = {};
+  for (const [key, metaValue] of Object.entries(value)) {
+    if (!isPreviewMetaValue(metaValue)) {
+      throw new PrebuildConfigError(`${pathLabel}.${key} must be a string, number, boolean, or null.`);
+    }
+    meta[key] = metaValue;
+  }
+
+  return meta;
 }
 
 function defaultMenus() {
@@ -944,7 +961,7 @@ function isPreviewMetaValue(value) {
   return (
     value === null
     || typeof value === 'string'
-    || typeof value === 'number'
+    || (typeof value === 'number' && Number.isFinite(value))
     || typeof value === 'boolean'
   );
 }

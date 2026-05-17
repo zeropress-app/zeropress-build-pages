@@ -1,0 +1,2 @@
+[zeropress-build-pages] Invalid site config: test/fixtures/prebuild-errors/invalid-menu-meta/documents/.zeropress/config.json
+Reason: menus.primary.items[0].meta.options must be a string, number, boolean, or null.

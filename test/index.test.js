@@ -106,6 +106,7 @@ const failureCases = [
   'missing-custom-html-file',
   'invalid-site-indexing',
   'invalid-site-expose-generator',
+  'invalid-menu-meta',
   'removed-site-field',
   'malformed-front-matter',
   'invalid-front-matter-path',
@@ -447,7 +448,15 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
         name: 'Primary Menu',
         items: [
           { title: 'Home', url: '/' },
-          { title: 'Topic', url: '/topic' },
+          {
+            title: 'Topic',
+            url: '/topic',
+            meta: {
+              icon: 'book-open',
+              badge: 'New',
+              featured: true,
+            },
+          },
         ],
       },
     },
@@ -530,7 +539,17 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     url: '/topic',
     type: 'custom',
     target: '_self',
+    meta: {
+      icon: 'book-open',
+      badge: 'New',
+      featured: true,
+    },
     children: [],
+  });
+  assert.deepEqual(previewData.menus.primary.items[1].meta, {
+    icon: 'book-open',
+    badge: 'New',
+    featured: true,
   });
   await fs.access(path.join(tempDir, '_site', 'topic.html'));
   await fs.access(path.join(tempDir, '_site', 'topic.md'));

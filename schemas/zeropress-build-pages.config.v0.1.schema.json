@@ -222,6 +222,12 @@
         "$ref": "#/$defs/menu"
       }
     },
+    "previewMeta": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "number", "boolean", "null"]
+      }
+    },
     "menu": {
       "type": "object",
       "additionalProperties": false,
@@ -243,6 +249,8 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["title", "url"],
+      "description": "Menu item copied into generated preview-data.",
+      "markdownDescription": "Menu item copied into generated preview-data.",
       "properties": {
         "title": {
           "type": "string",
@@ -261,6 +269,9 @@
           "type": "string",
           "enum": ["_self", "_blank"],
           "default": "_self"
+        },
+        "meta": {
+          "$ref": "#/$defs/previewMeta"
         },
         "children": {
           "type": "array",
@@ -299,7 +310,14 @@
           "name": "Primary Menu",
           "items": [
             { "title": "Home", "url": "/" },
-            { "title": "Docs", "url": "/docs/" }
+            {
+              "title": "Docs",
+              "url": "/docs/",
+              "meta": {
+                "icon": "book-open",
+                "badge": "New"
+              }
+            }
           ]
         }
       }

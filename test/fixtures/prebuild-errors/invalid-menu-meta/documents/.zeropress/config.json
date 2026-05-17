@@ -1,0 +1,18 @@
+{
+  "menus": {
+    "primary": {
+      "items": [
+        {
+          "title": "Home",
+          "url": "/",
+          "meta": {
+            "icon": "home",
+            "options": {
+              "tone": "accent"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -323,7 +323,14 @@ See the public config reference at [zeropress.dev/build-pages-config](https://ze
       "name": "Primary Menu",
       "items": [
         { "title": "Home", "url": "/" },
-        { "title": "Guide", "url": "/guide" }
+        {
+          "title": "Guide",
+          "url": "/guide",
+          "meta": {
+            "icon": "book-open",
+            "badge": "New"
+          }
+        }
       ]
     }
   },
@@ -342,6 +349,8 @@ See the public config reference at [zeropress.dev/build-pages-config](https://ze
 - `{ "type": "html", "layout": false }`: write trusted standalone HTML directly.
 
 HTML front page and `custom_html` files must stay inside `.zeropress/`.
+
+Menu item `meta` is optional scalar display metadata copied into generated preview-data for themes that manually iterate menus. Use it for small values such as `icon`, `badge`, or `accent`; arrays and objects are not accepted.
 
 `site.footer.copyright_text` is rendered by the bundled docs theme when present. If it is omitted, the bundled docs theme falls back to `site.title`. ZeroPress does not add a copyright symbol automatically.
 
