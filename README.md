@@ -82,7 +82,7 @@ jobs:
       - name: Build ZeroPress Pages
         uses: zeropress-app/zeropress-build-pages@v0
         with:
-          source: ./documents
+          source: ./docs
           destination: ./_site
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
@@ -144,10 +144,23 @@ In the action inputs:
 - `config` is the config file path. The default is `<source>/.zeropress/config.json`.
 - `site-url` overrides the canonical site URL from config.
 - `skip-untitled-markdown` skips Markdown files without a page title instead of failing. The default is `false`.
-- `skip-link-check` skips internal link checking after build. The default is `false`.
+- `skip-link-check` skips internal link checking after build. The default is `false`; broken internal links are reported as warnings and do not fail the build.
 - `copy-markdown-source` copies original Markdown files to the generated output and enables `View this page as Markdown` links in the bundled docs theme. The default is `true`.
 
 For GitHub Pages, the generated `destination` directory can be passed to `actions/upload-pages-artifact`. For Cloudflare Pages, Netlify, Vercel, or another static host, pass the same `destination` directory to that provider's deploy step.
+
+Need a custom theme? Start with [`@zeropress/create-theme`](https://www.npmjs.com/package/@zeropress/create-theme), then point `theme-path` to the generated `theme/` directory:
+
+```bash
+npx @zeropress/create-theme --name my-docs-theme --template docs
+```
+
+```yaml
+with:
+  source: ./docs
+  destination: ./_site
+  theme-path: ./my-docs-theme/theme
+```
 
 ### npx
 
@@ -190,7 +203,7 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | `--config <path>` | `<source>/.zeropress/config.json` | Build Pages config |
 | `--site-url <url>` | config `site.url` | Canonical URL override |
 | `--skip-untitled-markdown` | `false` | Skip Markdown without a page title |
-| `--skip-link-check` | `false` | Skip link checking |
+| `--skip-link-check` | `false` | Skip warning-only internal link checking |
 | `--no-copy-markdown-source` | `false` | Do not copy original Markdown files to output |
 
 ## Source Tree
@@ -376,9 +389,9 @@ Schemas:
 
 - [ZeroPress Build Pages Config v0.1](https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json)
 
-## Internal `.zeropress/` Files
+## Workspace Internal `.zeropress/` Files
 
-Build Pages writes internal working files to `.zeropress/` in the current working directory. These files are not the final deploy output. The final static site is written to the `destination` directory.
+Build Pages reads optional site config from `<source>/.zeropress/config.json`. Separately, it writes internal working files to `.zeropress/` in the current working directory. These generated working files are not the final deploy output. The final static site is written to the `destination` directory.
 
 ```txt
 .zeropress/

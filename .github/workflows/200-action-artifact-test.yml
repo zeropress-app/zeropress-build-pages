@@ -1,0 +1,55 @@
+name: Action Artifact Tests
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-action-artifact:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create fixture source
+        run: |
+          mkdir -p docs
+          printf '# Home\n\nAction artifact test.\n' > docs/index.md
+
+      - name: Run local checked-out action
+        uses: ./
+        with:
+          source: ./docs
+          destination: ./_site
+          skip-link-check: true
+
+      - name: Verify output
+        run: |
+          test -f _site/index.html
+          test -f _site/index.md
+          test -f _site/_zeropress/search.json
+          test -f _site/_zeropress/search.js
+
+      - name: Reset generated files
+        run: rm -rf _site .zeropress
+
+      - name: Run local checked-out action without Markdown source copy
+        uses: ./
+        with:
+          source: ./docs
+          destination: ./_site
+          skip-link-check: true
+          copy-markdown-source: false
+
+      - name: Verify private Markdown behavior
+        run: |
+          test -f _site/index.html
+          test ! -f _site/index.md
+          test -f _site/_zeropress/search.json
+          test -f _site/_zeropress/search.js

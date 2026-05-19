@@ -3535,6 +3535,11 @@ var copyMarkdownSource = readBooleanEnv("ZEROPRESS_COPY_MARKDOWN_SOURCE", true);
 var FRONT_PAGE_TYPES = /* @__PURE__ */ new Set(["theme_index", "markdown", "html"]);
 var BUILD_PAGES_CONFIG_SCHEMA_URL = "https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json";
 var PREVIEW_DATA_SCHEMA_URL = "https://zeropress.dev/schemas/preview-data.v0.6.schema.json";
+var FRONT_MATTER_DATA_KEY_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*$/;
+var FRONT_MATTER_DATA_MAX_DEPTH = 4;
+var FRONT_MATTER_DATA_MAX_KEYS = 64;
+var FRONT_MATTER_DATA_MAX_ARRAY_LENGTH = 256;
+var FRONT_MATTER_DISCOVERABILITY_VALUES = /* @__PURE__ */ new Set(["default", "noindex", "delist"]);
 var PrebuildMarkdownError = class extends Error {
   constructor(sourcePath, reason, expected = "", code = "invalid_markdown") {
     super(reason);
@@ -3608,6 +3613,8 @@ async function main() {
       ...frontMatter.meta,
       ...copyMarkdownSource ? { source_markdown_url: buildSourceMarkdownUrl(sourcePath) } : {}
     },
+    ...frontMatter.data !== void 0 ? { data: frontMatter.data } : {},
+    ...frontMatter.discoverability !== "default" ? { discoverability: frontMatter.discoverability } : {},
     content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath),
     document_type: "markdown",
     excerpt: frontMatter.description || extractExcerpt(bodyMarkdown, title),
@@ -3722,8 +3729,9 @@ function buildSiteData(config, frontPage) {
     media_base_url: "",
     locale: "en-US",
     posts_per_page: 10,
-    date_format: "YYYY-MM-DD",
-    time_format: "HH:mm",
+    datetime_display: "static",
+    date_style: "medium",
+    time_style: "none",
     timezone: "UTC",
     permalinks: defaultPermalinks(),
     front_page: frontPage,
@@ -4137,8 +4145,22 @@ function normalizeMenuItem(item, pathLabel) {
     url,
     type: readConfigString(item.type, "custom"),
     target: readConfigString(item.target, "_self"),
+    ...item.meta !== void 0 ? { meta: normalizeMenuItemMeta(item.meta, `${pathLabel}.meta`) } : {},
     children: Array.isArray(item.children) ? item.children.map((child, index) => normalizeMenuItem(child, `${pathLabel}.children[${index}]`)) : []
   };
+}
+function normalizeMenuItemMeta(value, pathLabel) {
+  if (!isPlainObject(value)) {
+    throw new PrebuildConfigError(`${pathLabel} must be an object when provided.`);
+  }
+  const meta = {};
+  for (const [key, metaValue] of Object.entries(value)) {
+    if (!isPreviewMetaValue(metaValue)) {
+      throw new PrebuildConfigError(`${pathLabel}.${key} must be a string, number, boolean, or null.`);
+    }
+    meta[key] = metaValue;
+  }
+  return meta;
 }
 function defaultMenus() {
   return {
@@ -4256,7 +4278,9 @@ function normalizePublishedFrontMatter(frontMatter, sourcePath) {
     title: normalizeFrontMatterTitle(frontMatter.title, sourcePath),
     description: normalizeFrontMatterDescription(frontMatter.description, sourcePath),
     path: normalizeFrontMatterRoutePath(frontMatter.path, sourcePath),
-    meta: normalizeFrontMatterMeta(frontMatter.meta, sourcePath)
+    discoverability: normalizeFrontMatterDiscoverability(frontMatter.discoverability, sourcePath),
+    meta: normalizeFrontMatterMeta(frontMatter.meta, sourcePath),
+    data: normalizeFrontMatterData(frontMatter.data, sourcePath)
   };
 }
 function normalizeFrontMatterTitle(value, sourcePath) {
@@ -4304,6 +4328,19 @@ function normalizeFrontMatterRoutePath(value, sourcePath) {
   }
   return routePath;
 }
+function normalizeFrontMatterDiscoverability(value, sourcePath) {
+  if (value === void 0) {
+    return "default";
+  }
+  if (typeof value === "string" && FRONT_MATTER_DISCOVERABILITY_VALUES.has(value)) {
+    return value;
+  }
+  throw new PrebuildMarkdownError(
+    sourcePath,
+    `front matter discoverability must be one of: ${Array.from(FRONT_MATTER_DISCOVERABILITY_VALUES).join(", ")}.`,
+    "  discoverability: default\n  discoverability: noindex\n  discoverability: delist"
+  );
+}
 function isSafeRoutePathSegment(segment) {
   return /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/.test(segment) && !segment.includes("..");
 }
@@ -4330,7 +4367,88 @@ function normalizeFrontMatterMeta(value, sourcePath) {
   return meta;
 }
 function isPreviewMetaValue(value) {
-  return value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+  return value === null || typeof value === "string" || typeof value === "number" && Number.isFinite(value) || typeof value === "boolean";
+}
+function normalizeFrontMatterData(value, sourcePath) {
+  if (value === void 0) {
+    return void 0;
+  }
+  if (!isPlainObject(value)) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      "front matter data must be an object when provided."
+    );
+  }
+  validateFrontMatterDataObject(value, sourcePath, "data", 0);
+  return value;
+}
+function validateFrontMatterDataValue(value, sourcePath, pathLabel, depth) {
+  if (value === null || typeof value === "string" || typeof value === "boolean") {
+    return;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new PrebuildMarkdownError(
+        sourcePath,
+        `front matter ${pathLabel} must be a finite number.`
+      );
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    validateFrontMatterDataArray(value, sourcePath, pathLabel, depth);
+    return;
+  }
+  if (isPlainObject(value)) {
+    validateFrontMatterDataObject(value, sourcePath, pathLabel, depth);
+    return;
+  }
+  throw new PrebuildMarkdownError(
+    sourcePath,
+    `front matter ${pathLabel} must be JSON-safe structured data.`
+  );
+}
+function validateFrontMatterDataObject(object, sourcePath, pathLabel, depth) {
+  if (depth > FRONT_MATTER_DATA_MAX_DEPTH) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      `front matter ${pathLabel} nesting must not exceed ${FRONT_MATTER_DATA_MAX_DEPTH} container levels.`
+    );
+  }
+  const entries = Object.entries(object);
+  if (entries.length > FRONT_MATTER_DATA_MAX_KEYS) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      `front matter ${pathLabel} must not contain more than ${FRONT_MATTER_DATA_MAX_KEYS} keys.`
+    );
+  }
+  for (const [key, dataValue] of entries) {
+    const childLabel = `${pathLabel}.${key}`;
+    if (!FRONT_MATTER_DATA_KEY_PATTERN.test(key)) {
+      throw new PrebuildMarkdownError(
+        sourcePath,
+        `front matter ${childLabel} uses an invalid key.`
+      );
+    }
+    validateFrontMatterDataValue(dataValue, sourcePath, childLabel, depth + 1);
+  }
+}
+function validateFrontMatterDataArray(array, sourcePath, pathLabel, depth) {
+  if (depth > FRONT_MATTER_DATA_MAX_DEPTH) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      `front matter ${pathLabel} nesting must not exceed ${FRONT_MATTER_DATA_MAX_DEPTH} container levels.`
+    );
+  }
+  if (array.length > FRONT_MATTER_DATA_MAX_ARRAY_LENGTH) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      `front matter ${pathLabel} must not contain more than ${FRONT_MATTER_DATA_MAX_ARRAY_LENGTH} items.`
+    );
+  }
+  array.forEach((dataValue, index) => {
+    validateFrontMatterDataValue(dataValue, sourcePath, `${pathLabel}[${index}]`, depth + 1);
+  });
 }
 function formatFrontMatterValue(value) {
   if (typeof value === "string") {
