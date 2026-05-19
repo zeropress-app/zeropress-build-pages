@@ -21,7 +21,7 @@ try {
 }
 
 function input(name) {
-  return process.env[`INPUT_${name.toUpperCase().replace(/-/g, '_')}`]?.trim() || '';
+  return process.env[`INPUT_${name.toUpperCase()}`]?.trim() || '';
 }
 
 function booleanInput(name, fallback) {

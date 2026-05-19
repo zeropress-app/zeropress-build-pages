@@ -589,7 +589,7 @@ test('action metadata and entrypoint use supported inputs', async () => {
       ...process.env,
       INPUT_DESTINATION: '_site',
       INPUT_THEME: 'docs',
-      INPUT_SKIP_LINK_CHECK: 'true',
+      'INPUT_SKIP-LINK-CHECK': 'true',
     },
     encoding: 'utf8',
   });
@@ -607,8 +607,8 @@ test('action metadata and entrypoint use supported inputs', async () => {
       ...process.env,
       INPUT_DESTINATION: '_site',
       INPUT_THEME: 'docs',
-      INPUT_SKIP_LINK_CHECK: 'true',
-      INPUT_COPY_MARKDOWN_SOURCE: 'false',
+      'INPUT_SKIP-LINK-CHECK': 'true',
+      'INPUT_COPY-MARKDOWN-SOURCE': 'false',
     },
     encoding: 'utf8',
   });
