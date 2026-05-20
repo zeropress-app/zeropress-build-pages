@@ -334,6 +334,7 @@ See the public config reference at [zeropress.dev/build-pages-config](https://ze
     "description": "Project documentation",
     "url": "https://example.github.io/project",
     "expose_generator": true,
+    "search": true,
     "indexing": true,
     "footer": {
       "copyright_text": "Copyright 2026 Example Corp.",
@@ -382,6 +383,8 @@ Menu item `meta` is optional scalar display metadata copied into generated previ
 The bundled docs theme shows `Published with ZeroPress.` by default. Set `site.footer.attribution` to `false` to hide it.
 
 `site.expose_generator` controls the HTML generator meta tag. Missing or `true` emits `<meta name="generator" content="ZeroPress">`; set it to `false` for white-label sites.
+
+`site.search` controls native ZeroPress search when the selected theme supports search UI. Missing or `true` enables native search for the bundled docs theme; `false` omits `/_zeropress/search.json` and `/_zeropress/search.js` and hides the bundled search form.
 
 `site.indexing` controls only the generated fallback `robots.txt`. Missing or `true` allows indexing; `false` writes `User-agent: *` / `Disallow: /`. If the source directory contains `robots.txt`, that file is copied as-is and takes priority over `site.indexing`. ZeroPress does not append a `Sitemap` directive to a source-provided `robots.txt`; add `Sitemap: https://example.com/sitemap.xml` manually when needed.
 

@@ -9,7 +9,8 @@
   "features": {
     "comments": false,
     "newsletter": false,
-    "post_index": false
+    "post_index": false,
+    "search": true
   },
   "menu_slots": {
     "primary": {

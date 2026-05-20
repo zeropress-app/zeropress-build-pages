@@ -13,9 +13,24 @@
     <header class="site-header">
       <div class="shell site-header__inner">
         <a class="brand" href="/">{{site.title}}</a>
-        <nav class="site-nav" aria-label="Primary navigation">
-          {{menu:primary}}
-        </nav>
+        <div class="site-header__actions">
+          <nav class="site-nav" aria-label="Primary navigation">
+            {{menu:primary}}
+          </nav>
+          {{#if site.search}}
+            <div class="site-search" data-site-search>
+              <form class="site-search__form" role="search" data-site-search-form>
+                <label class="visually-hidden" for="site-search-input">Search docs</label>
+                <input id="site-search-input" class="site-search__input" type="search" placeholder="Search docs" autocomplete="off" spellcheck="false" data-site-search-input>
+                <button class="site-search__button" type="submit">Search</button>
+              </form>
+              <div class="site-search__panel" data-site-search-panel hidden>
+                <p class="site-search__status" data-site-search-status>Type to search documentation.</p>
+                <ol class="site-search__results" data-site-search-results></ol>
+              </div>
+            </div>
+          {{/if}}
+        </div>
       </div>
     </header>
     <main id="content">
@@ -33,5 +48,6 @@
         {{/if}}
       </div>
     </footer>
+    {{partial:theme-scripts}}
   </body>
 </html>
