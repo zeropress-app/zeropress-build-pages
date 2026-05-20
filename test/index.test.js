@@ -105,6 +105,7 @@ const failureCases = [
   'missing-html-front-page-file',
   'missing-custom-html-file',
   'invalid-site-indexing',
+  'invalid-site-search',
   'invalid-site-expose-generator',
   'invalid-menu-meta',
   'removed-site-field',
@@ -435,6 +436,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
       description: 'A configured docs site.',
       url: 'https://config.example',
       expose_generator: false,
+      search: false,
       indexing: false,
       footer: {
         copyright_text: 'Copyright 2026 Example Corp.',
@@ -505,6 +507,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.equal(previewData.site.time_style, 'none');
   assert.equal(previewData.site.timezone, 'UTC');
   assert.equal(previewData.site.expose_generator, false);
+  assert.equal(previewData.site.search, false);
   assert.equal(previewData.site.indexing, false);
   assert.deepEqual(previewData.site.permalinks, {
     output_style: 'html-extension',
@@ -531,12 +534,18 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     description: 'A configured docs site.',
     url: 'https://override.example',
     expose_generator: false,
+    search: false,
     indexing: false,
     footer: {
       copyright_text: 'Copyright 2026 Example Corp.',
       attribution: false,
     },
   });
+  await assert.rejects(
+    () => fs.access(path.join(tempDir, '_site', '_zeropress', 'search.json')),
+    /ENOENT/,
+  );
+  assert.doesNotMatch(indexHtml, /data-site-search/);
   for (const key of ['media_base_url', 'locale', 'posts_per_page', 'datetime_display', 'date_style', 'time_style', 'timezone', 'permalinks', 'disallow_comments']) {
     assert.equal(Object.hasOwn(resolvedConfig.site, key), false);
   }

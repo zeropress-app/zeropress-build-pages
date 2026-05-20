@@ -56,6 +56,12 @@
           "description": "Whether generated HTML should expose the ZeroPress generator meta tag. Set false for white-label sites.",
           "markdownDescription": "Whether generated HTML should expose `<meta name=\"generator\" content=\"ZeroPress\">`. Set `false` for white-label sites."
         },
+        "search": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether native ZeroPress search should be enabled when the selected theme supports search UI. Set false to omit native search artifacts and hide theme search UI.",
+          "markdownDescription": "Whether native ZeroPress search should be enabled when the selected theme supports search UI. Set `false` to omit native search artifacts and hide theme search UI."
+        },
         "indexing": {
           "type": "boolean",
           "default": true,
@@ -292,6 +298,7 @@
         "description": "Public documentation.",
         "url": "https://zeropress.dev",
         "expose_generator": true,
+        "search": true,
         "indexing": true
       },
       "front_page": {

@@ -1,0 +1,2 @@
+[zeropress-prebuild] Invalid site config: test/fixtures/prebuild-errors/invalid-site-search/documents/.zeropress/config.json
+Reason: site.search must be a boolean when provided.

@@ -243,6 +243,7 @@ function buildSiteData(config, frontPage) {
     },
     disallow_comments: true,
     expose_generator: configuredSite.expose_generator !== false,
+    search: configuredSite.search !== false,
     indexing: configuredSite.indexing !== false,
   };
 
@@ -278,12 +279,13 @@ function normalizeSiteConfig(value) {
   }
 
   const configuredSite = isPlainObject(value) ? value : {};
-  assertKnownConfigKeys(configuredSite, ['title', 'description', 'url', 'expose_generator', 'indexing', 'footer'], 'site');
+  assertKnownConfigKeys(configuredSite, ['title', 'description', 'url', 'expose_generator', 'search', 'indexing', 'footer'], 'site');
   const site = {
     title: readConfigString(configuredSite.title, 'Documentation'),
     description: readConfigString(configuredSite.description, 'A documentation site.'),
     url: readEnv('ZEROPRESS_SITE_URL', readConfigString(configuredSite.url, '')),
     expose_generator: readConfigBoolean(configuredSite.expose_generator, true, 'site.expose_generator'),
+    search: readConfigBoolean(configuredSite.search, true, 'site.search'),
     indexing: readConfigBoolean(configuredSite.indexing, true, 'site.indexing'),
   };
 
