@@ -52318,6 +52318,7 @@ function validateSite(site, path4, errors) {
     "media_delivery_mode",
     "favicon",
     "expose_generator",
+    "search",
     "locale",
     "posts_per_page",
     "datetime_display",
@@ -52347,6 +52348,9 @@ function validateSite(site, path4, errors) {
   }
   if (site.expose_generator !== void 0) {
     validateBoolean(site.expose_generator, `${path4}.expose_generator`, "INVALID_SITE_EXPOSE_GENERATOR", errors);
+  }
+  if (site.search !== void 0) {
+    validateBoolean(site.search, `${path4}.search`, "INVALID_SITE_SEARCH", errors);
   }
   validateNonEmptyString(site.locale, `${path4}.locale`, "INVALID_SITE_LOCALE", errors);
   validateInteger(site.posts_per_page, `${path4}.posts_per_page`, "INVALID_SITE_POSTS_PER_PAGE", errors, { minimum: 1 });
@@ -53010,7 +53014,7 @@ function isOptionalKey(path4, key) {
     return key === "head_end" || key === "body_end";
   }
   if (path4 === "site") {
-    return key === "media_delivery_mode" || key === "favicon" || key === "expose_generator" || key === "indexing" || key === "permalinks" || key === "front_page" || key === "post_index" || key === "footer" || key === "meta";
+    return key === "media_delivery_mode" || key === "favicon" || key === "expose_generator" || key === "search" || key === "indexing" || key === "permalinks" || key === "front_page" || key === "post_index" || key === "footer" || key === "meta";
   }
   if (path4 === "site.favicon") {
     return key === "icon" || key === "svg" || key === "png" || key === "apple_touch_icon";
@@ -53272,7 +53276,7 @@ var MENU_SLOT_ID_MAX_LENGTH = 32;
 var MENU_SLOT_COUNT_MAX = 12;
 var MENU_SLOT_TITLE_MAX_LENGTH = 80;
 var MENU_SLOT_DESCRIPTION_MAX_LENGTH = 160;
-var SUPPORTED_THEME_FEATURES = /* @__PURE__ */ new Set(["comments", "newsletter", "post_index"]);
+var SUPPORTED_THEME_FEATURES = /* @__PURE__ */ new Set(["comments", "newsletter", "post_index", "search"]);
 var THEME_MANIFEST_KEYS = /* @__PURE__ */ new Set([
   "$schema",
   "name",
@@ -60907,6 +60911,7 @@ var PERMALINK_OUTPUT_STYLES = /* @__PURE__ */ new Set(["directory", "html-extens
 var COMMENT_POLICY_OUTPUT_PATH = "_zeropress/comment-policy.json";
 var SEARCH_INDEX_OUTPUT_PATH = "_zeropress/search.json";
 var SEARCH_ADAPTER_OUTPUT_PATH = "_zeropress/search.js";
+var SEARCH_PAGEFIND_ADAPTER_OUTPUT_PATH = "_zeropress/search_pagefind.js";
 var OUTPUT_PATH_CONTROL_CHAR_PATTERN = /[\u0000-\u001F\u007F]/;
 var SAFE_MEDIA_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:"]);
 var SAFE_LINK_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:", "mailto:", "tel:"]);
@@ -60964,9 +60969,12 @@ async function buildSite(input2) {
     state.commentPolicyContent,
     "application/json"
   );
-  if (options2.generateSpecialFiles) {
+  if (shouldGenerateSearchArtifacts(state, options2)) {
     await writeOutput(state.writer, state.summaries, SEARCH_INDEX_OUTPUT_PATH, buildSearchIndexJson(state), "application/json");
     await writeOutput(state.writer, state.summaries, SEARCH_ADAPTER_OUTPUT_PATH, buildSearchAdapterJs(), "application/javascript");
+    await writeOutput(state.writer, state.summaries, SEARCH_PAGEFIND_ADAPTER_OUTPUT_PATH, buildSearchPagefindAdapterJs(), "application/javascript");
+  }
+  if (options2.generateSpecialFiles) {
     await maybeRenderNotFoundPage(state);
     if (hasCanonicalSiteUrl(state.previewData.site.url)) {
       await writeOutput(
@@ -61286,6 +61294,7 @@ function normalizePreviewData(previewData, options2 = {}) {
     locale: normalizeLocale(previewData.site.locale || DEFAULT_LOCALE),
     disallow_comments: previewData.site.disallow_comments === true,
     expose_generator: previewData.site.expose_generator !== false,
+    search: previewData.site.search !== false,
     indexing: previewData.site.indexing !== false,
     permalinks: normalizePermalinks(previewData.site.permalinks),
     front_page: normalizeFrontPage(previewData.site.front_page),
@@ -61567,6 +61576,8 @@ function normalizePostIndex(post_index) {
 function createRenderData(previewData, themeMetadata = {}) {
   const themeSupportsComments = themeMetadata?.features?.comments === true;
   const themeSupportsPostIndex = themeMetadata?.features?.post_index !== false;
+  const themeSupportsSearch = themeMetadata?.features?.search === true;
+  previewData.site.search = previewData.site.search !== false && themeSupportsSearch;
   const authorsById = new Map(previewData.content.authors.map((author) => [author.id, author]));
   const categoriesBySlug = new Map(previewData.content.categories.map((category) => [category.slug, category]));
   const tagsBySlug = new Map(previewData.content.tags.map((tag) => [tag.slug, tag]));
@@ -62922,8 +62933,10 @@ function assertPlannedOutputPathsSafe(state) {
     ...state.assetOutputs.map((assetOutput) => assetOutput.path),
     COMMENT_POLICY_OUTPUT_PATH
   ];
+  if (shouldGenerateSearchArtifacts(state, state.options)) {
+    plannedPaths.push(SEARCH_INDEX_OUTPUT_PATH, SEARCH_ADAPTER_OUTPUT_PATH, SEARCH_PAGEFIND_ADAPTER_OUTPUT_PATH);
+  }
   if (state.options.generateSpecialFiles) {
-    plannedPaths.push(SEARCH_INDEX_OUTPUT_PATH, SEARCH_ADAPTER_OUTPUT_PATH);
     plannedPaths.push("404.html");
     if (shouldGenerateRobotsTxt(state.options)) {
       plannedPaths.push("robots.txt");
@@ -63436,6 +63449,87 @@ function normalizeLimit(value) {
 }
 `;
 }
+function buildSearchPagefindAdapterJs() {
+  return `let pagefindPromise;
+
+export async function preload() {
+  if (!pagefindPromise) {
+    pagefindPromise = import(new URL('./pagefind/pagefind.js', import.meta.url).href).then(async (pagefind) => {
+      if (typeof pagefind.options === 'function') {
+        await pagefind.options({ baseUrl: '/' });
+      }
+      return pagefind;
+    });
+  }
+
+  return pagefindPromise;
+}
+
+export async function search(query, options = {}) {
+  const pagefind = await preload();
+  const result = await pagefind.search(query, options);
+  const limit = normalizeLimit(options.limit);
+  if (!Array.isArray(result?.results)) {
+    return result;
+  }
+
+  const results = result.results.map(normalizeResult);
+  return {
+    ...result,
+    results: limit ? results.slice(0, limit) : results,
+  };
+}
+
+function normalizeResult(result) {
+  if (!result || typeof result.data !== 'function') {
+    return result;
+  }
+
+  return {
+    ...result,
+    data: async () => normalizeResultData(await result.data()),
+  };
+}
+
+function normalizeResultData(data) {
+  if (!data || typeof data !== 'object') {
+    return data;
+  }
+
+  return {
+    ...data,
+    url: normalizeUrl(data.url),
+    sub_results: Array.isArray(data.sub_results)
+      ? data.sub_results.map((item) => ({ ...item, url: normalizeUrl(item.url) }))
+      : data.sub_results,
+  };
+}
+
+function normalizeUrl(value) {
+  const url = String(value || '');
+  if (url.startsWith('/_zeropress/') && !url.startsWith('/_zeropress/pagefind/')) {
+    return url.replace(/^\\/_zeropress/, '') || '/';
+  }
+  if (url.startsWith('_zeropress/') && !url.startsWith('_zeropress/pagefind/')) {
+    return url.replace(/^_zeropress/, '') || '/';
+  }
+  return url;
+}
+
+function normalizeLimit(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const limit = Number(value);
+  if (!Number.isFinite(limit) || limit <= 0) {
+    return null;
+  }
+
+  return Math.floor(limit);
+}
+`;
+}
 function buildSitemapXml(site, emitted, generatedAt, stylesheetHref = "") {
   const entries = [
     ...emitted.frontPage && emitted.frontPage.includeInSitemap !== false ? [{
@@ -63520,6 +63614,9 @@ function buildRobotsTxt(site) {
 }
 function shouldGenerateRobotsTxt(options2) {
   return options2.generateSpecialFiles && options2.generateRobotsTxt !== false;
+}
+function shouldGenerateSearchArtifacts(state, options2) {
+  return options2.generateSpecialFiles && state.previewData.site.search === true;
 }
 function getContentType(assetPath) {
   const ext = assetPath.split(".").pop()?.toLowerCase();
@@ -64017,6 +64114,8 @@ async function runBuildPages(options2) {
   const cwd = path3.resolve(options2.cwd || process.cwd());
   const copyMarkdownSource = options2.copyMarkdownSource !== false;
   const sourceDir = path3.resolve(cwd, options2.source);
+  const publicDirExplicit = hasExplicitPublicDir(options2);
+  const publicDir = publicDirExplicit ? path3.resolve(cwd, options2.publicDir) : sourceDir;
   const destinationDir = path3.resolve(cwd, options2.destination);
   const generatedDir = path3.join(cwd, ".zeropress");
   const stagingDir = path3.join(cwd, STAGING_DIR);
@@ -64025,17 +64124,22 @@ async function runBuildPages(options2) {
   assertBuildPagesPathLayout({
     cwd,
     sourceDir,
+    publicDir,
+    publicDirExplicit,
     destinationDir,
     themeDir,
     generatedDir
   });
   await assertDirectory(sourceDir, "Source directory");
+  await assertPublicDirectory(publicDir, publicDirExplicit);
+  await assertDestinationPath(destinationDir);
   await fs3.rm(generatedDir, { recursive: true, force: true });
   await fs3.mkdir(generatedDir, { recursive: true });
   const env = {
     ...process.env,
     ZEROPRESS_BUILD_PAGES_SOURCE: sourceDir,
-    ZEROPRESS_PUBLIC_DIR: sourceDir,
+    ZEROPRESS_BUILD_PAGES_PUBLIC_DIR: publicDir,
+    ZEROPRESS_PUBLIC_DIR: publicDir,
     ZEROPRESS_SKIP_UNTITLED_MARKDOWN: String(Boolean(options2.skipUntitledMarkdown)),
     ZEROPRESS_COPY_MARKDOWN_SOURCE: String(copyMarkdownSource)
   };
@@ -64059,10 +64163,13 @@ async function runBuildPages(options2) {
   await fs3.rm(destinationDir, { recursive: true, force: true });
   await fs3.rm(stagingDir, { recursive: true, force: true });
   await fs3.mkdir(stagingDir, { recursive: true });
-  await copyPublicStaging(sourceDir, stagingDir, {
+  await copyPublicStaging(publicDir, stagingDir, {
     excludePaths: [destinationDir, themeDir, generatedDir],
     copyMarkdownSource
   });
+  if (copyMarkdownSource) {
+    await copySourceMarkdownFiles(sourceDir, stagingDir, previewData);
+  }
   const previousPublicDir = process.env.ZEROPRESS_PUBLIC_DIR;
   process.env.ZEROPRESS_PUBLIC_DIR = stagingDir;
   try {
@@ -64097,6 +64204,9 @@ function resolveThemeDir(cwd, options2) {
   }
   throw new Error(`Unknown bundled theme: ${options2.theme}`);
 }
+function hasExplicitPublicDir(options2) {
+  return typeof options2.publicDir === "string" && Boolean(options2.publicDir.trim());
+}
 async function assertDirectory(dir, label) {
   let stat;
   try {
@@ -64111,17 +64221,78 @@ async function assertDirectory(dir, label) {
     throw new Error(`${label} is not a directory: ${dir}`);
   }
 }
-function assertBuildPagesPathLayout({ cwd, sourceDir, destinationDir, themeDir, generatedDir }) {
+async function assertPublicDirectory(publicDir, explicit) {
+  if (!explicit) {
+    return;
+  }
+  let stat;
+  try {
+    stat = await fs3.lstat(publicDir);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      throw new Error(`Public directory not found: ${publicDir}`);
+    }
+    throw error;
+  }
+  if (stat.isSymbolicLink()) {
+    throw new Error(`Public directory must not be a symbolic link: ${publicDir}`);
+  }
+  if (!stat.isDirectory()) {
+    throw new Error(`Public path is not a directory: ${publicDir}`);
+  }
+}
+async function assertDestinationPath(destinationDir) {
+  let stat;
+  try {
+    stat = await fs3.lstat(destinationDir);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return;
+    }
+    throw error;
+  }
+  if (!stat.isDirectory()) {
+    throw new Error(`Destination path is not a directory: ${destinationDir}`);
+  }
+}
+function assertBuildPagesPathLayout({
+  cwd,
+  sourceDir,
+  publicDir,
+  publicDirExplicit,
+  destinationDir,
+  themeDir,
+  generatedDir
+}) {
   if (samePath(sourceDir, cwd)) {
     throw new Error(
       `Source directory must be a dedicated content directory, not the current working directory. Received: ${formatPath(cwd, sourceDir)}`
     );
   }
+  if (publicDirExplicit && samePath(publicDir, cwd)) {
+    throw new Error(
+      `Public directory must be a dedicated asset directory, not the current working directory. Received: ${formatPath(cwd, publicDir)}`
+    );
+  }
   assertNoPathOverlap(cwd, "Source directory", sourceDir, "internal .zeropress working directory", generatedDir);
   assertNoPathOverlap(cwd, "Destination directory", destinationDir, "internal .zeropress working directory", generatedDir);
   assertNoPathOverlap(cwd, "Theme directory", themeDir, "internal .zeropress working directory", generatedDir);
+  if (!samePath(publicDir, sourceDir)) {
+    assertNoPathOverlap(cwd, "Public directory", publicDir, "internal .zeropress working directory", generatedDir);
+    assertNoPathOverlap(cwd, "Public directory", publicDir, "destination directory", destinationDir);
+    assertNoPathOverlap(cwd, "Public directory", publicDir, "theme directory", themeDir);
+  }
   assertNoPathOverlap(cwd, "Source directory", sourceDir, "destination directory", destinationDir);
   assertNoPathOverlap(cwd, "Source directory", sourceDir, "theme directory", themeDir);
+  assertSourceIsNotInsidePublicDirectory(cwd, sourceDir, publicDir);
+}
+function assertSourceIsNotInsidePublicDirectory(cwd, sourceDir, publicDir) {
+  if (samePath(sourceDir, publicDir) || !isPathInside2(publicDir, sourceDir)) {
+    return;
+  }
+  throw new Error(
+    `Source directory must not be inside the public directory. Source directory: ${formatPath(cwd, sourceDir)}; Public directory: ${formatPath(cwd, publicDir)}`
+  );
 }
 function assertNoPathOverlap(cwd, firstLabel, firstPath, secondLabel, secondPath) {
   if (!pathsOverlap2(firstPath, secondPath)) {
@@ -64157,6 +64328,52 @@ async function copyPublicStaging(sourceDir, targetDir, options2) {
     await fs3.copyFile(sourcePath, targetPath);
   }
 }
+async function copySourceMarkdownFiles(sourceDir, targetDir, previewData) {
+  const markdownUrls = /* @__PURE__ */ new Set();
+  for (const page of previewData?.content?.pages || []) {
+    const sourceMarkdownUrl = page?.meta?.source_markdown_url;
+    if (typeof sourceMarkdownUrl === "string" && sourceMarkdownUrl) {
+      markdownUrls.add(sourceMarkdownUrl);
+    }
+  }
+  for (const sourceMarkdownUrl of markdownUrls) {
+    const relativePath = sourceMarkdownUrlToRelativePath(sourceMarkdownUrl);
+    if (!relativePath) {
+      continue;
+    }
+    const sourcePath = path3.join(sourceDir, relativePath);
+    if (!isPathInside2(sourceDir, sourcePath)) {
+      continue;
+    }
+    const targetPath = path3.join(targetDir, relativePath);
+    await fs3.mkdir(path3.dirname(targetPath), { recursive: true });
+    await fs3.copyFile(sourcePath, targetPath);
+  }
+}
+function sourceMarkdownUrlToRelativePath(sourceMarkdownUrl) {
+  if (!sourceMarkdownUrl.startsWith("/") || sourceMarkdownUrl.includes("?") || sourceMarkdownUrl.includes("#")) {
+    return "";
+  }
+  const rawSegments = sourceMarkdownUrl.slice(1).split("/");
+  const segments = [];
+  for (const rawSegment of rawSegments) {
+    if (!rawSegment) {
+      return "";
+    }
+    let segment;
+    try {
+      segment = decodeURIComponent(rawSegment);
+    } catch {
+      return "";
+    }
+    if (!segment || segment === "." || segment === ".." || segment.includes("/") || segment.includes("\\")) {
+      return "";
+    }
+    segments.push(segment);
+  }
+  const relativePath = segments.join("/");
+  return relativePath.toLowerCase().endsWith(".md") ? relativePath : "";
+}
 function shouldIgnorePublicEntry2(name) {
   const basename = String(name || "");
   const lowerName = basename.toLowerCase();
@@ -64185,6 +64402,7 @@ function formatPath(cwd, targetPath) {
 // src/action.js
 var options = {
   source: input("source") || "./docs",
+  publicDir: input("public-dir"),
   destination: input("destination") || "./_site",
   theme: input("theme") || "docs",
   themePath: input("theme-path"),

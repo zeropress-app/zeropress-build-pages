@@ -3524,6 +3524,7 @@ import { fileURLToPath } from "node:url";
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var rootDir = process.cwd();
 var sourceDir = resolveEnvPath(["ZEROPRESS_BUILD_PAGES_SOURCE"], "docs");
+var publicDir = resolveEnvPath(["ZEROPRESS_BUILD_PAGES_PUBLIC_DIR"], sourceDir);
 var defaultConfigPath = path.join(sourceDir, ".zeropress", "config.json");
 var configPath = resolveOptionalEnvPath(["ZEROPRESS_BUILD_PAGES_CONFIG"], defaultConfigPath);
 var outDir = path.join(rootDir, ".zeropress");
@@ -3540,6 +3541,7 @@ var FRONT_MATTER_DATA_MAX_DEPTH = 4;
 var FRONT_MATTER_DATA_MAX_KEYS = 64;
 var FRONT_MATTER_DATA_MAX_ARRAY_LENGTH = 256;
 var FRONT_MATTER_DISCOVERABILITY_VALUES = /* @__PURE__ */ new Set(["default", "noindex", "delist"]);
+var markdownDiscoverExcludeRoots = buildMarkdownDiscoverExcludeRoots();
 var PrebuildMarkdownError = class extends Error {
   constructor(sourcePath, reason, expected = "", code = "invalid_markdown") {
     super(reason);
@@ -3740,6 +3742,7 @@ function buildSiteData(config, frontPage) {
     },
     disallow_comments: true,
     expose_generator: configuredSite.expose_generator !== false,
+    search: configuredSite.search !== false,
     indexing: configuredSite.indexing !== false
   };
   if (configuredSite.footer) {
@@ -3768,12 +3771,13 @@ function normalizeSiteConfig(value) {
     );
   }
   const configuredSite = isPlainObject(value) ? value : {};
-  assertKnownConfigKeys(configuredSite, ["title", "description", "url", "expose_generator", "indexing", "footer"], "site");
+  assertKnownConfigKeys(configuredSite, ["title", "description", "url", "expose_generator", "search", "indexing", "footer"], "site");
   const site = {
     title: readConfigString(configuredSite.title, "Documentation"),
     description: readConfigString(configuredSite.description, "A documentation site."),
     url: readEnv("ZEROPRESS_SITE_URL", readConfigString(configuredSite.url, "")),
     expose_generator: readConfigBoolean(configuredSite.expose_generator, true, "site.expose_generator"),
+    search: readConfigBoolean(configuredSite.search, true, "site.search"),
     indexing: readConfigBoolean(configuredSite.indexing, true, "site.indexing")
   };
   const footer = normalizeFooter(configuredSite.footer);
@@ -4184,6 +4188,7 @@ function buildPrebuildReport({
   return {
     generated_at: (/* @__PURE__ */ new Date()).toISOString(),
     source_dir: formatSourcePath(sourceDir),
+    public_dir: formatSourcePath(publicDir),
     config_path: formatSourcePath(configPath),
     build_pages_config_path: formatSourcePath(buildPagesConfigPath),
     preview_data_path: formatSourcePath(previewDataPath),
@@ -4209,7 +4214,8 @@ function buildPrebuildReport({
 function printPrebuildSummary(report) {
   const lines = [
     "ZeroPress build report",
-    `- Public root: ${report.source_dir}`,
+    `- Source root: ${report.source_dir}`,
+    `- Public root: ${report.public_dir}`,
     `- Markdown discovered: ${report.markdown.discovered}`,
     `- Markdown pages generated: ${report.markdown.generated_pages}`,
     `- Markdown skipped: ${report.markdown.skipped}`,
@@ -4497,6 +4503,9 @@ async function listMarkdownFiles(dir) {
       continue;
     }
     const entryPath = path.join(dir, entry.name);
+    if (isMarkdownDiscoverExcluded(entryPath)) {
+      continue;
+    }
     if (entry.isDirectory()) {
       files.push(...await listMarkdownFiles(entryPath));
       continue;
@@ -4506,6 +4515,18 @@ async function listMarkdownFiles(dir) {
     }
   }
   return files.sort((left, right) => left.localeCompare(right));
+}
+function buildMarkdownDiscoverExcludeRoots() {
+  if (samePath(sourceDir, publicDir) || !isPathInside(sourceDir, publicDir)) {
+    return [];
+  }
+  return [publicDir];
+}
+function isMarkdownDiscoverExcluded(entryPath) {
+  return markdownDiscoverExcludeRoots.some((excludeRoot) => samePath(entryPath, excludeRoot) || isPathInside(excludeRoot, entryPath));
+}
+function samePath(firstPath, secondPath) {
+  return path.resolve(firstPath) === path.resolve(secondPath);
 }
 function shouldIgnoreMarkdownDiscoverEntry(name) {
   const basename = String(name || "");
