@@ -25,6 +25,7 @@ test('CLI prints help and version', () => {
   assert.equal(help.status, 0);
   assert.match(help.stdout, /zeropress-build-pages/);
   assert.match(help.stdout, /--source <dir>/);
+  assert.match(help.stdout, /--public-dir <dir>/);
   assert.match(help.stdout, /Dedicated source directory \(required\)/);
 
   const version = spawnSync(process.execPath, [binPath, '--version'], {
@@ -45,6 +46,10 @@ test('parseArgs requires explicit CLI options and applies flag defaults', () => 
     /--destination <dir> is required/,
   );
   assert.throws(
+    () => parseArgs(['--source', 'docs', '--public-dir', '--destination', '_site']),
+    /--public-dir requires a value/,
+  );
+  assert.throws(
     () => parseArgs(['--source', 'docs', '--out', '_site']),
     /unknown option --out/,
   );
@@ -59,6 +64,7 @@ test('parseArgs requires explicit CLI options and applies flag defaults', () => 
 
   assert.deepEqual(parseArgs(['--source', 'docs', '--destination', 'site']), {
     source: 'docs',
+    publicDir: '',
     destination: 'site',
     theme: 'docs',
     themePath: '',
@@ -91,12 +97,20 @@ test('parseArgs requires explicit CLI options and applies flag defaults', () => 
     '--no-copy-markdown-source',
   ]);
   assert.equal(parsed.source, 'src');
+  assert.equal(parsed.publicDir, '');
   assert.equal(parsed.destination, 'dist');
   assert.equal(parsed.themePath, 'custom-theme');
   assert.equal(parsed.siteUrl, 'https://override.example');
   assert.equal(parsed.skipUntitledMarkdown, true);
   assert.equal(parsed.skipLinkCheck, true);
   assert.equal(parsed.copyMarkdownSource, false);
+
+  const publicParsed = parseArgs([
+    '--source', 'src',
+    '--public-dir', 'public',
+    '--destination', 'dist',
+  ]);
+  assert.equal(publicParsed.publicDir, 'public');
 });
 
 const failureCases = [
@@ -278,6 +292,47 @@ test('builds a source directory without config and preserves markdown passthroug
   await fs.access(path.join(tempDir, '.zeropress', 'preview-data.json'));
 });
 
+test('builds with a separated public directory', async () => {
+  const tempDir = await makeTempDir();
+  const sourceDir = path.join(tempDir, 'docs');
+  const publicDir = path.join(tempDir, 'public');
+  await fs.mkdir(sourceDir, { recursive: true });
+  await fs.mkdir(path.join(publicDir, 'assets'), { recursive: true });
+  await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nSee [Guide](guide.md).', 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'guide.md'), '# Guide\n\nGuide content.', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'assets', 'logo.txt'), 'logo', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'favicon.svg'), '<svg></svg>', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'robots.txt'), 'User-agent: *\nDisallow: /tmp\n', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'sitemap.xsl'), '<xsl:stylesheet version="1.0"></xsl:stylesheet>', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'README.MD'), '# Public Markdown\n\nPassthrough.', 'utf8');
+
+  await runBuildPages({
+    cwd: tempDir,
+    source: 'docs',
+    publicDir: 'public',
+    destination: '_site',
+    theme: 'docs',
+    siteUrl: 'https://example.com',
+    skipLinkCheck: true,
+  });
+
+  const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
+  const robotsTxt = await fs.readFile(path.join(tempDir, '_site', 'robots.txt'), 'utf8');
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'preview-data.json'), 'utf8'));
+  const buildReport = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'build-report.json'), 'utf8'));
+
+  assert.match(buildReport.source_dir, /docs$/);
+  assert.match(buildReport.public_dir, /public$/);
+  assert.equal(previewData.content.pages.find((page) => page.slug === 'guide').meta.source_markdown_url, '/guide.md');
+  assert.match(indexHtml, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
+  assert.equal(robotsTxt, 'User-agent: *\nDisallow: /tmp\n');
+  await fs.access(path.join(tempDir, '_site', 'assets', 'logo.txt'));
+  await fs.access(path.join(tempDir, '_site', 'sitemap.xsl'));
+  await fs.access(path.join(tempDir, '_site', 'README.MD'));
+  await fs.access(path.join(tempDir, '_site', 'index.md'));
+  await fs.access(path.join(tempDir, '_site', 'guide.md'));
+});
+
 test('can build without copying original markdown source', async () => {
   const tempDir = await makeTempDir();
   const sourceDir = path.join(tempDir, 'docs');
@@ -310,6 +365,54 @@ test('can build without copying original markdown source', async () => {
   assert.equal(await pathExists(path.join(tempDir, '_site', 'README.MD')), false);
   await fs.access(path.join(tempDir, '_site', 'index.html'));
   await fs.access(path.join(tempDir, '_site', 'guide.html'));
+});
+
+test('does not copy source or public markdown when markdown source copy is disabled', async () => {
+  const tempDir = await makeTempDir();
+  const sourceDir = path.join(tempDir, 'docs');
+  const publicDir = path.join(tempDir, 'public');
+  await fs.mkdir(sourceDir, { recursive: true });
+  await fs.mkdir(publicDir, { recursive: true });
+  await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nPrivate source.', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'README.MD'), '# Public Markdown\n\nAlso private.', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'asset.txt'), 'asset', 'utf8');
+
+  await runBuildPages({
+    cwd: tempDir,
+    source: 'docs',
+    publicDir: 'public',
+    destination: '_site',
+    theme: 'docs',
+    skipLinkCheck: true,
+    copyMarkdownSource: false,
+  });
+
+  await fs.access(path.join(tempDir, '_site', 'index.html'));
+  await fs.access(path.join(tempDir, '_site', 'asset.txt'));
+  assert.equal(await pathExists(path.join(tempDir, '_site', 'index.md')), false);
+  assert.equal(await pathExists(path.join(tempDir, '_site', 'README.MD')), false);
+});
+
+test('excludes nested public directory from markdown discovery', async () => {
+  const tempDir = await makeTempDir();
+  const sourceDir = path.join(tempDir, 'docs');
+  await fs.mkdir(path.join(sourceDir, 'public'), { recursive: true });
+  await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nNested public root.', 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'public', 'asset.md'), '# Asset Markdown\n\nPassthrough only.', 'utf8');
+
+  await runBuildPages({
+    cwd: tempDir,
+    source: 'docs',
+    publicDir: 'docs/public',
+    destination: '_site',
+    theme: 'docs',
+    skipLinkCheck: true,
+  });
+
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress', 'preview-data.json'), 'utf8'));
+  assert.equal(previewData.content.pages.some((page) => page.slug === 'asset'), false);
+  await fs.access(path.join(tempDir, '_site', 'asset.md'));
+  assert.equal(await pathExists(path.join(tempDir, '_site', 'asset.html')), false);
 });
 
 test('uses source robots.txt before generated fallback robots', async () => {
@@ -420,6 +523,112 @@ test('rejects source, destination, and theme overlap with build-pages working pa
       skipLinkCheck: true,
     }),
     /Source directory must not overlap the theme directory/,
+  );
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      publicDir: '.zeropress/public',
+      destination: '_site',
+      theme: 'docs',
+      skipLinkCheck: true,
+    }),
+    /Public directory must not overlap the internal \.zeropress working directory/,
+  );
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      publicDir: '_site/public',
+      destination: '_site',
+      theme: 'docs',
+      skipLinkCheck: true,
+    }),
+    /Public directory must not overlap the destination directory/,
+  );
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      publicDir: 'custom-theme/public',
+      destination: '_site',
+      themePath: 'custom-theme',
+      skipLinkCheck: true,
+    }),
+    /Public directory must not overlap the theme directory/,
+  );
+});
+
+test('rejects invalid explicit public directory paths', async () => {
+  const tempDir = await makeTempDir();
+  await fs.mkdir(path.join(tempDir, 'docs'), { recursive: true });
+  await fs.mkdir(path.join(tempDir, 'public'), { recursive: true });
+  await fs.mkdir(path.join(tempDir, 'content'), { recursive: true });
+  await fs.writeFile(path.join(tempDir, 'docs', 'index.md'), '# Home\n\nPublic path checks.', 'utf8');
+  await fs.writeFile(path.join(tempDir, 'public-file'), 'not a directory', 'utf8');
+  await fs.symlink(path.join(tempDir, 'public'), path.join(tempDir, 'public-link'));
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      publicDir: 'missing-public',
+      destination: '_site',
+      theme: 'docs',
+      skipLinkCheck: true,
+    }),
+    /Public directory not found/,
+  );
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      publicDir: 'public-file',
+      destination: '_site',
+      theme: 'docs',
+      skipLinkCheck: true,
+    }),
+    /Public path is not a directory/,
+  );
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      publicDir: 'public-link',
+      destination: '_site',
+      theme: 'docs',
+      skipLinkCheck: true,
+    }),
+    /Public directory must not be a symbolic link/,
+  );
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      publicDir: '.',
+      destination: '_site',
+      theme: 'docs',
+      skipLinkCheck: true,
+    }),
+    /Public directory must be a dedicated asset directory/,
+  );
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'content/docs',
+      publicDir: 'content',
+      destination: '_site',
+      theme: 'docs',
+      skipLinkCheck: true,
+    }),
+    /Source directory must not be inside the public directory/,
   );
 });
 
@@ -608,7 +817,7 @@ test('link checker reports broken links without throwing', async () => {
 
 test('action metadata and entrypoint use supported inputs', async () => {
   const action = await fs.readFile(path.join(packageDir, 'action.yml'), 'utf8');
-  for (const inputName of ['source', 'destination', 'theme', 'theme-path', 'config', 'site-url', 'skip-untitled-markdown', 'skip-link-check', 'copy-markdown-source']) {
+  for (const inputName of ['source', 'public-dir', 'destination', 'theme', 'theme-path', 'config', 'site-url', 'skip-untitled-markdown', 'skip-link-check', 'copy-markdown-source']) {
     assert.match(action, new RegExp(`\\n  ${inputName}:`));
   }
   assert.match(action, /default: \.\/docs/);
@@ -616,11 +825,14 @@ test('action metadata and entrypoint use supported inputs', async () => {
 
   const tempDir = await makeTempDir();
   await fs.mkdir(path.join(tempDir, 'docs'), { recursive: true });
+  await fs.mkdir(path.join(tempDir, 'public'), { recursive: true });
   await fs.writeFile(path.join(tempDir, 'docs', 'index.md'), '# Home\n\nAction build.', 'utf8');
+  await fs.writeFile(path.join(tempDir, 'public', 'asset.txt'), 'asset', 'utf8');
   const result = spawnSync(process.execPath, [actionPath], {
     cwd: tempDir,
     env: {
       ...process.env,
+      'INPUT_PUBLIC-DIR': 'public',
       INPUT_DESTINATION: '_site',
       INPUT_THEME: 'docs',
       'INPUT_SKIP-LINK-CHECK': 'true',
@@ -631,6 +843,7 @@ test('action metadata and entrypoint use supported inputs', async () => {
   assert.equal(result.status, 0, result.stderr);
   await fs.access(path.join(tempDir, '_site', 'index.html'));
   await fs.access(path.join(tempDir, '_site', 'index.md'));
+  await fs.access(path.join(tempDir, '_site', 'asset.txt'));
 
   const privateTempDir = await makeTempDir();
   await fs.mkdir(path.join(privateTempDir, 'docs'), { recursive: true });

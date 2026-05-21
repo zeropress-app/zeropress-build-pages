@@ -5,7 +5,7 @@
 
 Build ZeroPress static output for modern hosting platforms.
 
-`@zeropress/build-pages` turns a directory of Markdown files and public assets into a static ZeroPress site. It discovers Markdown pages, prepares the site data, stages public files, and runs [`@zeropress/build`](https://github.com/zeropress-app/zeropress-build).
+`@zeropress/build-pages` turns Markdown files and public assets into a static ZeroPress site. It discovers Markdown pages, prepares the site data, stages public files, and runs [`@zeropress/build`](https://github.com/zeropress-app/zeropress-build).
 
 The generated output is plain static files that can be deployed to GitHub Pages, Cloudflare Pages, Netlify, Vercel, or any static hosting provider.
 
@@ -13,7 +13,9 @@ The generated output is plain static files that can be deployed to GitHub Pages,
 
 ```txt
 source directory
-  Markdown pages + .zeropress/config.json + public files
+  Markdown pages + .zeropress/config.json
+public directory
+  public files (defaults to source)
         |
         v
 @zeropress/build-pages
@@ -32,7 +34,7 @@ static output directory
 flowchart TD
   source["Source directory"] --> markdown["Markdown pages (*.md)"]
   source --> config[".zeropress/config.json"]
-  source --> publicFiles["Public files<br/>images, CSS, JS, PDF, JSON, Markdown"]
+  publicRoot["Public directory<br/>defaults to source"] --> publicFiles["Public files<br/>images, CSS, JS, PDF, JSON, Markdown"]
 
   markdown --> buildPages["@zeropress/build-pages"]
   config --> buildPages
@@ -83,6 +85,7 @@ jobs:
         uses: zeropress-app/zeropress-build-pages@v0
         with:
           source: ./docs
+          public-dir: ./public
           destination: ./_site
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
@@ -114,6 +117,7 @@ That is equivalent to:
   uses: zeropress-app/zeropress-build-pages@v0
   with:
     source: ./docs
+    public-dir: ./docs
     destination: ./_site
     theme: docs
     skip-untitled-markdown: false
@@ -128,6 +132,7 @@ Custom input example:
   uses: zeropress-app/zeropress-build-pages@v0
   with:
     source: ./documents
+    public-dir: ./public
     destination: ./_site
     theme-path: ./theme-docs
     config: ./documents/.zeropress/config.json
@@ -137,7 +142,8 @@ Custom input example:
 
 In the action inputs:
 
-- `source` is the directory that contains your Markdown pages, public files, and optional `.zeropress/config.json`. The default is `./docs`.
+- `source` is the directory that contains your Markdown pages and optional `.zeropress/config.json`. The default is `./docs`.
+- `public-dir` is the directory copied as public passthrough files. The default is `source`.
 - `destination` is the directory where the generated static site is written. The default is `./_site`.
 - `theme` is the bundled theme name. The default is `docs`.
 - `theme-path` is a custom local ZeroPress theme directory. It takes precedence over `theme`.
@@ -158,6 +164,7 @@ npx @zeropress/create-theme --name my-docs-theme --template docs
 ```yaml
 with:
   source: ./docs
+  public-dir: ./public
   destination: ./_site
   theme-path: ./my-docs-theme/theme
 ```
@@ -196,7 +203,8 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 
 | Option | Default | Purpose |
 | --- | --- | --- |
-| `--source <dir>` | required | Dedicated source directory containing Markdown and public files |
+| `--source <dir>` | required | Dedicated source directory containing Markdown and optional config |
+| `--public-dir <dir>` | source | Public passthrough directory |
 | `--destination <dir>` | required | Output directory |
 | `--theme docs` | `docs` | Bundled docs theme |
 | `--theme-path <dir>` | none | Custom ZeroPress theme directory |
@@ -208,7 +216,7 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 
 ## Source Tree
 
-The source directory is the folder that Build Pages reads. It is both the Markdown source root and the public passthrough root. GitHub Action usage defaults to `./docs`; CLI usage requires `--source`.
+The source directory is the folder that Build Pages reads for Markdown pages and optional `.zeropress/config.json`. By default, the source directory is also the public passthrough root. Use `public-dir` when you want to keep Markdown source and public assets separate.
 
 Use a dedicated content directory such as `docs/` or `documents/`. Repository root source (`--source ./`) is not supported.
 
@@ -217,20 +225,25 @@ my-site/
   docs/                 # source
     index.md
     guide.md
-    assets/
-      logo.png
     .zeropress/
       config.json
+  public/               # public-dir, optional
+    assets/
+      logo.png
+    favicon.svg
+    robots.txt
   _site/                # destination, generated
 ```
 
-Build Pages stages the source tree before calling [`@zeropress/build`](https://github.com/zeropress-app/zeropress-build). Generated ZeroPress output wins over staged public files.
+Build Pages stages the public directory before calling [`@zeropress/build`](https://github.com/zeropress-app/zeropress-build). Generated ZeroPress output wins over staged public files.
 
-Root-level source favicon files named `favicon.ico`, `favicon.svg`, `favicon.png`, and `apple-touch-icon.png` are copied to the destination and auto-injected into generated HTML `<head>` output.
+Root-level public files named `favicon.ico`, `favicon.svg`, `favicon.png`, and `apple-touch-icon.png` are copied to the destination and auto-injected into generated HTML `<head>` output.
 
-A root-level source `sitemap.xsl` is copied to the destination. When ZeroPress generates `sitemap.xml`, it auto-discovers that file and adds an XML stylesheet processing instruction for `/sitemap.xsl`.
+A root-level public `sitemap.xsl` is copied to the destination. When ZeroPress generates `sitemap.xml`, it auto-discovers that file and adds an XML stylesheet processing instruction for `/sitemap.xsl`.
 
-The source directory must not overlap the destination directory, the selected theme directory, or the internal `.zeropress/` working directory.
+The source directory must not overlap the destination directory, the selected theme directory, or the internal `.zeropress/` working directory. An explicit public directory must be an existing dedicated directory and must not be a file, symlink, repository root, destination directory, selected theme directory, or internal `.zeropress/` working directory.
+
+If `public-dir` is inside `source`, Build Pages excludes that public subtree from Markdown page discovery.
 
 Ignored while staging and Markdown discovery:
 
@@ -397,7 +410,7 @@ cp ./_site/_zeropress/search_pagefind.js ./_site/_zeropress/search.js
 rm ./_site/_zeropress/search.json
 ```
 
-`site.indexing` controls only the generated fallback `robots.txt`. Missing or `true` allows indexing; `false` writes `User-agent: *` / `Disallow: /`. If the source directory contains `robots.txt`, that file is copied as-is and takes priority over `site.indexing`. ZeroPress does not append a `Sitemap` directive to a source-provided `robots.txt`; add `Sitemap: https://example.com/sitemap.xml` manually when needed.
+`site.indexing` controls only the generated fallback `robots.txt`. Missing or `true` allows indexing; `false` writes `User-agent: *` / `Disallow: /`. If the public directory contains `robots.txt`, that file is copied as-is and takes priority over `site.indexing`. ZeroPress does not append a `Sitemap` directive to a public `robots.txt`; add `Sitemap: https://example.com/sitemap.xml` manually when needed.
 
 Schemas:
 
@@ -419,13 +432,13 @@ Build Pages reads optional site config from `<source>/.zeropress/config.json`. S
 
 `preview-data.json` is an internal generated build input for the ZeroPress renderer. Most users do not need to edit or understand this file.
 
-`build-report.json` records discovered Markdown counts, skipped Markdown files, front page resolution, source Markdown copy policy, and custom HTML slots.
+`build-report.json` records source/public roots, discovered Markdown counts, skipped Markdown files, front page resolution, source Markdown copy policy, and custom HTML slots.
 
 `public-assets/` is a temporary staged public root used before the final ZeroPress render.
 
 ## Destination Output
 
-The `destination` directory contains the deployable static site. It includes generated ZeroPress HTML, copied public files, and original Markdown files unless Markdown source copy is disabled or files are excluded by the public passthrough rules. A source `robots.txt` is copied as a site-owned policy file; otherwise ZeroPress writes a fallback `robots.txt` with a sitemap directive when `site.url` is available. Root-level source favicon files are copied and represented as generated HTML head links. A root-level source `sitemap.xsl` is copied and linked from generated `sitemap.xml`.
+The `destination` directory contains the deployable static site. It includes generated ZeroPress HTML, copied public files, and original Markdown files unless Markdown source copy is disabled or files are excluded by the public passthrough rules. A public `robots.txt` is copied as a site-owned policy file; otherwise ZeroPress writes a fallback `robots.txt` with a sitemap directive when `site.url` is available. Root-level public favicon files are copied and represented as generated HTML head links. A root-level public `sitemap.xsl` is copied and linked from generated `sitemap.xml`.
 
 ## Demo
 

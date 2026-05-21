@@ -1,5 +1,6 @@
 Wrote .zeropress/preview-data.json with 0 pages
 ZeroPress build report
+- Source root: test/fixtures/prebuild-errors/invalid-front-matter-status/documents
 - Public root: test/fixtures/prebuild-errors/invalid-front-matter-status/documents
 - Markdown discovered: 1
 - Markdown pages generated: 0

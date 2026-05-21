@@ -9,6 +9,9 @@ inputs:
     description: Dedicated source directory containing Markdown files and optional .zeropress/config.json. Repository root source is not supported.
     required: false
     default: ./docs
+  public-dir:
+    description: Public passthrough directory for site-owned assets. Defaults to source.
+    required: false
   destination:
     description: Output directory for the generated static site.
     required: false

@@ -6,6 +6,7 @@ import matter from 'gray-matter';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = process.cwd();
 const sourceDir = resolveEnvPath(['ZEROPRESS_BUILD_PAGES_SOURCE'], 'docs');
+const publicDir = resolveEnvPath(['ZEROPRESS_BUILD_PAGES_PUBLIC_DIR'], sourceDir);
 const defaultConfigPath = path.join(sourceDir, '.zeropress', 'config.json');
 const configPath = resolveOptionalEnvPath(['ZEROPRESS_BUILD_PAGES_CONFIG'], defaultConfigPath);
 const outDir = path.join(rootDir, '.zeropress');
@@ -22,6 +23,7 @@ const FRONT_MATTER_DATA_MAX_DEPTH = 4;
 const FRONT_MATTER_DATA_MAX_KEYS = 64;
 const FRONT_MATTER_DATA_MAX_ARRAY_LENGTH = 256;
 const FRONT_MATTER_DISCOVERABILITY_VALUES = new Set(['default', 'noindex', 'delist']);
+const markdownDiscoverExcludeRoots = buildMarkdownDiscoverExcludeRoots();
 
 class PrebuildMarkdownError extends Error {
   constructor(sourcePath, reason, expected = '', code = 'invalid_markdown') {
@@ -762,6 +764,7 @@ function buildPrebuildReport({
   return {
     generated_at: new Date().toISOString(),
     source_dir: formatSourcePath(sourceDir),
+    public_dir: formatSourcePath(publicDir),
     config_path: formatSourcePath(configPath),
     build_pages_config_path: formatSourcePath(buildPagesConfigPath),
     preview_data_path: formatSourcePath(previewDataPath),
@@ -788,7 +791,8 @@ function buildPrebuildReport({
 function printPrebuildSummary(report) {
   const lines = [
     'ZeroPress build report',
-    `- Public root: ${report.source_dir}`,
+    `- Source root: ${report.source_dir}`,
+    `- Public root: ${report.public_dir}`,
     `- Markdown discovered: ${report.markdown.discovered}`,
     `- Markdown pages generated: ${report.markdown.generated_pages}`,
     `- Markdown skipped: ${report.markdown.skipped}`,
@@ -1136,6 +1140,10 @@ async function listMarkdownFiles(dir) {
     }
 
     const entryPath = path.join(dir, entry.name);
+    if (isMarkdownDiscoverExcluded(entryPath)) {
+      continue;
+    }
+
     if (entry.isDirectory()) {
       files.push(...await listMarkdownFiles(entryPath));
       continue;
@@ -1147,6 +1155,24 @@ async function listMarkdownFiles(dir) {
   }
 
   return files.sort((left, right) => left.localeCompare(right));
+}
+
+function buildMarkdownDiscoverExcludeRoots() {
+  if (samePath(sourceDir, publicDir) || !isPathInside(sourceDir, publicDir)) {
+    return [];
+  }
+
+  return [publicDir];
+}
+
+function isMarkdownDiscoverExcluded(entryPath) {
+  return markdownDiscoverExcludeRoots.some((excludeRoot) => (
+    samePath(entryPath, excludeRoot) || isPathInside(excludeRoot, entryPath)
+  ));
+}
+
+function samePath(firstPath, secondPath) {
+  return path.resolve(firstPath) === path.resolve(secondPath);
 }
 
 function shouldIgnoreMarkdownDiscoverEntry(name) {

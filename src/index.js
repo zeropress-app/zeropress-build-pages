@@ -39,6 +39,8 @@ export async function runBuildPages(options) {
   const cwd = path.resolve(options.cwd || process.cwd());
   const copyMarkdownSource = options.copyMarkdownSource !== false;
   const sourceDir = path.resolve(cwd, options.source);
+  const publicDirExplicit = hasExplicitPublicDir(options);
+  const publicDir = publicDirExplicit ? path.resolve(cwd, options.publicDir) : sourceDir;
   const destinationDir = path.resolve(cwd, options.destination);
   const generatedDir = path.join(cwd, '.zeropress');
   const stagingDir = path.join(cwd, STAGING_DIR);
@@ -48,11 +50,14 @@ export async function runBuildPages(options) {
   assertBuildPagesPathLayout({
     cwd,
     sourceDir,
+    publicDir,
+    publicDirExplicit,
     destinationDir,
     themeDir,
     generatedDir,
   });
   await assertDirectory(sourceDir, 'Source directory');
+  await assertPublicDirectory(publicDir, publicDirExplicit);
   await assertDestinationPath(destinationDir);
   await fs.rm(generatedDir, { recursive: true, force: true });
   await fs.mkdir(generatedDir, { recursive: true });
@@ -60,7 +65,8 @@ export async function runBuildPages(options) {
   const env = {
     ...process.env,
     ZEROPRESS_BUILD_PAGES_SOURCE: sourceDir,
-    ZEROPRESS_PUBLIC_DIR: sourceDir,
+    ZEROPRESS_BUILD_PAGES_PUBLIC_DIR: publicDir,
+    ZEROPRESS_PUBLIC_DIR: publicDir,
     ZEROPRESS_SKIP_UNTITLED_MARKDOWN: String(Boolean(options.skipUntitledMarkdown)),
     ZEROPRESS_COPY_MARKDOWN_SOURCE: String(copyMarkdownSource),
   };
@@ -86,10 +92,13 @@ export async function runBuildPages(options) {
   await fs.rm(destinationDir, { recursive: true, force: true });
   await fs.rm(stagingDir, { recursive: true, force: true });
   await fs.mkdir(stagingDir, { recursive: true });
-  await copyPublicStaging(sourceDir, stagingDir, {
+  await copyPublicStaging(publicDir, stagingDir, {
     excludePaths: [destinationDir, themeDir, generatedDir],
     copyMarkdownSource,
   });
+  if (copyMarkdownSource) {
+    await copySourceMarkdownFiles(sourceDir, stagingDir, previewData);
+  }
 
   const previousPublicDir = process.env.ZEROPRESS_PUBLIC_DIR;
   process.env.ZEROPRESS_PUBLIC_DIR = stagingDir;
@@ -138,6 +147,7 @@ export function parseArgs(argv) {
 
     const valueOptions = new Set([
       '--source',
+      '--public-dir',
       '--destination',
       '--theme',
       '--theme-path',
@@ -168,6 +178,7 @@ export function parseArgs(argv) {
 
   return {
     source,
+    publicDir: flags['public-dir'] || '',
     destination,
     theme: flags.theme || DEFAULT_THEME,
     themePath: flags['theme-path'] || '',
@@ -187,6 +198,7 @@ Usage:
 
 Options:
   --source <dir>                Dedicated source directory (required)
+  --public-dir <dir>            Public passthrough directory (default: source)
   --destination <dir>           Output directory (required)
   --theme docs                  Bundled theme name (default: docs)
   --theme-path <dir>            Custom ZeroPress theme directory
@@ -209,6 +221,10 @@ function resolveThemeDir(cwd, options) {
   throw new Error(`Unknown bundled theme: ${options.theme}`);
 }
 
+function hasExplicitPublicDir(options) {
+  return typeof options.publicDir === 'string' && Boolean(options.publicDir.trim());
+}
+
 async function assertDirectory(dir, label) {
   let stat;
   try {
@@ -221,6 +237,30 @@ async function assertDirectory(dir, label) {
   }
   if (!stat.isDirectory()) {
     throw new Error(`${label} is not a directory: ${dir}`);
+  }
+}
+
+async function assertPublicDirectory(publicDir, explicit) {
+  if (!explicit) {
+    return;
+  }
+
+  let stat;
+  try {
+    stat = await fs.lstat(publicDir);
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      throw new Error(`Public directory not found: ${publicDir}`);
+    }
+    throw error;
+  }
+
+  if (stat.isSymbolicLink()) {
+    throw new Error(`Public directory must not be a symbolic link: ${publicDir}`);
+  }
+
+  if (!stat.isDirectory()) {
+    throw new Error(`Public path is not a directory: ${publicDir}`);
   }
 }
 
@@ -240,7 +280,15 @@ async function assertDestinationPath(destinationDir) {
   }
 }
 
-function assertBuildPagesPathLayout({ cwd, sourceDir, destinationDir, themeDir, generatedDir }) {
+function assertBuildPagesPathLayout({
+  cwd,
+  sourceDir,
+  publicDir,
+  publicDirExplicit,
+  destinationDir,
+  themeDir,
+  generatedDir,
+}) {
   if (samePath(sourceDir, cwd)) {
     throw new Error(
       'Source directory must be a dedicated content directory, not the current working directory. '
@@ -248,11 +296,36 @@ function assertBuildPagesPathLayout({ cwd, sourceDir, destinationDir, themeDir, 
     );
   }
 
+  if (publicDirExplicit && samePath(publicDir, cwd)) {
+    throw new Error(
+      'Public directory must be a dedicated asset directory, not the current working directory. '
+      + `Received: ${formatPath(cwd, publicDir)}`,
+    );
+  }
+
   assertNoPathOverlap(cwd, 'Source directory', sourceDir, 'internal .zeropress working directory', generatedDir);
   assertNoPathOverlap(cwd, 'Destination directory', destinationDir, 'internal .zeropress working directory', generatedDir);
   assertNoPathOverlap(cwd, 'Theme directory', themeDir, 'internal .zeropress working directory', generatedDir);
+  if (!samePath(publicDir, sourceDir)) {
+    assertNoPathOverlap(cwd, 'Public directory', publicDir, 'internal .zeropress working directory', generatedDir);
+    assertNoPathOverlap(cwd, 'Public directory', publicDir, 'destination directory', destinationDir);
+    assertNoPathOverlap(cwd, 'Public directory', publicDir, 'theme directory', themeDir);
+  }
   assertNoPathOverlap(cwd, 'Source directory', sourceDir, 'destination directory', destinationDir);
   assertNoPathOverlap(cwd, 'Source directory', sourceDir, 'theme directory', themeDir);
+  assertSourceIsNotInsidePublicDirectory(cwd, sourceDir, publicDir);
+}
+
+function assertSourceIsNotInsidePublicDirectory(cwd, sourceDir, publicDir) {
+  if (samePath(sourceDir, publicDir) || !isPathInside(publicDir, sourceDir)) {
+    return;
+  }
+
+  throw new Error(
+    'Source directory must not be inside the public directory. '
+    + `Source directory: ${formatPath(cwd, sourceDir)}; `
+    + `Public directory: ${formatPath(cwd, publicDir)}`,
+  );
 }
 
 function assertNoPathOverlap(cwd, firstLabel, firstPath, secondLabel, secondPath) {
@@ -297,6 +370,67 @@ async function copyPublicStaging(sourceDir, targetDir, options) {
     await fs.mkdir(path.dirname(targetPath), { recursive: true });
     await fs.copyFile(sourcePath, targetPath);
   }
+}
+
+async function copySourceMarkdownFiles(sourceDir, targetDir, previewData) {
+  const markdownUrls = new Set();
+
+  for (const page of previewData?.content?.pages || []) {
+    const sourceMarkdownUrl = page?.meta?.source_markdown_url;
+    if (typeof sourceMarkdownUrl === 'string' && sourceMarkdownUrl) {
+      markdownUrls.add(sourceMarkdownUrl);
+    }
+  }
+
+  for (const sourceMarkdownUrl of markdownUrls) {
+    const relativePath = sourceMarkdownUrlToRelativePath(sourceMarkdownUrl);
+    if (!relativePath) {
+      continue;
+    }
+
+    const sourcePath = path.join(sourceDir, relativePath);
+    if (!isPathInside(sourceDir, sourcePath)) {
+      continue;
+    }
+
+    const targetPath = path.join(targetDir, relativePath);
+    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+    await fs.copyFile(sourcePath, targetPath);
+  }
+}
+
+function sourceMarkdownUrlToRelativePath(sourceMarkdownUrl) {
+  if (
+    !sourceMarkdownUrl.startsWith('/')
+    || sourceMarkdownUrl.includes('?')
+    || sourceMarkdownUrl.includes('#')
+  ) {
+    return '';
+  }
+
+  const rawSegments = sourceMarkdownUrl.slice(1).split('/');
+  const segments = [];
+  for (const rawSegment of rawSegments) {
+    if (!rawSegment) {
+      return '';
+    }
+
+    let segment;
+    try {
+      segment = decodeURIComponent(rawSegment);
+    } catch {
+      return '';
+    }
+
+    if (!segment || segment === '.' || segment === '..' || segment.includes('/') || segment.includes('\\')) {
+      return '';
+    }
+
+    segments.push(segment);
+  }
+
+  const relativePath = segments.join('/');
+  return relativePath.toLowerCase().endsWith('.md') ? relativePath : '';
 }
 
 function shouldIgnorePublicEntry(name) {

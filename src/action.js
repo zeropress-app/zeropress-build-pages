@@ -2,6 +2,7 @@ import { runBuildPages } from './index.js';
 
 const options = {
   source: input('source') || './docs',
+  publicDir: input('public-dir'),
   destination: input('destination') || './_site',
   theme: input('theme') || 'docs',
   themePath: input('theme-path'),
