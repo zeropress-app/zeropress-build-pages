@@ -384,7 +384,18 @@ The bundled docs theme shows `Published with ZeroPress.` by default. Set `site.f
 
 `site.expose_generator` controls the HTML generator meta tag. Missing or `true` emits `<meta name="generator" content="ZeroPress">`; set it to `false` for white-label sites.
 
-`site.search` controls native ZeroPress search when the selected theme supports search UI. Missing or `true` enables native search for the bundled docs theme; `false` omits `/_zeropress/search.json` and `/_zeropress/search.js` and hides the bundled search form.
+`site.search` controls native ZeroPress search when the selected theme supports search UI. Missing or `true` enables native search for the bundled docs theme; `false` omits `/_zeropress/search.json`, `/_zeropress/search.js`, and `/_zeropress/search_pagefind.js` and hides the bundled search form.
+
+The bundled docs theme marks post/page body content with `data-pagefind-body`. If you run Pagefind after the ZeroPress build, keep the theme UI pointed at `/_zeropress/search.js` and replace the native adapter:
+
+```bash
+npx pagefind@latest \
+  --site ./_site \
+  --output-subdir _zeropress/pagefind
+
+cp ./_site/_zeropress/search_pagefind.js ./_site/_zeropress/search.js
+rm ./_site/_zeropress/search.json
+```
 
 `site.indexing` controls only the generated fallback `robots.txt`. Missing or `true` allows indexing; `false` writes `User-agent: *` / `Disallow: /`. If the source directory contains `robots.txt`, that file is copied as-is and takes priority over `site.indexing`. ZeroPress does not append a `Sitemap` directive to a source-provided `robots.txt`; add `Sitemap: https://example.com/sitemap.xml` manually when needed.
 

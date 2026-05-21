@@ -1,7 +1,7 @@
 <article class="shell doc-layout{{#if page.toc}} doc-layout--with-toc{{/if}}">
   <div class="doc-content">
     {{#if route.is_front_page}}
-    <div class="prose">
+    <div class="prose" {{#if site.search}}{{#if_neq page.discoverability "delist"}}data-pagefind-body{{/if_neq}}{{/if}}>
       {{page.html}}
     </div>
     {{#else}}
@@ -10,7 +10,7 @@
       <h1>{{page.title}}</h1>
       {{#if page.excerpt}}<p class="lede">{{page.excerpt}}</p>{{/if}}
     </header>
-    <div class="prose">
+    <div class="prose" {{#if site.search}}{{#if_neq page.discoverability "delist"}}data-pagefind-body{{/if_neq}}{{/if}}>
       {{page.html}}
     </div>
     {{/if}}

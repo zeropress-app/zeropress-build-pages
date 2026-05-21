@@ -3,7 +3,7 @@
     <p class="eyebrow">Post</p>
     <h1>{{post.title}}</h1>
   </header>
-  <div class="prose">
+  <div class="prose" {{#if site.search}}{{#if_neq post.discoverability "delist"}}data-pagefind-body{{/if_neq}}{{/if}}>
     {{post.html}}
   </div>
 </article>

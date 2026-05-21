@@ -263,6 +263,7 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.doesNotMatch(customHtml, /title: Custom Front Matter Title|---/);
   const searchItems = JSON.parse(await fs.readFile(path.join(tempDir, '_site', '_zeropress', 'search.json'), 'utf8'));
   assert.equal(searchItems.some((item) => item.id === 'page:custom-page'), false);
+  await fs.access(path.join(tempDir, '_site', '_zeropress', 'search_pagefind.js'));
   await fs.access(path.join(tempDir, '_site', 'guide.md'));
   await fs.access(path.join(tempDir, '_site', 'custom.md'));
   await fs.access(path.join(tempDir, '_site', 'favicon.ico'));
@@ -543,6 +544,10 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   });
   await assert.rejects(
     () => fs.access(path.join(tempDir, '_site', '_zeropress', 'search.json')),
+    /ENOENT/,
+  );
+  await assert.rejects(
+    () => fs.access(path.join(tempDir, '_site', '_zeropress', 'search_pagefind.js')),
     /ENOENT/,
   );
   assert.doesNotMatch(indexHtml, /data-site-search/);

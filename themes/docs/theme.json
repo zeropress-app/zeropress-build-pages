@@ -7,8 +7,6 @@
   "runtime": "0.6",
   "description": "Bundled documentation theme for @zeropress/build-pages",
   "features": {
-    "comments": false,
-    "newsletter": false,
     "post_index": false,
     "search": true
   },

@@ -35,6 +35,7 @@ jobs:
           test -f _site/index.md
           test -f _site/_zeropress/search.json
           test -f _site/_zeropress/search.js
+          test -f _site/_zeropress/search_pagefind.js
 
       - name: Reset generated files
         run: rm -rf _site .zeropress
@@ -53,3 +54,4 @@ jobs:
           test ! -f _site/index.md
           test -f _site/_zeropress/search.json
           test -f _site/_zeropress/search.js
+          test -f _site/_zeropress/search_pagefind.js
