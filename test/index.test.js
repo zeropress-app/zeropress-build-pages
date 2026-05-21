@@ -423,6 +423,26 @@ test('rejects source, destination, and theme overlap with build-pages working pa
   );
 });
 
+test('rejects destination path when it is not a directory', async () => {
+  const tempDir = await makeTempDir();
+  await fs.mkdir(path.join(tempDir, 'docs'), { recursive: true });
+  await fs.writeFile(path.join(tempDir, 'docs', 'index.md'), '# Home\n\nDestination file check.', 'utf8');
+  await fs.writeFile(path.join(tempDir, '_site'), 'not a directory', 'utf8');
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      destination: '_site',
+      theme: 'docs',
+      skipLinkCheck: true,
+    }),
+    /Destination path is not a directory/,
+  );
+
+  assert.equal(await fs.readFile(path.join(tempDir, '_site'), 'utf8'), 'not a directory');
+});
+
 test('builds with config, custom theme path, and source inside a subdirectory', async () => {
   const tempDir = await makeTempDir();
   const sourceDir = path.join(tempDir, 'docs');

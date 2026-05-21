@@ -53,6 +53,7 @@ export async function runBuildPages(options) {
     generatedDir,
   });
   await assertDirectory(sourceDir, 'Source directory');
+  await assertDestinationPath(destinationDir);
   await fs.rm(generatedDir, { recursive: true, force: true });
   await fs.mkdir(generatedDir, { recursive: true });
 
@@ -220,6 +221,22 @@ async function assertDirectory(dir, label) {
   }
   if (!stat.isDirectory()) {
     throw new Error(`${label} is not a directory: ${dir}`);
+  }
+}
+
+async function assertDestinationPath(destinationDir) {
+  let stat;
+  try {
+    stat = await fs.lstat(destinationDir);
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return;
+    }
+    throw error;
+  }
+
+  if (!stat.isDirectory()) {
+    throw new Error(`Destination path is not a directory: ${destinationDir}`);
   }
 }
 
