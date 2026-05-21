@@ -20,12 +20,16 @@ jobs:
       - name: Create fixture source
         run: |
           mkdir -p docs
+          mkdir -p public/assets
           printf '# Home\n\nAction artifact test.\n' > docs/index.md
+          printf 'public asset\n' > public/assets/asset.txt
+          printf '# Public Markdown\n\nPublic passthrough markdown.\n' > public/public-note.md
 
       - name: Run local checked-out action
         uses: ./
         with:
           source: ./docs
+          public-dir: ./public
           destination: ./_site
           skip-link-check: true
 
@@ -33,6 +37,8 @@ jobs:
         run: |
           test -f _site/index.html
           test -f _site/index.md
+          test -f _site/assets/asset.txt
+          test -f _site/public-note.md
           test -f _site/_zeropress/search.json
           test -f _site/_zeropress/search.js
           test -f _site/_zeropress/search_pagefind.js
@@ -44,6 +50,7 @@ jobs:
         uses: ./
         with:
           source: ./docs
+          public-dir: ./public
           destination: ./_site
           skip-link-check: true
           copy-markdown-source: false
@@ -52,6 +59,8 @@ jobs:
         run: |
           test -f _site/index.html
           test ! -f _site/index.md
+          test -f _site/assets/asset.txt
+          test ! -f _site/public-note.md
           test -f _site/_zeropress/search.json
           test -f _site/_zeropress/search.js
           test -f _site/_zeropress/search_pagefind.js

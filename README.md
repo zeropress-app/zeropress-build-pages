@@ -85,7 +85,6 @@ jobs:
         uses: zeropress-app/zeropress-build-pages@v0
         with:
           source: ./docs
-          public-dir: ./public
           destination: ./_site
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
@@ -117,7 +116,6 @@ That is equivalent to:
   uses: zeropress-app/zeropress-build-pages@v0
   with:
     source: ./docs
-    public-dir: ./docs
     destination: ./_site
     theme: docs
     skip-untitled-markdown: false
@@ -140,10 +138,21 @@ Custom input example:
     copy-markdown-source: false
 ```
 
+Separate public asset directory example:
+
+```yaml
+- name: Build ZeroPress Pages
+  uses: zeropress-app/zeropress-build-pages@v0
+  with:
+    source: ./docs
+    public-dir: ./public
+    destination: ./_site
+```
+
 In the action inputs:
 
 - `source` is the directory that contains your Markdown pages and optional `.zeropress/config.json`. The default is `./docs`.
-- `public-dir` is the directory copied as public passthrough files. The default is `source`.
+- `public-dir` is the directory copied as public passthrough files. The default is `source`. If you set it explicitly, the directory must exist.
 - `destination` is the directory where the generated static site is written. The default is `./_site`.
 - `theme` is the bundled theme name. The default is `docs`.
 - `theme-path` is a custom local ZeroPress theme directory. It takes precedence over `theme`.
@@ -151,7 +160,7 @@ In the action inputs:
 - `site-url` overrides the canonical site URL from config.
 - `skip-untitled-markdown` skips Markdown files without a page title instead of failing. The default is `false`.
 - `skip-link-check` skips internal link checking after build. The default is `false`; broken internal links are reported as warnings and do not fail the build.
-- `copy-markdown-source` copies original Markdown files to the generated output and enables `View this page as Markdown` links in the bundled docs theme. The default is `true`.
+- `copy-markdown-source` copies original Markdown files to the generated output and enables `View this page as Markdown` links in the bundled docs theme. The default is `true`; when set to `false`, public `.md` passthrough files are also skipped.
 
 For GitHub Pages, the generated `destination` directory can be passed to `actions/upload-pages-artifact`. For Cloudflare Pages, Netlify, Vercel, or another static host, pass the same `destination` directory to that provider's deploy step.
 
@@ -204,7 +213,7 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | Option | Default | Purpose |
 | --- | --- | --- |
 | `--source <dir>` | required | Dedicated source directory containing Markdown and optional config |
-| `--public-dir <dir>` | source | Public passthrough directory |
+| `--public-dir <dir>` | source | Public passthrough directory. Explicit paths must exist. |
 | `--destination <dir>` | required | Output directory |
 | `--theme docs` | `docs` | Bundled docs theme |
 | `--theme-path <dir>` | none | Custom ZeroPress theme directory |
@@ -212,7 +221,7 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | `--site-url <url>` | config `site.url` | Canonical URL override |
 | `--skip-untitled-markdown` | `false` | Skip Markdown without a page title |
 | `--skip-link-check` | `false` | Skip warning-only internal link checking |
-| `--no-copy-markdown-source` | `false` | Do not copy original Markdown files to output |
+| `--no-copy-markdown-source` | `false` | Do not copy source Markdown or public `.md` files to output |
 
 ## Source Tree
 
@@ -272,7 +281,7 @@ Additional Markdown discovery ignores:
 - Other Markdown files map to extensionless routes, such as `cli/tool.md` -> `/cli/tool`.
 - Markdown links to other discovered `.md` files are rewritten to generated public URLs.
 - Original Markdown files remain available as public passthrough files by default.
-- Use `--no-copy-markdown-source` or Action input `copy-markdown-source: false` to keep source Markdown out of the generated output. This also hides bundled theme `View this page as Markdown` links.
+- Use `--no-copy-markdown-source` or Action input `copy-markdown-source: false` to keep source Markdown and public `.md` passthrough files out of the generated output. This also hides bundled theme `View this page as Markdown` links.
 
 Optional YAML front matter is supported at the top of Markdown files:
 
@@ -402,10 +411,7 @@ The bundled docs theme shows `Published with ZeroPress.` by default. Set `site.f
 The bundled docs theme marks post/page body content with `data-pagefind-body`. If you run Pagefind after the ZeroPress build, keep the theme UI pointed at `/_zeropress/search.js` and replace the native adapter:
 
 ```bash
-npx pagefind@latest \
-  --site ./_site \
-  --output-subdir _zeropress/pagefind
-
+npx pagefind@latest --site ./_site --output-subdir _zeropress/pagefind
 cp ./_site/_zeropress/search_pagefind.js ./_site/_zeropress/search.js
 rm ./_site/_zeropress/search.json
 ```
