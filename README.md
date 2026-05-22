@@ -349,7 +349,7 @@ See the public config reference at [zeropress.dev/build-pages-config](https://ze
 
 ```json
 {
-  "$schema": "https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json",
+  "$schema": "https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json",
   "version": "0.1",
   "site": {
     "title": "My Docs",
@@ -420,7 +420,7 @@ rm ./_site/_zeropress/search.json
 
 Schemas:
 
-- [ZeroPress Build Pages Config v0.1](https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json)
+- [ZeroPress Build Pages Config v0.1](https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json)
 
 ## Workspace Internal `.zeropress/` Files
 

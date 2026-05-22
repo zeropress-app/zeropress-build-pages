@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json",
+  "$id": "https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json",
   "title": "ZeroPress Build Pages Config v0.1",
   "description": "Optional source-directory configuration for @zeropress/build-pages workflows.",
   "markdownDescription": "Optional source-directory configuration for `@zeropress/build-pages` workflows.",
@@ -291,7 +291,7 @@
   },
   "examples": [
     {
-      "$schema": "https://zeropress.dev/schemas/zeropress-build-pages.config.v0.1.schema.json",
+      "$schema": "https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json",
       "version": "0.1",
       "site": {
         "title": "ZeroPress Public Docs",
