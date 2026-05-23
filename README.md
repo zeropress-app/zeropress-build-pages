@@ -129,11 +129,11 @@ Custom input example:
 - name: Build ZeroPress Pages
   uses: zeropress-app/zeropress-build-pages@v0
   with:
-    source: ./documents
+    source: ./docs
     public-dir: ./public
     destination: ./_site
     theme-path: ./theme-docs
-    config: ./documents/.zeropress/config.json
+    config: ./docs/.zeropress/config.json
     site-url: https://example.com/docs
     copy-markdown-source: false
 ```
@@ -178,12 +178,32 @@ with:
   theme-path: ./my-docs-theme/theme
 ```
 
+### Vercel
+
+Use the `Other` framework preset and set the generated output directory as Vercel's Output Directory.
+
+Project settings:
+
+| Setting | Value |
+| --- | --- |
+| Framework Preset | `Other` |
+| Build Command | `npx --yes @zeropress/build-pages --source ./docs --destination ./_site` |
+| Output Directory | `_site` |
+
+If your public assets live outside the source directory, include `--public-dir`:
+
+```bash
+npx --yes @zeropress/build-pages --source ./docs --public-dir ./public --destination ./_site
+```
+
+If your project uses a `package.json` script, set the Vercel Build Command to `npm run build` and keep the Output Directory as `_site`.
+
 ### npx
 
 Use `npx` when you want to run Build Pages without adding it to your project dependencies.
 
 ```bash
-npx @zeropress/build-pages --source ./documents --destination ./_site
+npx @zeropress/build-pages --source ./docs --destination ./_site
 ```
 
 ### package.json script
@@ -197,7 +217,7 @@ npm install --save-dev @zeropress/build-pages
 ```json
 {
   "scripts": {
-    "build": "zeropress-build-pages --source ./documents --destination ./_site"
+    "build": "zeropress-build-pages --source ./docs --destination ./_site"
   }
 }
 ```
@@ -215,7 +235,7 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | `--source <dir>` | required | Dedicated source directory containing Markdown and optional config |
 | `--public-dir <dir>` | source | Public passthrough directory. Explicit paths must exist. |
 | `--destination <dir>` | required | Output directory |
-| `--theme docs` | `docs` | Bundled docs theme |
+| `--theme <name>` | `docs` | Bundled theme name |
 | `--theme-path <dir>` | none | Custom ZeroPress theme directory |
 | `--config <path>` | `<source>/.zeropress/config.json` | Build Pages config |
 | `--site-url <url>` | config `site.url` | Canonical URL override |
@@ -254,7 +274,7 @@ The source directory must not overlap the destination directory, the selected th
 
 If `public-dir` is inside `source`, Build Pages excludes that public subtree from Markdown page discovery.
 
-Ignored while staging and Markdown discovery:
+Ignored while copying public passthrough files and discovering Markdown pages:
 
 - hidden paths such as `.git`, `.env`, and `.zeropress`
 - `node_modules`
@@ -406,7 +426,19 @@ The bundled docs theme shows `Published with ZeroPress.` by default. Set `site.f
 
 `site.expose_generator` controls the HTML generator meta tag. Missing or `true` emits `<meta name="generator" content="ZeroPress">`; set it to `false` for white-label sites.
 
-`site.search` controls native ZeroPress search when the selected theme supports search UI. Missing or `true` enables native search for the bundled docs theme; `false` omits `/_zeropress/search.json`, `/_zeropress/search.js`, and `/_zeropress/search_pagefind.js` and hides the bundled search form.
+`site.indexing` controls only the generated fallback `robots.txt`. Missing or `true` allows indexing; `false` writes `User-agent: *` / `Disallow: /`. If the public directory contains `robots.txt`, that file is copied as-is and takes priority over `site.indexing`. ZeroPress does not append a `Sitemap` directive to a public `robots.txt`; add `Sitemap: https://example.com/sitemap.xml` manually when needed.
+
+Schemas:
+
+- [ZeroPress Build Pages Config v0.1](https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json)
+
+## Search
+
+The bundled docs theme supports ZeroPress native search. `site.search` controls whether search artifacts and bundled search UI are enabled.
+
+Missing or `true` enables native search for the bundled docs theme. Build Pages writes `/_zeropress/search.json`, `/_zeropress/search.js`, and `/_zeropress/search_pagefind.js`.
+
+Set `site.search` to `false` to omit those search artifacts and hide the bundled search form.
 
 The bundled docs theme marks post/page body content with `data-pagefind-body`. If you run Pagefind after the ZeroPress build, keep the theme UI pointed at `/_zeropress/search.js` and replace the native adapter:
 
@@ -415,12 +447,6 @@ npx pagefind@latest --site ./_site --output-subdir _zeropress/pagefind
 cp ./_site/_zeropress/search_pagefind.js ./_site/_zeropress/search.js
 rm ./_site/_zeropress/search.json
 ```
-
-`site.indexing` controls only the generated fallback `robots.txt`. Missing or `true` allows indexing; `false` writes `User-agent: *` / `Disallow: /`. If the public directory contains `robots.txt`, that file is copied as-is and takes priority over `site.indexing`. ZeroPress does not append a `Sitemap` directive to a public `robots.txt`; add `Sitemap: https://example.com/sitemap.xml` manually when needed.
-
-Schemas:
-
-- [ZeroPress Build Pages Config v0.1](https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json)
 
 ## Workspace Internal `.zeropress/` Files
 
