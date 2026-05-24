@@ -50,6 +50,9 @@
           "description": "Canonical site URL. Use an empty string or omit this field for local builds without canonical output.",
           "markdownDescription": "Canonical site URL. Use an empty string or omit this field for local builds without canonical output."
         },
+        "logo": {
+          "$ref": "#/$defs/siteLogo"
+        },
         "expose_generator": {
           "type": "boolean",
           "default": true,
@@ -70,6 +73,29 @@
         },
         "footer": {
           "$ref": "#/$defs/siteFooter"
+        },
+        "meta": {
+          "$ref": "#/$defs/previewMeta"
+        }
+      }
+    },
+    "siteLogo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["src"],
+      "description": "Optional site logo data copied into generated preview-data.",
+      "markdownDescription": "Optional site logo data copied into generated preview-data.",
+      "properties": {
+        "src": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Logo URL or safe relative path.",
+          "markdownDescription": "Logo URL or safe relative path."
+        },
+        "alt": {
+          "type": "string",
+          "description": "Optional logo alternative text. Themes may fall back to site.title when omitted.",
+          "markdownDescription": "Optional logo alternative text. Themes may fall back to `site.title` when omitted."
         }
       }
     },
@@ -297,9 +323,16 @@
         "title": "ZeroPress Public Docs",
         "description": "Public documentation.",
         "url": "https://zeropress.dev",
+        "logo": {
+          "src": "/logo.svg",
+          "alt": "ZeroPress Public Docs"
+        },
         "expose_generator": true,
         "search": true,
-        "indexing": true
+        "indexing": true,
+        "meta": {
+          "issue": "Spring 2026"
+        }
       },
       "front_page": {
         "type": "markdown"

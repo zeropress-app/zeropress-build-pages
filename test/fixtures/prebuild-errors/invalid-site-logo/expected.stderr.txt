@@ -1,0 +1,2 @@
+[zeropress-build-pages] Invalid site config: test/fixtures/prebuild-errors/invalid-site-logo/documents/.zeropress/config.json
+Reason: site.logo.src must be an absolute URL or a safe relative path.

@@ -1,0 +1,13 @@
+{
+  "version": "0.1",
+  "site": {
+    "meta": {
+      "nested": {
+        "bad": true
+      }
+    }
+  },
+  "front_page": {
+    "type": "markdown"
+  }
+}

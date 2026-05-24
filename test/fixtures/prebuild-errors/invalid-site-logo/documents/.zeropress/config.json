@@ -1,0 +1,11 @@
+{
+  "version": "0.1",
+  "site": {
+    "logo": {
+      "src": "//cdn.example.com/logo.svg"
+    }
+  },
+  "front_page": {
+    "type": "markdown"
+  }
+}

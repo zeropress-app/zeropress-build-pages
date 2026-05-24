@@ -421,12 +421,20 @@ See the public config reference at [zeropress.dev/build-pages-config](https://ze
     "title": "My Docs",
     "description": "Project documentation",
     "url": "https://example.github.io/project",
+    "logo": {
+      "src": "/logo.svg",
+      "alt": "My Docs"
+    },
     "expose_generator": true,
     "search": true,
     "indexing": true,
     "footer": {
       "copyright_text": "Copyright 2026 Example Corp.",
       "attribution": true
+    },
+    "meta": {
+      "issue": "Spring 2026",
+      "show_sponsor_banner": false
     }
   },
   "front_page": {
@@ -469,6 +477,10 @@ Menu item `meta` is optional scalar display metadata copied into generated previ
 `site.footer.copyright_text` is rendered by the bundled docs theme when present. If it is omitted, the bundled docs theme falls back to `site.title`. ZeroPress does not add a copyright symbol automatically.
 
 The bundled docs theme shows `Published with ZeroPress.` by default. Set `site.footer.attribution` to `false` to hide it.
+
+`site.logo` is optional theme-facing brand data. Use a root-relative public path for public logo files, or an absolute URL for media-hosted logos. It is copied into generated preview-data as `site.logo` and is not rewritten through media delivery settings.
+
+`site.meta` is an optional scalar extension map copied into generated preview-data. Use it for site-level theme conventions such as labels, feature flags, or issue names. Values must be strings, finite numbers, booleans, or null. Use first-class fields such as `site.logo.src` instead of ad hoc keys like `site.meta.logo_url`.
 
 `site.expose_generator` controls the HTML generator meta tag. Missing or `true` emits `<meta name="generator" content="ZeroPress">`; set it to `false` for white-label sites.
 

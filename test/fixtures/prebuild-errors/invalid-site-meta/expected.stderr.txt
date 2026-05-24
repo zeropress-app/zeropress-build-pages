@@ -1,0 +1,2 @@
+[zeropress-build-pages] Invalid site config: test/fixtures/prebuild-errors/invalid-site-meta/documents/.zeropress/config.json
+Reason: site.meta.nested must be a string, number, boolean, or null.

@@ -121,6 +121,8 @@ const failureCases = [
   'invalid-site-indexing',
   'invalid-site-search',
   'invalid-site-expose-generator',
+  'invalid-site-logo',
+  'invalid-site-meta',
   'invalid-menu-meta',
   'removed-site-field',
   'malformed-front-matter',
@@ -262,7 +264,7 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.equal(buildReport.markdown.skipped_files.length, 1);
   assert.match(buildReport.markdown.skipped_files[0].file, /draft\.md$/);
   assert.equal(buildReport.markdown.skipped_files[0].reason, 'front matter status is "draft".');
-  assert.match(indexHtml, /Front Matter Home/);
+  assert.match(indexHtml, /Home from front matter\./);
   assert.match(indexHtml, /<meta name="generator" content="ZeroPress">/);
   assert.match(indexHtml, /<link rel="icon" href="\/favicon\.ico" sizes="any">/);
   assert.match(indexHtml, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
@@ -665,12 +667,21 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
       title: 'Configured Docs',
       description: 'A configured docs site.',
       url: 'https://config.example',
+      logo: {
+        src: '/logo.svg',
+        alt: 'Configured Docs logo',
+      },
       expose_generator: false,
       search: false,
       indexing: false,
       footer: {
         copyright_text: 'Copyright 2026 Example Corp.',
         attribution: false,
+      },
+      meta: {
+        issue: 'Spring 2026',
+        show_sponsor_banner: true,
+        empty_value: null,
       },
     },
     front_page: {
@@ -739,6 +750,15 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.equal(previewData.site.expose_generator, false);
   assert.equal(previewData.site.search, false);
   assert.equal(previewData.site.indexing, false);
+  assert.deepEqual(previewData.site.logo, {
+    src: '/logo.svg',
+    alt: 'Configured Docs logo',
+  });
+  assert.deepEqual(previewData.site.meta, {
+    issue: 'Spring 2026',
+    show_sponsor_banner: true,
+    empty_value: null,
+  });
   assert.deepEqual(previewData.site.permalinks, {
     output_style: 'html-extension',
     posts: '/posts/:slug/',
@@ -763,12 +783,21 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     title: 'Configured Docs',
     description: 'A configured docs site.',
     url: 'https://override.example',
+    logo: {
+      src: '/logo.svg',
+      alt: 'Configured Docs logo',
+    },
     expose_generator: false,
     search: false,
     indexing: false,
     footer: {
       copyright_text: 'Copyright 2026 Example Corp.',
       attribution: false,
+    },
+    meta: {
+      issue: 'Spring 2026',
+      show_sponsor_banner: true,
+      empty_value: null,
     },
   });
   await assert.rejects(
@@ -802,6 +831,54 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   });
   await fs.access(path.join(tempDir, '_site', 'topic.html'));
   await fs.access(path.join(tempDir, '_site', 'topic.md'));
+});
+
+test('rejects invalid site logo and site meta config', async () => {
+  const cases = [
+    {
+      site: { logo: { alt: 'Missing src' } },
+    },
+    {
+      site: { logo: { src: '//cdn.example.com/logo.svg' } },
+    },
+    {
+      site: { logo: { src: '/logo.svg', alt: 1 } },
+    },
+    {
+      site: { logo: { src: '/logo.svg', width: 120 } },
+    },
+    {
+      site: { meta: ['bad'] },
+    },
+    {
+      site: { meta: { nested: { bad: true } } },
+    },
+  ];
+
+  for (const { site } of cases) {
+    const tempDir = await makeTempDir();
+    const sourceDir = path.join(tempDir, 'docs');
+    await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
+    await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nContent.', 'utf8');
+    await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
+      version: '0.1',
+      site,
+      front_page: {
+        type: 'markdown',
+      },
+    }, null, 2), 'utf8');
+
+    await assert.rejects(
+      () => runBuildPages({
+        cwd: tempDir,
+        source: 'docs',
+        destination: '_site',
+        themePath: path.join(packageDir, 'themes', 'docs'),
+        skipLinkCheck: true,
+      }),
+      /Build pages prebuild failed/,
+    );
+  }
 });
 
 test('link checker reports broken links without throwing', async () => {
