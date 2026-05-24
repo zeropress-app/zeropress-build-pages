@@ -3729,7 +3729,7 @@ function buildSiteData(config, frontPage) {
     description: configuredSite.description,
     url: configuredSite.url,
     media_base_url: "",
-    locale: "en-US",
+    locale: configuredSite.locale,
     posts_per_page: 10,
     datetime_display: "static",
     date_style: "medium",
@@ -3745,6 +3745,12 @@ function buildSiteData(config, frontPage) {
     search: configuredSite.search !== false,
     indexing: configuredSite.indexing !== false
   };
+  if (configuredSite.logo) {
+    site.logo = configuredSite.logo;
+  }
+  if (configuredSite.meta !== void 0) {
+    site.meta = configuredSite.meta;
+  }
   if (configuredSite.footer) {
     site.footer = configuredSite.footer;
   }
@@ -3771,20 +3777,82 @@ function normalizeSiteConfig(value) {
     );
   }
   const configuredSite = isPlainObject(value) ? value : {};
-  assertKnownConfigKeys(configuredSite, ["title", "description", "url", "expose_generator", "search", "indexing", "footer"], "site");
+  assertKnownConfigKeys(configuredSite, ["title", "description", "url", "logo", "locale", "expose_generator", "search", "indexing", "footer", "meta"], "site");
   const site = {
     title: readConfigString(configuredSite.title, "Documentation"),
     description: readConfigString(configuredSite.description, "A documentation site."),
     url: readEnv("ZEROPRESS_SITE_URL", readConfigString(configuredSite.url, "")),
+    locale: normalizeSiteLocale(configuredSite.locale),
     expose_generator: readConfigBoolean(configuredSite.expose_generator, true, "site.expose_generator"),
     search: readConfigBoolean(configuredSite.search, true, "site.search"),
     indexing: readConfigBoolean(configuredSite.indexing, true, "site.indexing")
   };
+  const logo = normalizeSiteLogo(configuredSite.logo);
+  if (logo) {
+    site.logo = logo;
+  }
   const footer = normalizeFooter(configuredSite.footer);
   if (footer) {
     site.footer = footer;
   }
+  if (configuredSite.meta !== void 0) {
+    site.meta = normalizeSiteMeta(configuredSite.meta, "site.meta");
+  }
   return site;
+}
+function normalizeSiteLocale(value) {
+  if (value === void 0) {
+    return "en-US";
+  }
+  if (typeof value !== "string") {
+    throw new PrebuildConfigError("site.locale must be a string when provided.");
+  }
+  const locale = value.trim();
+  if (locale.length < 2) {
+    throw new PrebuildConfigError('site.locale must be a non-empty locale string such as "en-US" or "ko-KR".');
+  }
+  return locale;
+}
+function normalizeSiteLogo(value) {
+  if (value === void 0) {
+    return void 0;
+  }
+  if (!isPlainObject(value)) {
+    throw new PrebuildConfigError("site.logo must be an object when provided.");
+  }
+  assertKnownConfigKeys(value, ["src", "alt"], "site.logo");
+  const src = readConfigString(value.src, "");
+  if (!src) {
+    throw new PrebuildConfigError(
+      "site.logo.src must be a non-empty URL-like string.",
+      '  "logo": { "src": "/logo.svg", "alt": "My Site" }'
+    );
+  }
+  validateUrlLikeString(src, "site.logo.src");
+  const logo = { src };
+  if (value.alt !== void 0) {
+    if (typeof value.alt !== "string") {
+      throw new PrebuildConfigError("site.logo.alt must be a string when provided.");
+    }
+    const alt = value.alt.trim();
+    if (alt) {
+      logo.alt = alt;
+    }
+  }
+  return logo;
+}
+function normalizeSiteMeta(value, pathLabel) {
+  if (!isPlainObject(value)) {
+    throw new PrebuildConfigError(`${pathLabel} must be an object when provided.`);
+  }
+  const meta = {};
+  for (const [key, metaValue] of Object.entries(value)) {
+    if (!isPreviewMetaValue(metaValue)) {
+      throw new PrebuildConfigError(`${pathLabel}.${key} must be a string, number, boolean, or null.`);
+    }
+    meta[key] = metaValue;
+  }
+  return meta;
 }
 function normalizeFooter(value) {
   if (value === void 0) {
@@ -3806,6 +3874,22 @@ function normalizeFooter(value) {
     footer.attribution = value.attribution;
   }
   return Object.keys(footer).length ? footer : void 0;
+}
+function validateUrlLikeString(value, pathLabel) {
+  if (value.startsWith("//")) {
+    throw new PrebuildConfigError(`${pathLabel} must be an absolute URL or a safe relative path.`);
+  }
+  if (value.startsWith("/") || value.startsWith("./") || value.startsWith("../")) {
+    return;
+  }
+  try {
+    const url = new URL(value);
+    if (!url.protocol || !url.hostname) {
+      throw new Error("missing host");
+    }
+  } catch {
+    throw new PrebuildConfigError(`${pathLabel} must be an absolute URL or a safe relative path.`);
+  }
 }
 function readConfigBoolean(value, fallback, pathName) {
   if (value === void 0) {
