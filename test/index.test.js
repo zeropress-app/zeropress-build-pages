@@ -122,6 +122,7 @@ const failureCases = [
   'invalid-site-search',
   'invalid-site-expose-generator',
   'invalid-site-logo',
+  'invalid-site-locale',
   'invalid-site-meta',
   'invalid-menu-meta',
   'removed-site-field',
@@ -671,6 +672,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
         src: '/logo.svg',
         alt: 'Configured Docs logo',
       },
+      locale: 'ko-KR',
       expose_generator: false,
       search: false,
       indexing: false,
@@ -741,7 +743,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   });
   assert.equal(previewData.site.url, 'https://override.example');
   assert.equal(previewData.site.media_base_url, '');
-  assert.equal(previewData.site.locale, 'en-US');
+  assert.equal(previewData.site.locale, 'ko-KR');
   assert.equal(previewData.site.posts_per_page, 10);
   assert.equal(previewData.site.datetime_display, 'static');
   assert.equal(previewData.site.date_style, 'medium');
@@ -787,6 +789,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
       src: '/logo.svg',
       alt: 'Configured Docs logo',
     },
+    locale: 'ko-KR',
     expose_generator: false,
     search: false,
     indexing: false,
@@ -809,7 +812,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     /ENOENT/,
   );
   assert.doesNotMatch(indexHtml, /data-site-search/);
-  for (const key of ['media_base_url', 'locale', 'posts_per_page', 'datetime_display', 'date_style', 'time_style', 'timezone', 'permalinks', 'disallow_comments']) {
+  for (const key of ['media_base_url', 'posts_per_page', 'datetime_display', 'date_style', 'time_style', 'timezone', 'permalinks', 'disallow_comments']) {
     assert.equal(Object.hasOwn(resolvedConfig.site, key), false);
   }
   assert.deepEqual(resolvedConfig.menus.primary.items[1], {

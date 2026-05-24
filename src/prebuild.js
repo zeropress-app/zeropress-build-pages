@@ -232,7 +232,7 @@ function buildSiteData(config, frontPage) {
     description: configuredSite.description,
     url: configuredSite.url,
     media_base_url: '',
-    locale: 'en-US',
+    locale: configuredSite.locale,
     posts_per_page: 10,
     datetime_display: 'static',
     date_style: 'medium',
@@ -289,11 +289,12 @@ function normalizeSiteConfig(value) {
   }
 
   const configuredSite = isPlainObject(value) ? value : {};
-  assertKnownConfigKeys(configuredSite, ['title', 'description', 'url', 'logo', 'expose_generator', 'search', 'indexing', 'footer', 'meta'], 'site');
+  assertKnownConfigKeys(configuredSite, ['title', 'description', 'url', 'logo', 'locale', 'expose_generator', 'search', 'indexing', 'footer', 'meta'], 'site');
   const site = {
     title: readConfigString(configuredSite.title, 'Documentation'),
     description: readConfigString(configuredSite.description, 'A documentation site.'),
     url: readEnv('ZEROPRESS_SITE_URL', readConfigString(configuredSite.url, '')),
+    locale: normalizeSiteLocale(configuredSite.locale),
     expose_generator: readConfigBoolean(configuredSite.expose_generator, true, 'site.expose_generator'),
     search: readConfigBoolean(configuredSite.search, true, 'site.search'),
     indexing: readConfigBoolean(configuredSite.indexing, true, 'site.indexing'),
@@ -314,6 +315,22 @@ function normalizeSiteConfig(value) {
   }
 
   return site;
+}
+
+function normalizeSiteLocale(value) {
+  if (value === undefined) {
+    return 'en-US';
+  }
+  if (typeof value !== 'string') {
+    throw new PrebuildConfigError('site.locale must be a string when provided.');
+  }
+
+  const locale = value.trim();
+  if (locale.length < 2) {
+    throw new PrebuildConfigError('site.locale must be a non-empty locale string such as "en-US" or "ko-KR".');
+  }
+
+  return locale;
 }
 
 function normalizeSiteLogo(value) {

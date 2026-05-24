@@ -425,6 +425,7 @@ See the public config reference at [zeropress.dev/build-pages-config](https://ze
       "src": "/logo.svg",
       "alt": "My Docs"
     },
+    "locale": "en-US",
     "expose_generator": true,
     "search": true,
     "indexing": true,
@@ -478,7 +479,9 @@ Menu item `meta` is optional scalar display metadata copied into generated previ
 
 The bundled docs theme shows `Published with ZeroPress.` by default. Set `site.footer.attribution` to `false` to hide it.
 
-`site.logo` is optional theme-facing brand data. Use a root-relative public path for public logo files, or an absolute URL for media-hosted logos. It is copied into generated preview-data as `site.logo` and is not rewritten through media delivery settings.
+`site.logo` is optional theme-facing brand data. Use a root-relative public path for public logo files, or an absolute URL for media-hosted logos. Build Pages emits `media_base_url: ""`, so root-relative logo paths remain same-host public paths.
+
+`site.locale` is optional language metadata copied into generated preview-data. It affects theme-facing `site.locale`, the common `language` render context value, generated HTML language metadata, and feed language. Missing `site.locale` defaults to `en-US`.
 
 `site.meta` is an optional scalar extension map copied into generated preview-data. Use it for site-level theme conventions such as labels, feature flags, or issue names. Values must be strings, finite numbers, booleans, or null. Use first-class fields such as `site.logo.src` instead of ad hoc keys like `site.meta.logo_url`.
 

@@ -1,0 +1,2 @@
+[zeropress-build-pages] Invalid site config: test/fixtures/prebuild-errors/invalid-site-locale/documents/.zeropress/config.json
+Reason: site.locale must be a string when provided.

@@ -53,6 +53,12 @@
         "logo": {
           "$ref": "#/$defs/siteLogo"
         },
+        "locale": {
+          "type": "string",
+          "minLength": 2,
+          "description": "Site locale used for generated preview-data language metadata, such as html lang and feed language.",
+          "markdownDescription": "Site locale used for generated preview-data language metadata, such as HTML `lang` and feed language."
+        },
         "expose_generator": {
           "type": "boolean",
           "default": true,
@@ -327,6 +333,7 @@
           "src": "/logo.svg",
           "alt": "ZeroPress Public Docs"
         },
+        "locale": "en-US",
         "expose_generator": true,
         "search": true,
         "indexing": true,
