@@ -361,6 +361,52 @@ Use `meta` for small scalar flags and metadata. Use `data` when a theme should i
 {{/for}}
 ```
 
+## Markdown Rendering
+
+Build Pages renders Markdown through ZeroPress build-core before writing HTML.
+This includes common Markdown extensions such as tables, strikethrough, task
+lists, GitHub-style alerts, heading IDs, and fenced code blocks.
+
+Fenced code blocks are highlighted at build time with `highlight.js`.
+
+````md
+```js
+console.log("hello");
+```
+````
+
+When a fenced code block has a language info string and `highlight.js`
+recognizes it, ZeroPress uses that language. If the language is missing or not
+recognized, ZeroPress falls back to automatic detection. The generated markup
+keeps the `language-*` class and adds `hljs-*` token classes for highlighted
+spans:
+
+```html
+<pre><code class="language-js">...</code></pre>
+```
+
+Themes only need CSS for the generated code markup. A client-side
+`highlight.js` script is not required for Markdown rendered during the build.
+
+ZeroPress build-core currently uses `highlight.js@11.11.1` and the built-in
+languages returned by `hljs.listLanguages()`. In this release, that is 192
+canonical language names, plus recognized aliases such as `js`, `ts`, `jsx`,
+`sh`, and `zsh`. A language listed in the Highlight.js documentation with a
+third-party package is not bundled by ZeroPress unless it is also present in
+`hljs.listLanguages()`.
+
+See the upstream
+[`highlight.js@11.11.1` supported languages table](https://github.com/highlightjs/highlight.js/blob/11.11.1/SUPPORTED_LANGUAGES.md)
+for language names, aliases, and third-party package notes. Common built-in
+examples include `bash`, `shell`, `js`, `javascript`, `ts`, `typescript`,
+`json`, `yaml`, `html`, `xml`, `css`, `scss`, `python`, `ruby`, `php`, `java`,
+`go`, `rust`, `c`, `cpp`, `csharp`, `sql`, `graphql`, `dockerfile`, `nginx`,
+`markdown`, and `diff`.
+
+Mermaid is intentionally different: `mermaid` fences remain readable code
+blocks such as `pre code.language-mermaid`. Diagram rendering is optional
+progressive enhancement owned by the theme or site.
+
 ## Config
 
 Build Pages reads `<source>/.zeropress/config.json` when present. Missing config falls back to defaults.
