@@ -1,4 +1,5 @@
 {
+  "$schema": "https://schemas.zeropress.dev/theme-runtime/v0.6/schema.json",
   "name": "ZeroPress Template Docs1",
   "namespace": "zeropress",
   "slug": "docs1",
