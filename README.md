@@ -19,7 +19,7 @@ public directory
         |
         v
 @zeropress/build-pages
-  generates .zeropress/preview-data.json
+  generates .zeropress-build-page/preview-data.json
   stages public files
         |
         v
@@ -40,7 +40,7 @@ flowchart TD
   config --> buildPages
   publicFiles --> buildPages
 
-  buildPages --> previewData[".zeropress/preview-data.json<br/>internal generated build input"]
+  buildPages --> previewData[".zeropress-build-page/preview-data.json<br/>internal generated build input"]
   buildPages --> stagedPublic["Staged public files"]
 
   previewData --> build["@zeropress/build"]
@@ -154,7 +154,7 @@ In the action inputs:
 - `source` is the directory that contains your Markdown pages and optional `.zeropress/config.json`. The default is `./docs`.
 - `public-dir` is the directory copied as public passthrough files. The default is `source`. If you set it explicitly, the directory must exist.
 - `destination` is the directory where the generated static site is written. The default is `./_site`.
-- `theme` is the bundled theme name. The default is `docs`.
+- `theme` is the bundled theme name. The default is `docs`; `docs1` is an alias for `docs`.
 - `theme-path` is a custom local ZeroPress theme directory. It takes precedence over `theme`.
 - `config` is the config file path. The default is `<source>/.zeropress/config.json`.
 - `site-url` overrides the canonical site URL from config.
@@ -235,7 +235,7 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | `--source <dir>` | required | Dedicated source directory containing Markdown and optional config |
 | `--public-dir <dir>` | source | Public passthrough directory. Explicit paths must exist. |
 | `--destination <dir>` | required | Output directory |
-| `--theme <name>` | `docs` | Bundled theme name |
+| `--theme <name>` | `docs` | Bundled theme name. `docs1` aliases `docs`. |
 | `--theme-path <dir>` | none | Custom ZeroPress theme directory |
 | `--config <path>` | `<source>/.zeropress/config.json` | Build Pages config |
 | `--site-url <url>` | config `site.url` | Canonical URL override |
@@ -270,7 +270,7 @@ Root-level public files named `favicon.ico`, `favicon.svg`, `favicon.png`, and `
 
 A root-level public `sitemap.xsl` is copied to the destination. When ZeroPress generates `sitemap.xml`, it auto-discovers that file and adds an XML stylesheet processing instruction for `/sitemap.xsl`.
 
-The source directory must not overlap the destination directory, the selected theme directory, or the internal `.zeropress/` working directory. An explicit public directory must be an existing dedicated directory and must not be a file, symlink, repository root, destination directory, selected theme directory, or internal `.zeropress/` working directory.
+The source directory must not overlap the destination directory, the selected theme directory, or the internal `.zeropress-build-page/` working directory. An explicit public directory must be an existing dedicated directory and must not be a file, symlink, repository root, destination directory, selected theme directory, or internal `.zeropress-build-page/` working directory.
 
 If `public-dir` is inside `source`, Build Pages excludes that public subtree from Markdown page discovery.
 
@@ -509,12 +509,12 @@ cp ./_site/_zeropress/search_pagefind.js ./_site/_zeropress/search.js
 rm ./_site/_zeropress/search.json
 ```
 
-## Workspace Internal `.zeropress/` Files
+## Workspace Internal `.zeropress-build-page/` Files
 
-Build Pages reads optional site config from `<source>/.zeropress/config.json`. Separately, it writes internal working files to `.zeropress/` in the current working directory. These generated working files are not the final deploy output. The final static site is written to the `destination` directory.
+Build Pages reads optional user-authored site config from `<source>/.zeropress/config.json`. Separately, it writes generated internal working files to `.zeropress-build-page/` in the current working directory. These generated working files are not the final deploy output. The final static site is written to the `destination` directory.
 
 ```txt
-.zeropress/
+.zeropress-build-page/
   build-pages-config.json
   preview-data.json
   build-report.json

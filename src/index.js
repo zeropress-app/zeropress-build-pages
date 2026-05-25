@@ -10,9 +10,14 @@ const packageDir = path.resolve(__dirname, '..');
 const prebuildScript = __dirname === path.join(packageDir, 'dist')
   ? path.join(__dirname, 'prebuild.js')
   : path.join(packageDir, 'src', 'prebuild.js');
-const PREVIEW_DATA_PATH = '.zeropress/preview-data.json';
-const STAGING_DIR = '.zeropress/public-assets';
+const INTERNAL_WORK_DIR = '.zeropress-build-page';
+const PREVIEW_DATA_PATH = `${INTERNAL_WORK_DIR}/preview-data.json`;
+const STAGING_DIR = `${INTERNAL_WORK_DIR}/public-assets`;
 const DEFAULT_THEME = 'docs';
+const BUNDLED_THEME_ALIASES = new Map([
+  ['docs', 'docs'],
+  ['docs1', 'docs'],
+]);
 
 export async function runCli(argv = process.argv.slice(2)) {
   try {
@@ -42,7 +47,7 @@ export async function runBuildPages(options) {
   const publicDirExplicit = hasExplicitPublicDir(options);
   const publicDir = publicDirExplicit ? path.resolve(cwd, options.publicDir) : sourceDir;
   const destinationDir = path.resolve(cwd, options.destination);
-  const generatedDir = path.join(cwd, '.zeropress');
+  const generatedDir = path.join(cwd, INTERNAL_WORK_DIR);
   const stagingDir = path.join(cwd, STAGING_DIR);
   const previewDataPath = path.join(cwd, PREVIEW_DATA_PATH);
   const themeDir = resolveThemeDir(cwd, options);
@@ -200,7 +205,7 @@ Options:
   --source <dir>                Dedicated source directory (required)
   --public-dir <dir>            Public passthrough directory (default: source)
   --destination <dir>           Output directory (required)
-  --theme docs                  Bundled theme name (default: docs)
+  --theme docs                  Bundled theme name (default: docs; docs1 aliases docs)
   --theme-path <dir>            Custom ZeroPress theme directory
   --config <path>               Config file (default: <source>/.zeropress/config.json)
   --site-url <url>              Canonical site URL override
@@ -215,10 +220,11 @@ function resolveThemeDir(cwd, options) {
   if (options.themePath) {
     return path.resolve(cwd, options.themePath);
   }
-  if (options.theme === DEFAULT_THEME) {
-    return path.join(packageDir, 'themes', DEFAULT_THEME);
+  const canonicalTheme = BUNDLED_THEME_ALIASES.get(options.theme);
+  if (canonicalTheme) {
+    return path.join(packageDir, 'themes', canonicalTheme);
   }
-  throw new Error(`Unknown bundled theme: ${options.theme}`);
+  throw new Error(`Unknown bundled theme: ${options.theme}. Supported bundled themes: ${Array.from(BUNDLED_THEME_ALIASES.keys()).join(', ')}`);
 }
 
 function hasExplicitPublicDir(options) {
@@ -303,11 +309,11 @@ function assertBuildPagesPathLayout({
     );
   }
 
-  assertNoPathOverlap(cwd, 'Source directory', sourceDir, 'internal .zeropress working directory', generatedDir);
-  assertNoPathOverlap(cwd, 'Destination directory', destinationDir, 'internal .zeropress working directory', generatedDir);
-  assertNoPathOverlap(cwd, 'Theme directory', themeDir, 'internal .zeropress working directory', generatedDir);
+  assertNoPathOverlap(cwd, 'Source directory', sourceDir, `internal ${INTERNAL_WORK_DIR} working directory`, generatedDir);
+  assertNoPathOverlap(cwd, 'Destination directory', destinationDir, `internal ${INTERNAL_WORK_DIR} working directory`, generatedDir);
+  assertNoPathOverlap(cwd, 'Theme directory', themeDir, `internal ${INTERNAL_WORK_DIR} working directory`, generatedDir);
   if (!samePath(publicDir, sourceDir)) {
-    assertNoPathOverlap(cwd, 'Public directory', publicDir, 'internal .zeropress working directory', generatedDir);
+    assertNoPathOverlap(cwd, 'Public directory', publicDir, `internal ${INTERNAL_WORK_DIR} working directory`, generatedDir);
     assertNoPathOverlap(cwd, 'Public directory', publicDir, 'destination directory', destinationDir);
     assertNoPathOverlap(cwd, 'Public directory', publicDir, 'theme directory', themeDir);
   }

@@ -1,3 +1,2 @@
-node_modules/
-/.zeropress/
-.DS_Store
+/node_modules/
+/.zeropress-build-page/

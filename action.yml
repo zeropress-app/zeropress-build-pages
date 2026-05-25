@@ -17,7 +17,7 @@ inputs:
     required: false
     default: ./_site
   theme:
-    description: Bundled theme name. Currently supports "docs".
+    description: Bundled theme name. Supports "docs" and alias "docs1".
     required: false
     default: docs
   theme-path:

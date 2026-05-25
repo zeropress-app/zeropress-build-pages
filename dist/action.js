@@ -64222,9 +64222,13 @@ async function linkExists(siteDir, link2) {
 var __dirname = path3.dirname(fileURLToPath(import.meta.url));
 var packageDir = path3.resolve(__dirname, "..");
 var prebuildScript = __dirname === path3.join(packageDir, "dist") ? path3.join(__dirname, "prebuild.js") : path3.join(packageDir, "src", "prebuild.js");
-var PREVIEW_DATA_PATH = ".zeropress/preview-data.json";
-var STAGING_DIR = ".zeropress/public-assets";
-var DEFAULT_THEME = "docs";
+var INTERNAL_WORK_DIR = ".zeropress-build-page";
+var PREVIEW_DATA_PATH = `${INTERNAL_WORK_DIR}/preview-data.json`;
+var STAGING_DIR = `${INTERNAL_WORK_DIR}/public-assets`;
+var BUNDLED_THEME_ALIASES = /* @__PURE__ */ new Map([
+  ["docs", "docs"],
+  ["docs1", "docs"]
+]);
 async function runBuildPages(options2) {
   const cwd = path3.resolve(options2.cwd || process.cwd());
   const copyMarkdownSource = options2.copyMarkdownSource !== false;
@@ -64232,7 +64236,7 @@ async function runBuildPages(options2) {
   const publicDirExplicit = hasExplicitPublicDir(options2);
   const publicDir = publicDirExplicit ? path3.resolve(cwd, options2.publicDir) : sourceDir;
   const destinationDir = path3.resolve(cwd, options2.destination);
-  const generatedDir = path3.join(cwd, ".zeropress");
+  const generatedDir = path3.join(cwd, INTERNAL_WORK_DIR);
   const stagingDir = path3.join(cwd, STAGING_DIR);
   const previewDataPath = path3.join(cwd, PREVIEW_DATA_PATH);
   const themeDir = resolveThemeDir(cwd, options2);
@@ -64314,10 +64318,11 @@ function resolveThemeDir(cwd, options2) {
   if (options2.themePath) {
     return path3.resolve(cwd, options2.themePath);
   }
-  if (options2.theme === DEFAULT_THEME) {
-    return path3.join(packageDir, "themes", DEFAULT_THEME);
+  const canonicalTheme = BUNDLED_THEME_ALIASES.get(options2.theme);
+  if (canonicalTheme) {
+    return path3.join(packageDir, "themes", canonicalTheme);
   }
-  throw new Error(`Unknown bundled theme: ${options2.theme}`);
+  throw new Error(`Unknown bundled theme: ${options2.theme}. Supported bundled themes: ${Array.from(BUNDLED_THEME_ALIASES.keys()).join(", ")}`);
 }
 function hasExplicitPublicDir(options2) {
   return typeof options2.publicDir === "string" && Boolean(options2.publicDir.trim());
@@ -64389,11 +64394,11 @@ function assertBuildPagesPathLayout({
       `Public directory must be a dedicated asset directory, not the current working directory. Received: ${formatPath(cwd, publicDir)}`
     );
   }
-  assertNoPathOverlap(cwd, "Source directory", sourceDir, "internal .zeropress working directory", generatedDir);
-  assertNoPathOverlap(cwd, "Destination directory", destinationDir, "internal .zeropress working directory", generatedDir);
-  assertNoPathOverlap(cwd, "Theme directory", themeDir, "internal .zeropress working directory", generatedDir);
+  assertNoPathOverlap(cwd, "Source directory", sourceDir, `internal ${INTERNAL_WORK_DIR} working directory`, generatedDir);
+  assertNoPathOverlap(cwd, "Destination directory", destinationDir, `internal ${INTERNAL_WORK_DIR} working directory`, generatedDir);
+  assertNoPathOverlap(cwd, "Theme directory", themeDir, `internal ${INTERNAL_WORK_DIR} working directory`, generatedDir);
   if (!samePath(publicDir, sourceDir)) {
-    assertNoPathOverlap(cwd, "Public directory", publicDir, "internal .zeropress working directory", generatedDir);
+    assertNoPathOverlap(cwd, "Public directory", publicDir, `internal ${INTERNAL_WORK_DIR} working directory`, generatedDir);
     assertNoPathOverlap(cwd, "Public directory", publicDir, "destination directory", destinationDir);
     assertNoPathOverlap(cwd, "Public directory", publicDir, "theme directory", themeDir);
   }
