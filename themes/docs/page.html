@@ -24,5 +24,9 @@
       </ol>
     </nav>
   </aside>
+  {{#else}}
+  {{#if_eq page.document_type "html"}}
+  <aside class="doc-toc" aria-label="Table of contents" data-enhance-toc hidden></aside>
+  {{/if_eq}}
   {{/if}}
 </article>

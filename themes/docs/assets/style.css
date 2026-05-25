@@ -200,14 +200,9 @@ a:hover {
   top: 0;
   z-index: 20;
   background: var(--header-bg);
-  border-bottom: 1px solid transparent;
+  border-bottom: 1px solid var(--line);
   backdrop-filter: saturate(140%) blur(14px);
   -webkit-backdrop-filter: saturate(140%) blur(14px);
-  transition: border-color 200ms var(--ease), background 200ms var(--ease);
-}
-
-.site-header.is-scrolled {
-  border-bottom-color: var(--line);
 }
 
 .site-header__inner {
@@ -451,7 +446,11 @@ a:hover {
   transition: border-color 120ms var(--ease), background 120ms var(--ease), color 120ms var(--ease);
 }
 
-.theme-toggle:hover {
+.theme-toggle:disabled {
+  cursor: not-allowed;
+}
+
+.theme-toggle:not(:disabled):hover {
   border-color: var(--line-strong);
   color: var(--accent);
 }

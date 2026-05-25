@@ -1,20 +1,3 @@
-/* ---------- Sticky header scrolled state ---------- */
-
-const siteHeader = document.querySelector('.site-header');
-
-if (siteHeader) {
-  let lastScrolled = false;
-  const updateHeader = () => {
-    const scrolled = window.scrollY > 4;
-    if (scrolled !== lastScrolled) {
-      siteHeader.classList.toggle('is-scrolled', scrolled);
-      lastScrolled = scrolled;
-    }
-  };
-  updateHeader();
-  window.addEventListener('scroll', updateHeader, { passive: true });
-}
-
 /* ---------- Mobile nav toggle ---------- */
 
 const navToggle = document.querySelector('[data-nav-toggle]');
@@ -51,6 +34,7 @@ const themeToggle = document.querySelector('[data-theme-toggle]');
 
 if (themeToggle) {
   const root = document.documentElement;
+  themeToggle.disabled = false;
 
   const getResolvedTheme = () => {
     const stored = root.dataset.theme;
@@ -99,6 +83,42 @@ if (primaryLinks.length) {
 }
 
 /* ---------- Table of contents scroll spy ---------- */
+
+document.querySelectorAll('[data-enhance-toc]').forEach((toc) => {
+  const layout = toc.closest('.doc-layout');
+  const prose = layout?.querySelector('.prose');
+  if (!layout || !prose) return;
+
+  const headings = Array.from(prose.querySelectorAll('h2[id], h3[id], h4[id]'))
+    .filter((heading) => heading.id && heading.textContent.trim());
+  if (!headings.length) return;
+
+  const title = document.createElement('p');
+  title.className = 'doc-toc__title';
+  title.textContent = 'On this page';
+
+  const nav = document.createElement('nav');
+  const list = document.createElement('ol');
+
+  for (const heading of headings) {
+    const level = Number(heading.tagName.slice(1)) || 2;
+    const item = document.createElement('li');
+    const link = document.createElement('a');
+
+    item.className = `doc-toc__item doc-toc__item--level-${level}`;
+    link.href = `#${encodeURIComponent(heading.id)}`;
+    link.dataset.docTocLink = '';
+    link.textContent = heading.textContent.trim();
+
+    item.append(link);
+    list.append(item);
+  }
+
+  nav.append(list);
+  toc.replaceChildren(title, nav);
+  toc.hidden = false;
+  layout.classList.add('doc-layout--with-toc');
+});
 
 const tocLinks = Array.from(document.querySelectorAll('[data-doc-toc-link]'));
 

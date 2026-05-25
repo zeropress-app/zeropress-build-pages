@@ -1,12 +1,39 @@
-<article class="shell doc-content">
-  <header class="doc-header">
-    <p class="eyebrow">
-      <span class="eyebrow__dot" aria-hidden="true"></span>
-      Post
-    </p>
-    <h1>{{post.title}}</h1>
-  </header>
-  <div class="prose" {{#if site.search}}{{#if_neq post.discoverability "delist"}}data-pagefind-body{{/if_neq}}{{/if}}>
-    {{post.html}}
+<article class="shell doc-layout{{#if post.toc}} doc-layout--with-toc{{/if}}">
+  <div class="doc-content">
+    <header class="doc-header">
+      <p class="eyebrow">
+        <span class="eyebrow__dot" aria-hidden="true"></span>
+        Post
+      </p>
+      <h1>{{post.title}}</h1>
+    </header>
+    <div class="prose" {{#if site.search}}{{#if_neq post.discoverability "delist"}}data-pagefind-body{{/if_neq}}{{/if}}>
+      {{post.html}}
+    </div>
+    {{#if post.meta.source_markdown_url}}
+    <footer class="doc-source">
+      <a href="{{post.meta.source_markdown_url}}">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+        View this post as Markdown
+      </a>
+    </footer>
+    {{/if}}
   </div>
+  {{#if post.toc}}
+  <aside class="doc-toc" aria-label="Table of contents">
+    <p class="doc-toc__title">On this page</p>
+    <nav>
+      <ol>
+        {{#for item in post.toc}}<li class="doc-toc__item doc-toc__item--level-{{item.level}}"><a href="{{item.href}}" data-doc-toc-link>{{item.title}}</a></li>{{/for}}
+      </ol>
+    </nav>
+  </aside>
+  {{#else}}
+  {{#if_eq post.document_type "html"}}
+  <aside class="doc-toc" aria-label="Table of contents" data-enhance-toc hidden></aside>
+  {{/if_eq}}
+  {{/if}}
 </article>
