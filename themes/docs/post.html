@@ -1,6 +1,9 @@
 <article class="shell doc-content">
   <header class="doc-header">
-    <p class="eyebrow">Post</p>
+    <p class="eyebrow">
+      <span class="eyebrow__dot" aria-hidden="true"></span>
+      Post
+    </p>
     <h1>{{post.title}}</h1>
   </header>
   <div class="prose" {{#if site.search}}{{#if_neq post.discoverability "delist"}}data-pagefind-body{{/if_neq}}{{/if}}>

@@ -1,11 +1,11 @@
 {
-  "name": "ZeroPress Build Pages Docs",
+  "name": "ZeroPress Template Docs1",
   "namespace": "zeropress",
-  "slug": "zeropress-docs",
-  "version": "0.6.0",
+  "slug": "docs1",
+  "version": "0.6.1",
   "license": "MIT",
   "runtime": "0.6",
-  "description": "Bundled documentation theme for @zeropress/build-pages",
+  "description": "Clean documentation theme",
   "features": {
     "post_index": false,
     "search": true
@@ -14,6 +14,10 @@
     "primary": {
       "title": "Primary navigation",
       "description": "Top-level documentation navigation"
+    },
+    "footer": {
+      "title": "Footer menu",
+      "description": "Compact footer links"
     }
   }
 }

@@ -1,0 +1,10 @@
+<script>
+  (function () {
+    try {
+      var stored = localStorage.getItem('zp-theme');
+      if (stored === 'light' || stored === 'dark') {
+        document.documentElement.dataset.theme = stored;
+      }
+    } catch (e) {}
+  })();
+</script>
