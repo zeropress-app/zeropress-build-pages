@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { checkInternalLinks } from '../src/check-links.js';
-import { parseArgs, runBuildPages } from '../src/index.js';
+import { formatBuildPagesSuccessMessage, parseArgs, runBuildPages } from '../src/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageDir = path.resolve(__dirname, '..');
@@ -16,6 +16,47 @@ const actionPath = path.join(packageDir, 'dist', 'action.js');
 const bundledPrebuildPath = path.join(packageDir, 'dist', 'prebuild.js');
 const fixtureRoot = path.join(packageDir, 'test', 'fixtures', 'prebuild-errors');
 const prebuildScript = path.join(packageDir, 'src', 'prebuild.js');
+
+function withColorEnv(env, fn) {
+  const previousForceColor = process.env.FORCE_COLOR;
+  const previousNoColor = process.env.NO_COLOR;
+
+  if ('FORCE_COLOR' in env) {
+    process.env.FORCE_COLOR = env.FORCE_COLOR;
+  } else {
+    delete process.env.FORCE_COLOR;
+  }
+
+  if ('NO_COLOR' in env) {
+    process.env.NO_COLOR = env.NO_COLOR;
+  } else {
+    delete process.env.NO_COLOR;
+  }
+
+  try {
+    return fn();
+  } finally {
+    if (previousForceColor === undefined) {
+      delete process.env.FORCE_COLOR;
+    } else {
+      process.env.FORCE_COLOR = previousForceColor;
+    }
+
+    if (previousNoColor === undefined) {
+      delete process.env.NO_COLOR;
+    } else {
+      process.env.NO_COLOR = previousNoColor;
+    }
+  }
+}
+
+test('formatBuildPagesSuccessMessage uses success color when color is enabled', () => {
+  const message = withColorEnv({ FORCE_COLOR: '1' }, () => (
+    formatBuildPagesSuccessMessage({ isTTY: false })
+  ));
+
+  assert.equal(message, '\x1b[32mBuilt ZeroPress Pages site successfully\x1b[0m');
+});
 
 test('CLI prints help and version', () => {
   const noArgs = spawnSync(process.execPath, [binPath], {
@@ -69,6 +110,10 @@ test('parseArgs requires explicit CLI options and applies flag defaults', () => 
   assert.throws(
     () => parseArgs(['--source', 'docs', '--destination', '_site', '--copy-markdown-source']),
     /unknown option --copy-markdown-source/,
+  );
+  assert.throws(
+    () => parseArgs(['foobar']),
+    /unexpected positional argument: foobar/,
   );
 
   assert.deepEqual(parseArgs(['--source', 'docs', '--destination', 'site']), {

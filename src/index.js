@@ -39,7 +39,7 @@ export async function runCli(argv = process.argv.slice(2)) {
     await runBuildPages(options);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(message);
+    console.error(colorizeError(prefixError(message)));
     process.exitCode = 1;
   }
 }
@@ -114,7 +114,7 @@ export async function runBuildPages(options) {
   process.env.ZEROPRESS_PUBLIC_DIR = stagingDir;
   try {
     const result = await runBuild(themeDir, previewData, destinationDir);
-    console.log('Built ZeroPress Pages site successfully');
+    console.log(formatBuildPagesSuccessMessage());
     console.log(`Files: ${result.files.length}`);
     console.log(`Output: ${formatPath(cwd, destinationDir)}`);
   } finally {
@@ -174,6 +174,10 @@ export function parseArgs(argv) {
       continue;
     }
 
+    if (!arg.startsWith('--')) {
+      throw new Error(`Invalid arguments: unexpected positional argument: ${arg}. Use --source <dir> and --destination <dir>.`);
+    }
+
     throw new Error(`Invalid arguments: unknown option ${arg}`);
   }
 
@@ -219,6 +223,49 @@ Options:
   --no-copy-markdown-source     Do not copy original Markdown files to output
   --help, -h                    Show help
   --version, -v                 Show version`);
+}
+
+function prefixError(message) {
+  if (message.startsWith('[zeropress-build-pages]')) {
+    return message;
+  }
+  return `[zeropress-build-pages] ${message}`;
+}
+
+export function formatBuildPagesSuccessMessage(stream = process.stdout) {
+  return createColor(stream).green('Built ZeroPress Pages site successfully');
+}
+
+function colorizeError(message) {
+  if (!colorsEnabled(process.stderr)) {
+    return message;
+  }
+
+  return message
+    .replace(/^(\[zeropress-build-pages\].*)/m, '\x1b[31m$1\x1b[0m')
+    .replace(/\bERROR\b/g, '\x1b[31mERROR\x1b[0m')
+    .replace(/\bWARN\b/g, '\x1b[33mWARN\x1b[0m')
+    .replace(/\bHint:/g, '\x1b[1mHint:\x1b[0m');
+}
+
+function createColor(stream) {
+  const enabled = colorsEnabled(stream);
+  const wrap = (code, value) => (enabled ? `\x1b[${code}m${value}\x1b[0m` : value);
+  return {
+    red: (value) => wrap('31', value),
+    yellow: (value) => wrap('33', value),
+    green: (value) => wrap('32', value),
+  };
+}
+
+function colorsEnabled(stream) {
+  if (process.env.NO_COLOR) {
+    return false;
+  }
+  if (process.env.FORCE_COLOR && process.env.FORCE_COLOR !== '0') {
+    return true;
+  }
+  return Boolean(stream?.isTTY);
 }
 
 function resolveThemeDir(cwd, options) {
