@@ -66,6 +66,7 @@ export async function runBuildPages(options) {
     generatedDir,
   });
   await assertDirectory(sourceDir, 'Source directory');
+  await assertDirectory(themeDir, 'Theme directory');
   await assertPublicDirectory(publicDir, publicDirExplicit);
   await assertDestinationPath(destinationDir);
   await fs.rm(generatedDir, { recursive: true, force: true });

@@ -691,6 +691,28 @@ test('rejects destination path when it is not a directory', async () => {
   assert.equal(await fs.readFile(path.join(tempDir, '_site'), 'utf8'), 'not a directory');
 });
 
+test('rejects missing theme path before prebuild writes internal files', async () => {
+  const tempDir = await makeTempDir();
+  await fs.mkdir(path.join(tempDir, 'docs'), { recursive: true });
+  await fs.writeFile(path.join(tempDir, 'docs', 'index.md'), '# Home\n\nMissing theme check.', 'utf8');
+
+  await assert.rejects(
+    runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      destination: '_site',
+      themePath: 'missing-theme',
+      skipLinkCheck: true,
+    }),
+    /Theme directory not found/,
+  );
+
+  await assert.rejects(
+    fs.access(path.join(tempDir, '.zeropress-build-page')),
+    /ENOENT/,
+  );
+});
+
 test('builds with config, custom theme path, and source inside a subdirectory', async () => {
   const tempDir = await makeTempDir();
   const sourceDir = path.join(tempDir, 'docs');
