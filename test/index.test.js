@@ -18,6 +18,15 @@ const fixtureRoot = path.join(packageDir, 'test', 'fixtures', 'prebuild-errors')
 const prebuildScript = path.join(packageDir, 'src', 'prebuild.js');
 
 test('CLI prints help and version', () => {
+  const noArgs = spawnSync(process.execPath, [binPath], {
+    cwd: packageDir,
+    encoding: 'utf8',
+  });
+  assert.equal(noArgs.status, 0);
+  assert.match(noArgs.stdout, /zeropress-build-pages/);
+  assert.match(noArgs.stdout, /--source <dir>/);
+  assert.equal(noArgs.stderr, '');
+
   const help = spawnSync(process.execPath, [binPath, '--help'], {
     cwd: packageDir,
     encoding: 'utf8',

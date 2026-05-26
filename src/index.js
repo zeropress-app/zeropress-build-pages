@@ -21,6 +21,10 @@ const BUNDLED_THEME_ALIASES = new Map([
 
 export async function runCli(argv = process.argv.slice(2)) {
   try {
+    if (argv.length === 0) {
+      printHelp();
+      return;
+    }
     if (argv.includes('--help') || argv.includes('-h')) {
       printHelp();
       return;
