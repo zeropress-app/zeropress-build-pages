@@ -29,6 +29,9 @@
     },
     "menus": {
       "$ref": "#/$defs/menus"
+    },
+    "collections": {
+      "$ref": "#/$defs/collections"
     }
   },
   "$defs": {
@@ -319,6 +322,40 @@
           "default": []
         }
       }
+    },
+    "collections": {
+      "type": "object",
+      "description": "Reading-order collections generated from Markdown source paths.",
+      "markdownDescription": "Reading-order collections generated from Markdown source paths.",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/collection"
+      }
+    },
+    "collection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\\\?#]+\\.md$"
+          }
+        }
+      }
     }
   },
   "examples": [
@@ -365,6 +402,15 @@
                 "badge": "New"
               }
             }
+          ]
+        }
+      },
+      "collections": {
+        "guides": {
+          "title": "Guides",
+          "items": [
+            "getting-started/index.md",
+            "deployment/index.md"
           ]
         }
       }

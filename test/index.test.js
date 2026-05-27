@@ -318,7 +318,7 @@ test('builds a source directory without config and preserves markdown passthroug
   const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
   const buildReport = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'build-report.json'), 'utf8'));
   const homePage = previewData.content.pages.find((page) => page.slug === 'index');
-  const customPage = previewData.content.pages.find((page) => page.slug === 'custom-page');
+  const customPage = previewData.content.pages.find((page) => page.slug === 'guides-custom-page');
 
   assert.equal(previewData.site.indexing, true);
   assert.equal(previewData.site.expose_generator, true);
@@ -360,7 +360,7 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.match(customHtml, /View this page as Markdown/);
   assert.doesNotMatch(customHtml, /title: Custom Front Matter Title|---/);
   const searchItems = JSON.parse(await fs.readFile(path.join(tempDir, '_site', '_zeropress', 'search.json'), 'utf8'));
-  assert.equal(searchItems.some((item) => item.id === 'page:custom-page'), false);
+  assert.equal(searchItems.some((item) => item.id === 'page:guides-custom-page'), false);
   await fs.access(path.join(tempDir, '_site', '_zeropress', 'search_pagefind.js'));
   await fs.access(path.join(tempDir, '_site', 'guide.md'));
   await fs.access(path.join(tempDir, '_site', 'custom.md'));
@@ -814,6 +814,15 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
         ],
       },
     },
+    collections: {
+      docs: {
+        title: 'Docs Order',
+        items: [
+          'index.md',
+          'topic.md',
+        ],
+      },
+    },
   }, null, 2), 'utf8');
 
   await runBuildPages({
@@ -884,6 +893,16 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
       file: '.zeropress/head-end.html',
     },
   });
+  assert.deepEqual(resolvedConfig.collections, {
+    docs: {
+      title: 'Docs Order',
+      items: [
+        { type: 'page', slug: 'index' },
+        { type: 'page', slug: 'topic' },
+      ],
+    },
+  });
+  assert.deepEqual(previewData.collections, resolvedConfig.collections);
   assert.deepEqual(resolvedConfig.site, {
     title: 'Configured Docs',
     description: 'A configured docs site.',
@@ -984,6 +1003,85 @@ test('rejects invalid site logo and site meta config', async () => {
       }),
       /Build pages prebuild failed/,
     );
+  }
+});
+
+test('rejects invalid config collections', async () => {
+  const cases = [
+    {
+      name: 'duplicate',
+      collections: {
+        docs: {
+          title: 'Docs',
+          items: ['index.md', 'index.md'],
+        },
+      },
+      stderr: /duplicates index\.md/,
+    },
+    {
+      name: 'missing',
+      collections: {
+        docs: {
+          title: 'Docs',
+          items: ['missing.md'],
+        },
+      },
+      stderr: /was not discovered as a Markdown page: missing\.md/,
+    },
+    {
+      name: 'non-markdown',
+      collections: {
+        docs: {
+          title: 'Docs',
+          items: ['notes.txt'],
+        },
+      },
+      stderr: /must be a Markdown source path ending in \.md/,
+    },
+    {
+      name: 'draft',
+      collections: {
+        docs: {
+          title: 'Docs',
+          items: ['draft.md'],
+        },
+      },
+      stderr: /references skipped Markdown draft\.md: front matter status is "draft"/,
+    },
+  ];
+
+  for (const testCase of cases) {
+    const tempDir = await makeTempDir();
+    const sourceDir = path.join(tempDir, 'docs');
+    await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
+    await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nContent.', 'utf8');
+    await fs.writeFile(path.join(sourceDir, 'draft.md'), [
+      '---',
+      'status: draft',
+      '---',
+      '',
+      '# Draft',
+      '',
+      'Draft content.',
+    ].join('\n'), 'utf8');
+    await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
+      version: '0.1',
+      front_page: { type: 'markdown', file: 'index.md' },
+      collections: testCase.collections,
+    }, null, 2), 'utf8');
+
+    const result = spawnSync(process.execPath, [prebuildScript], {
+      cwd: tempDir,
+      env: {
+        ...process.env,
+        ZEROPRESS_BUILD_PAGES_SOURCE: sourceDir,
+        ZEROPRESS_SKIP_UNTITLED_MARKDOWN: 'false',
+      },
+      encoding: 'utf8',
+    });
+
+    assert.notEqual(result.status, 0, testCase.name);
+    assert.match(result.stderr, testCase.stderr, testCase.name);
   }
 });
 

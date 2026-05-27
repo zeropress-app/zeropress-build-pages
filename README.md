@@ -411,7 +411,7 @@ progressive enhancement owned by the theme or site.
 
 Build Pages reads `<source>/.zeropress/config.json` when present. Missing config falls back to defaults.
 
-See the public config reference at [zeropress.dev/build-pages-config](https://zeropress.dev/build-pages-config/).
+See the public config reference at [zeropress.dev/build-pages-config](https://zeropress.dev/build-pages/config/).
 
 ```json
 {
@@ -457,6 +457,15 @@ See the public config reference at [zeropress.dev/build-pages-config](https://ze
       ]
     }
   },
+  "collections": {
+    "guides": {
+      "title": "Guides",
+      "items": [
+        "getting-started/index.md",
+        "deployment/index.md"
+      ]
+    }
+  },
   "custom_html": {
     "head_end": { "file": ".zeropress/head-end.html" },
     "body_end": { "file": ".zeropress/body-end.html" }
@@ -474,6 +483,8 @@ See the public config reference at [zeropress.dev/build-pages-config](https://ze
 HTML front page and `custom_html` files must stay inside `.zeropress/`.
 
 Menu item `meta` is optional scalar display metadata copied into generated preview-data for themes that manually iterate menus. Use it for small values such as `icon`, `badge`, or `accent`; arrays and objects are not accepted.
+
+`collections` defines group-level reading order from Markdown source paths. Build Pages converts each source-relative `.md` path into preview-data collection items such as `{ "type": "page", "slug": "deployment" }`. Collection prev/next cursors stop at collection boundaries, so the last item in `collections.guides` does not continue into another collection.
 
 `site.footer.copyright_text` is rendered by the bundled docs theme when present. If it is omitted, the bundled docs theme falls back to `site.title`. ZeroPress does not add a copyright symbol automatically.
 

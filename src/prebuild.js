@@ -97,6 +97,10 @@ async function main() {
   const routeBySourcePath = new Map(
     pageInputs.map(({ sourcePath, route }) => [sourcePath, route]),
   );
+  const collections = normalizeCollections(config.collections, pageInputs, skippedMarkdown);
+  if (Object.keys(collections).length > 0) {
+    resolvedConfig.collections = collections;
+  }
 
   const pages = pageInputs.map(({ sourcePath, bodyMarkdown, frontMatter, title, route }) => ({
     title,
@@ -138,6 +142,10 @@ async function main() {
     menus,
     widgets: {},
   };
+
+  if (Object.keys(collections).length > 0) {
+    previewData.collections = collections;
+  }
   if (customHtml) {
     previewData.custom_html = customHtml;
   }
@@ -853,6 +861,79 @@ function defaultMenus() {
   };
 }
 
+function normalizeCollections(value, pageInputs, skippedMarkdown) {
+  if (value === undefined) {
+    return {};
+  }
+  if (!isPlainObject(value)) {
+    throw new PrebuildConfigError('collections must be an object keyed by collection id.');
+  }
+
+  const pageBySourcePath = new Map(pageInputs.map((pageInput) => [pageInput.sourcePath, pageInput]));
+  const skippedByFile = new Map(
+    skippedMarkdown.map((entry) => [path.resolve(rootDir, entry.file), entry.reason]),
+  );
+  const collections = {};
+
+  for (const [collectionId, collection] of Object.entries(value)) {
+    validateConfigId(collectionId, `collections.${collectionId}`);
+    if (!isPlainObject(collection)) {
+      throw new PrebuildConfigError(`collections.${collectionId} must be an object.`);
+    }
+    assertKnownConfigKeys(collection, ['title', 'description', 'items'], `collections.${collectionId}`);
+    if (!Array.isArray(collection.items)) {
+      throw new PrebuildConfigError(`collections.${collectionId}.items must be an array of Markdown source paths.`);
+    }
+
+    const seenSourcePaths = new Set();
+    const items = collection.items.map((item, index) => {
+      const pathLabel = `collections.${collectionId}.items[${index}]`;
+      const normalizedPath = resolveCollectionSourcePath(item, pathLabel);
+      const sourcePath = path.resolve(sourceDir, normalizedPath);
+      if (seenSourcePaths.has(sourcePath)) {
+        throw new PrebuildConfigError(`${pathLabel} duplicates ${normalizedPath} in collections.${collectionId}.`);
+      }
+      seenSourcePaths.add(sourcePath);
+
+      const pageInput = pageBySourcePath.get(sourcePath);
+      if (!pageInput) {
+        const skippedReason = skippedByFile.get(sourcePath);
+        if (skippedReason) {
+          throw new PrebuildConfigError(`${pathLabel} references skipped Markdown ${normalizedPath}: ${skippedReason}`);
+        }
+        throw new PrebuildConfigError(`${pathLabel} was not discovered as a Markdown page: ${normalizedPath}`);
+      }
+
+      return {
+        type: 'page',
+        slug: pageInput.route.slug,
+      };
+    });
+
+    collections[collectionId] = {
+      title: readConfigString(collection.title, collectionId),
+      ...(collection.description !== undefined ? { description: readConfigString(collection.description, '') } : {}),
+      items,
+    };
+  }
+
+  return collections;
+}
+
+function resolveCollectionSourcePath(value, pathLabel) {
+  const normalizedPath = normalizeSourceFilePath(value, pathLabel);
+  if (!normalizedPath.toLowerCase().endsWith('.md')) {
+    throw new PrebuildConfigError(`${pathLabel} must be a Markdown source path ending in .md.`);
+  }
+  return normalizedPath;
+}
+
+function validateConfigId(value, pathLabel) {
+  if (!/^[a-z][a-z0-9_-]{0,63}$/.test(value)) {
+    throw new PrebuildConfigError(`${pathLabel} must use a lowercase config id such as "docs" or "reference-guides".`);
+  }
+}
+
 function buildPrebuildReport({
   sourceFiles,
   pageInputs,
@@ -1358,11 +1439,11 @@ function buildRoutePath(relativeSourcePath, sourcePath, options = {}) {
 }
 
 function buildSlug(routePath) {
-  const segments = routePath.split('/');
-  const rawSlug = segments.at(-1) === 'index' && segments.length > 1
-    ? segments.at(-2)
-    : segments.at(-1);
-  return sanitizePathSegment(rawSlug || '');
+  const segments = routePath.split('/').filter(Boolean);
+  if (segments.length > 1 && segments.at(-1) === 'index') {
+    segments.pop();
+  }
+  return sanitizePathSegment(segments.join('-') || 'index');
 }
 
 function sanitizePathSegment(segment) {
