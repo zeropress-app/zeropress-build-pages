@@ -1,9 +1,12 @@
 import fs from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const execFileAsync = promisify(execFile);
 const rootDir = process.cwd();
 const sourceDir = resolveEnvPath(['ZEROPRESS_BUILD_PAGES_SOURCE'], 'docs');
 const publicDir = resolveEnvPath(['ZEROPRESS_BUILD_PAGES_PUBLIC_DIR'], sourceDir);
@@ -23,6 +26,7 @@ const FRONT_MATTER_DATA_MAX_DEPTH = 4;
 const FRONT_MATTER_DATA_MAX_KEYS = 64;
 const FRONT_MATTER_DATA_MAX_ARRAY_LENGTH = 256;
 const FRONT_MATTER_DISCOVERABILITY_VALUES = new Set(['default', 'noindex', 'delist']);
+const MARKDOWN_LAST_UPDATED_VALUES = new Set(['none', 'git']);
 const markdownDiscoverExcludeRoots = buildMarkdownDiscoverExcludeRoots();
 
 class PrebuildMarkdownError extends Error {
@@ -55,10 +59,12 @@ async function main() {
   );
   const menus = normalizeMenus(config.menus);
   const customHtmlConfig = normalizeCustomHtmlConfig(config.custom_html);
+  const markdownConfig = normalizeMarkdownConfig(config.markdown);
   const resolvedConfig = buildResolvedConfig(config, {
     frontPageConfig,
     menus,
     customHtmlConfig,
+    markdownConfig,
   });
   const sourceFiles = await listMarkdownFiles(sourceDir);
   const skippedMarkdown = [];
@@ -102,21 +108,25 @@ async function main() {
     resolvedConfig.collections = collections;
   }
 
-  const pages = pageInputs.map(({ sourcePath, bodyMarkdown, frontMatter, title, route }) => ({
-    title,
-    slug: route.slug,
-    path: route.path,
-    meta: {
-      ...frontMatter.meta,
-      ...(copyMarkdownSource ? { source_markdown_url: buildSourceMarkdownUrl(sourcePath) } : {}),
-    },
-    ...(frontMatter.data !== undefined ? { data: frontMatter.data } : {}),
-    ...(frontMatter.discoverability !== 'default' ? { discoverability: frontMatter.discoverability } : {}),
-    content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath),
-    document_type: 'markdown',
-    excerpt: frontMatter.description || extractExcerpt(bodyMarkdown, title),
-    status: 'published',
-  }));
+  const pages = [];
+  for (const { sourcePath, bodyMarkdown, frontMatter, title, route } of pageInputs) {
+    const meta = await buildPageMeta(sourcePath, frontMatter, markdownConfig);
+    pages.push({
+      title,
+      slug: route.slug,
+      path: route.path,
+      meta: {
+        ...meta,
+        ...(copyMarkdownSource ? { source_markdown_url: buildSourceMarkdownUrl(sourcePath) } : {}),
+      },
+      ...(frontMatter.data !== undefined ? { data: frontMatter.data } : {}),
+      ...(frontMatter.discoverability !== 'default' ? { discoverability: frontMatter.discoverability } : {}),
+      content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath),
+      document_type: 'markdown',
+      excerpt: frontMatter.description || extractExcerpt(bodyMarkdown, title),
+      status: 'published',
+    });
+  }
 
   const frontPageResult = await buildFrontPageData(frontPageConfig, pageInputs, resolvedConfig);
   if (frontPageResult.page) {
@@ -272,11 +282,12 @@ function buildSiteData(config, frontPage) {
   return site;
 }
 
-function buildResolvedConfig(config, { frontPageConfig, menus, customHtmlConfig }) {
+function buildResolvedConfig(config, { frontPageConfig, menus, customHtmlConfig, markdownConfig }) {
   const resolvedConfig = {
     $schema: BUILD_PAGES_CONFIG_SCHEMA_URL,
     version: '0.1',
     site: normalizeSiteConfig(config.site),
+    markdown: markdownConfig,
     front_page: frontPageConfig,
     menus,
   };
@@ -286,6 +297,25 @@ function buildResolvedConfig(config, { frontPageConfig, menus, customHtmlConfig 
   }
 
   return resolvedConfig;
+}
+
+function normalizeMarkdownConfig(value) {
+  if (value === undefined) {
+    return {
+      last_updated: 'none',
+    };
+  }
+  if (!isPlainObject(value)) {
+    throw new PrebuildConfigError(
+      'markdown must be an object.',
+      '  "markdown": { "last_updated": "git" }',
+    );
+  }
+  assertKnownConfigKeys(value, ['last_updated'], 'markdown');
+
+  return {
+    last_updated: normalizeLastUpdatedPolicy(value.last_updated, 'markdown.last_updated', PrebuildConfigError),
+  };
 }
 
 function normalizeSiteConfig(value) {
@@ -1051,10 +1081,40 @@ function normalizePublishedFrontMatter(frontMatter, sourcePath) {
     title: normalizeFrontMatterTitle(frontMatter.title, sourcePath),
     description: normalizeFrontMatterDescription(frontMatter.description, sourcePath),
     path: normalizeFrontMatterRoutePath(frontMatter.path, sourcePath),
+    last_updated: normalizeFrontMatterLastUpdated(frontMatter.last_updated, sourcePath),
     discoverability: normalizeFrontMatterDiscoverability(frontMatter.discoverability, sourcePath),
     meta: normalizeFrontMatterMeta(frontMatter.meta, sourcePath),
     data: normalizeFrontMatterData(frontMatter.data, sourcePath),
   };
+}
+
+function normalizeLastUpdatedPolicy(value, pathLabel, ErrorClass, sourcePath = null) {
+  if (value === undefined) {
+    return 'none';
+  }
+  if (typeof value === 'string' && MARKDOWN_LAST_UPDATED_VALUES.has(value)) {
+    return value;
+  }
+
+  if (ErrorClass === PrebuildMarkdownError) {
+    throw new ErrorClass(
+      sourcePath,
+      `${pathLabel} must be one of: ${Array.from(MARKDOWN_LAST_UPDATED_VALUES).join(', ')}.`,
+      '  last_updated: none\n  last_updated: git',
+    );
+  }
+
+  throw new ErrorClass(
+    `${pathLabel} must be one of: ${Array.from(MARKDOWN_LAST_UPDATED_VALUES).join(', ')}.`,
+    '  "markdown": { "last_updated": "none" }\n  "markdown": { "last_updated": "git" }',
+  );
+}
+
+function normalizeFrontMatterLastUpdated(value, sourcePath) {
+  if (value === undefined) {
+    return undefined;
+  }
+  return normalizeLastUpdatedPolicy(value, 'front matter last_updated', PrebuildMarkdownError, sourcePath);
 }
 
 function normalizeFrontMatterTitle(value, sourcePath) {
@@ -1161,6 +1221,87 @@ function normalizeFrontMatterMeta(value, sourcePath) {
   }
 
   return meta;
+}
+
+async function buildPageMeta(sourcePath, frontMatter, markdownConfig) {
+  const meta = {
+    ...frontMatter.meta,
+  };
+
+  if (hasManualLastUpdatedMeta(meta)) {
+    return meta;
+  }
+
+  const lastUpdatedPolicy = frontMatter.last_updated || markdownConfig.last_updated;
+  if (lastUpdatedPolicy !== 'git') {
+    return meta;
+  }
+
+  const lastUpdatedIso = await readGitLastUpdatedIso(sourcePath);
+  if (!lastUpdatedIso) {
+    return meta;
+  }
+
+  return {
+    ...meta,
+    last_updated_iso: lastUpdatedIso,
+    last_updated: lastUpdatedIso.slice(0, 10),
+  };
+}
+
+function hasManualLastUpdatedMeta(meta) {
+  return (
+    Object.hasOwn(meta, 'last_updated')
+    || Object.hasOwn(meta, 'last_updated_iso')
+  );
+}
+
+async function readGitLastUpdatedIso(sourcePath) {
+  const realSourcePath = await resolveRealPath(sourcePath);
+  const realRootDir = await resolveRealPath(rootDir);
+  const gitPath = path.relative(realRootDir, realSourcePath);
+  try {
+    const { stdout } = await execFileAsync('git', [
+      '-C',
+      realRootDir,
+      'log',
+      '-1',
+      '--format=%cI',
+      '--',
+      gitPath,
+    ], {
+      encoding: 'utf8',
+    });
+
+    const value = stdout.trim();
+    if (!value) {
+      warnGitLastUpdated(sourcePath, 'no commit date was found for this file.');
+      return '';
+    }
+    if (!/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+      warnGitLastUpdated(sourcePath, `unexpected git date output: ${value}`);
+      return '';
+    }
+    return value;
+  } catch (error) {
+    warnGitLastUpdated(sourcePath, error instanceof Error ? error.message : String(error));
+    return '';
+  }
+}
+
+async function resolveRealPath(value) {
+  try {
+    return await fs.realpath(value);
+  } catch {
+    return value;
+  }
+}
+
+function warnGitLastUpdated(sourcePath, reason) {
+  console.warn([
+    `[zeropress-build-pages] Warning: could not read git last_updated for ${formatSourcePath(sourcePath)}.`,
+    `Reason: ${reason}`,
+  ].join('\n'));
 }
 
 function isPreviewMetaValue(value) {

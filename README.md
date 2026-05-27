@@ -312,6 +312,7 @@ description: Build a static docs site from Markdown.
 path: guides/install
 status: published
 discoverability: default
+last_updated: none
 meta:
   source: docs
 data:
@@ -337,6 +338,7 @@ Supported front matter fields:
 | `path` | Generated route path, such as `guides/install` for `/guides/install`. |
 | `status` | `published` includes the page. `draft` skips the page. Other values warn and skip. |
 | `discoverability` | `default`, `noindex`, or `delist`. Missing is `default`. |
+| `last_updated` | `none` or `git`. Overrides config `markdown.last_updated` for this page. |
 | `meta` | Optional scalar/null metadata copied to the generated page. |
 | `data` | Optional structured JSON-style data for theme-facing lists, facts, galleries, timelines, or swatches. |
 
@@ -351,6 +353,8 @@ Unknown front matter fields are ignored to make migration from existing Markdown
 - `delist`: generate the page, add HTML robots `noindex`, and exclude it from automatic discovery outputs such as sitemap, native search, and generated post/page listing data.
 
 `delist` is not a security or permission feature. Direct links, explicit menus, explicit collections, and body links can still expose the page.
+
+`last_updated` controls optional Git-based page metadata. If config uses `markdown.last_updated: "git"`, set `last_updated: none` on landing, index, or promotional pages that should not show an update date. If config uses `none`, set `last_updated: git` on a specific information page to opt in.
 
 Use `meta` for small scalar flags and metadata. Use `data` when a theme should iterate structured content:
 
@@ -438,6 +442,9 @@ See the public config reference at [zeropress.dev/build-pages-config](https://ze
       "show_sponsor_banner": false
     }
   },
+  "markdown": {
+    "last_updated": "git"
+  },
   "front_page": {
     "type": "markdown"
   },
@@ -485,6 +492,20 @@ HTML front page and `custom_html` files must stay inside `.zeropress/`.
 Menu item `meta` is optional scalar display metadata copied into generated preview-data for themes that manually iterate menus. Use it for small values such as `icon`, `badge`, or `accent`; arrays and objects are not accepted.
 
 `collections` defines group-level reading order from Markdown source paths. Build Pages converts each source-relative `.md` path into preview-data collection items such as `{ "type": "page", "slug": "deployment" }`. Collection prev/next cursors stop at collection boundaries, so the last item in `collections.guides` does not continue into another collection.
+
+`markdown.last_updated` is optional and accepts `none` or `git`. Missing or `none` keeps current behavior and generates no update date. `git` reads each Markdown file's latest Git commit date and adds `page.meta.last_updated_iso` plus `page.meta.last_updated` to generated preview-data when the page does not already define those meta keys. `last_updated_iso` keeps the Git ISO timestamp; `last_updated` is a stable `YYYY-MM-DD` fallback display string. For accurate history in GitHub Actions, configure checkout with `fetch-depth: 0`.
+
+Themes can render the generated value with normal escaped interpolation:
+
+```html
+{{#if page.meta.last_updated_iso}}
+  <time datetime="{{page.meta.last_updated_iso}}" data-zp-local-date>
+    {{page.meta.last_updated}}
+  </time>
+{{/if}}
+```
+
+Client-side progressive enhancement may replace the fallback text with a localized date. The fallback remains useful when JavaScript is unavailable.
 
 `site.footer.copyright_text` is rendered by the bundled docs theme when present. If it is omitted, the bundled docs theme falls back to `site.title`. ZeroPress does not add a copyright symbol automatically.
 

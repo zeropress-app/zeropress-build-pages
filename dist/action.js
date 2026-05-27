@@ -53696,7 +53696,7 @@ async function validateThemeFiles(fileMap, options2 = {}) {
     }
     const content = getText(files.get(templatePath));
     templateContents.set(templatePath, content);
-    validateTemplateSyntax(templatePath, content, { errors, runtime: manifest?.runtime || DEFAULT_RUNTIME });
+    validateTemplateSyntax(templatePath, content, { errors, warnings, runtime: manifest?.runtime || DEFAULT_RUNTIME });
   }
   for (const [filePath, value] of files.entries()) {
     if (!filePath.startsWith("partials/") || !filePath.endsWith(".html")) {
@@ -53705,7 +53705,7 @@ async function validateThemeFiles(fileMap, options2 = {}) {
     const partialName = filePath.slice("partials/".length, -".html".length);
     const content = getText(value);
     partialContents.set(partialName, content);
-    validateTemplateSyntax(filePath, content, { errors, runtime: manifest?.runtime || DEFAULT_RUNTIME });
+    validateTemplateSyntax(filePath, content, { errors, warnings, runtime: manifest?.runtime || DEFAULT_RUNTIME });
   }
   validatePartialReferences(templateContents, partialContents, { errors, runtime: manifest?.runtime || DEFAULT_RUNTIME });
   return {
@@ -53922,10 +53922,22 @@ function validateManifest(themeJson) {
   return { errors, manifest: errors.length > 0 ? void 0 : manifest };
 }
 function validateTemplateSyntax(templatePath, content, context) {
-  const { errors } = context;
+  const { errors, warnings = [] } = context;
   const slotRegex = /\{\{slot:([a-zA-Z0-9_-]+)\}\}/g;
   const contentSlotMatches = content.match(/\{\{slot:content\}\}/g) || [];
   if (templatePath === "layout.html") {
+    if (!startsWithHtmlDoctype(content)) {
+      warnings.push(issue2(
+        "MISSING_DOCTYPE",
+        "layout.html",
+        "layout.html should start with <!doctype html> to keep browsers in standards mode",
+        "warning",
+        {
+          category: "theme_validation",
+          hint: "Add <!doctype html> before the opening <html> tag."
+        }
+      ));
+    }
     if (contentSlotMatches.length !== 1) {
       errors.push(issue2("INVALID_LAYOUT_SLOT", "layout.html", "layout.html must contain exactly one {{slot:content}}", "error"));
     }
@@ -53956,6 +53968,9 @@ function validateTemplateSyntax(templatePath, content, context) {
     errors.push(issue2("NESTED_SLOT", templatePath, `Nested slots are not allowed in ${templatePath}`, "error"));
   }
   validateRuntimeV05TemplateSyntax(templatePath, content, errors);
+}
+function startsWithHtmlDoctype(content) {
+  return /^\s*(?:<!--[\s\S]*?-->\s*)*<!doctype\s+html\s*>/i.test(content);
 }
 function validateRuntimeV05TemplateSyntax(templatePath, content, errors) {
   const stack = [];
@@ -61874,8 +61889,12 @@ function attachCollectionCursors(posts, pages, collections) {
       if (!target) {
         return;
       }
+      const cursor = buildCollectionCursor(collectionId, collection, items, index);
       target.collection_cursors = target.collection_cursors || {};
-      target.collection_cursors[collectionId] = buildCollectionCursor(collectionId, collection, items, index);
+      target.collection_cursors[collectionId] = cursor;
+      if (!target.collection_cursor) {
+        target.collection_cursor = cursor;
+      }
     });
   }
 }
@@ -64250,6 +64269,7 @@ async function runBuildPages(options2) {
     generatedDir
   });
   await assertDirectory(sourceDir, "Source directory");
+  await assertDirectory(themeDir, "Theme directory");
   await assertPublicDirectory(publicDir, publicDirExplicit);
   await assertDestinationPath(destinationDir);
   await fs3.rm(generatedDir, { recursive: true, force: true });
@@ -64293,7 +64313,7 @@ async function runBuildPages(options2) {
   process.env.ZEROPRESS_PUBLIC_DIR = stagingDir;
   try {
     const result = await runBuild(themeDir, previewData, destinationDir);
-    console.log("Built ZeroPress Pages site successfully");
+    console.log(formatBuildPagesSuccessMessage());
     console.log(`Files: ${result.files.length}`);
     console.log(`Output: ${formatPath(cwd, destinationDir)}`);
   } finally {
@@ -64313,6 +64333,27 @@ async function runBuildPages(options2) {
     }
     console.log(`Checked ${result.htmlFiles.length} HTML files for internal links`);
   }
+}
+function formatBuildPagesSuccessMessage(stream = process.stdout) {
+  return createColor2(stream).green("Built ZeroPress Pages site successfully");
+}
+function createColor2(stream) {
+  const enabled = colorsEnabled(stream);
+  const wrap = (code2, value) => enabled ? `\x1B[${code2}m${value}\x1B[0m` : value;
+  return {
+    red: (value) => wrap("31", value),
+    yellow: (value) => wrap("33", value),
+    green: (value) => wrap("32", value)
+  };
+}
+function colorsEnabled(stream) {
+  if (process.env.NO_COLOR) {
+    return false;
+  }
+  if (process.env.FORCE_COLOR && process.env.FORCE_COLOR !== "0") {
+    return true;
+  }
+  return Boolean(stream?.isTTY);
 }
 function resolveThemeDir(cwd, options2) {
   if (options2.themePath) {

@@ -3519,9 +3519,12 @@ var require_gray_matter = __commonJS({
 // src/prebuild.js
 var import_gray_matter = __toESM(require_gray_matter(), 1);
 import fs from "node:fs/promises";
+import { execFile } from "node:child_process";
 import path from "node:path";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
+var execFileAsync = promisify(execFile);
 var rootDir = process.cwd();
 var sourceDir = resolveEnvPath(["ZEROPRESS_BUILD_PAGES_SOURCE"], "docs");
 var publicDir = resolveEnvPath(["ZEROPRESS_BUILD_PAGES_PUBLIC_DIR"], sourceDir);
@@ -3541,6 +3544,7 @@ var FRONT_MATTER_DATA_MAX_DEPTH = 4;
 var FRONT_MATTER_DATA_MAX_KEYS = 64;
 var FRONT_MATTER_DATA_MAX_ARRAY_LENGTH = 256;
 var FRONT_MATTER_DISCOVERABILITY_VALUES = /* @__PURE__ */ new Set(["default", "noindex", "delist"]);
+var MARKDOWN_LAST_UPDATED_VALUES = /* @__PURE__ */ new Set(["none", "git"]);
 var markdownDiscoverExcludeRoots = buildMarkdownDiscoverExcludeRoots();
 var PrebuildMarkdownError = class extends Error {
   constructor(sourcePath, reason, expected = "", code = "invalid_markdown") {
@@ -3569,10 +3573,12 @@ async function main() {
   );
   const menus = normalizeMenus(config.menus);
   const customHtmlConfig = normalizeCustomHtmlConfig(config.custom_html);
+  const markdownConfig = normalizeMarkdownConfig(config.markdown);
   const resolvedConfig = buildResolvedConfig(config, {
     frontPageConfig,
     menus,
-    customHtmlConfig
+    customHtmlConfig,
+    markdownConfig
   });
   const sourceFiles = await listMarkdownFiles(sourceDir);
   const skippedMarkdown = [];
@@ -3607,21 +3613,29 @@ async function main() {
   const routeBySourcePath = new Map(
     pageInputs.map(({ sourcePath, route }) => [sourcePath, route])
   );
-  const pages = pageInputs.map(({ sourcePath, bodyMarkdown, frontMatter, title, route }) => ({
-    title,
-    slug: route.slug,
-    path: route.path,
-    meta: {
-      ...frontMatter.meta,
-      ...copyMarkdownSource ? { source_markdown_url: buildSourceMarkdownUrl(sourcePath) } : {}
-    },
-    ...frontMatter.data !== void 0 ? { data: frontMatter.data } : {},
-    ...frontMatter.discoverability !== "default" ? { discoverability: frontMatter.discoverability } : {},
-    content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath),
-    document_type: "markdown",
-    excerpt: frontMatter.description || extractExcerpt(bodyMarkdown, title),
-    status: "published"
-  }));
+  const collections = normalizeCollections(config.collections, pageInputs, skippedMarkdown);
+  if (Object.keys(collections).length > 0) {
+    resolvedConfig.collections = collections;
+  }
+  const pages = [];
+  for (const { sourcePath, bodyMarkdown, frontMatter, title, route } of pageInputs) {
+    const meta = await buildPageMeta(sourcePath, frontMatter, markdownConfig);
+    pages.push({
+      title,
+      slug: route.slug,
+      path: route.path,
+      meta: {
+        ...meta,
+        ...copyMarkdownSource ? { source_markdown_url: buildSourceMarkdownUrl(sourcePath) } : {}
+      },
+      ...frontMatter.data !== void 0 ? { data: frontMatter.data } : {},
+      ...frontMatter.discoverability !== "default" ? { discoverability: frontMatter.discoverability } : {},
+      content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath),
+      document_type: "markdown",
+      excerpt: frontMatter.description || extractExcerpt(bodyMarkdown, title),
+      status: "published"
+    });
+  }
   const frontPageResult = await buildFrontPageData(frontPageConfig, pageInputs, resolvedConfig);
   if (frontPageResult.page) {
     pages.push(frontPageResult.page);
@@ -3644,6 +3658,9 @@ async function main() {
     menus,
     widgets: {}
   };
+  if (Object.keys(collections).length > 0) {
+    previewData.collections = collections;
+  }
   if (customHtml) {
     previewData.custom_html = customHtml;
   }
@@ -3756,11 +3773,12 @@ function buildSiteData(config, frontPage) {
   }
   return site;
 }
-function buildResolvedConfig(config, { frontPageConfig, menus, customHtmlConfig }) {
+function buildResolvedConfig(config, { frontPageConfig, menus, customHtmlConfig, markdownConfig }) {
   const resolvedConfig = {
     $schema: BUILD_PAGES_CONFIG_SCHEMA_URL,
     version: "0.1",
     site: normalizeSiteConfig(config.site),
+    markdown: markdownConfig,
     front_page: frontPageConfig,
     menus
   };
@@ -3768,6 +3786,23 @@ function buildResolvedConfig(config, { frontPageConfig, menus, customHtmlConfig 
     resolvedConfig.custom_html = customHtmlConfig;
   }
   return resolvedConfig;
+}
+function normalizeMarkdownConfig(value) {
+  if (value === void 0) {
+    return {
+      last_updated: "none"
+    };
+  }
+  if (!isPlainObject(value)) {
+    throw new PrebuildConfigError(
+      "markdown must be an object.",
+      '  "markdown": { "last_updated": "git" }'
+    );
+  }
+  assertKnownConfigKeys(value, ["last_updated"], "markdown");
+  return {
+    last_updated: normalizeLastUpdatedPolicy(value.last_updated, "markdown.last_updated", PrebuildConfigError)
+  };
 }
 function normalizeSiteConfig(value) {
   if (value !== void 0 && !isPlainObject(value)) {
@@ -4260,6 +4295,69 @@ function defaultMenus() {
     }
   };
 }
+function normalizeCollections(value, pageInputs, skippedMarkdown) {
+  if (value === void 0) {
+    return {};
+  }
+  if (!isPlainObject(value)) {
+    throw new PrebuildConfigError("collections must be an object keyed by collection id.");
+  }
+  const pageBySourcePath = new Map(pageInputs.map((pageInput) => [pageInput.sourcePath, pageInput]));
+  const skippedByFile = new Map(
+    skippedMarkdown.map((entry) => [path.resolve(rootDir, entry.file), entry.reason])
+  );
+  const collections = {};
+  for (const [collectionId, collection] of Object.entries(value)) {
+    validateConfigId(collectionId, `collections.${collectionId}`);
+    if (!isPlainObject(collection)) {
+      throw new PrebuildConfigError(`collections.${collectionId} must be an object.`);
+    }
+    assertKnownConfigKeys(collection, ["title", "description", "items"], `collections.${collectionId}`);
+    if (!Array.isArray(collection.items)) {
+      throw new PrebuildConfigError(`collections.${collectionId}.items must be an array of Markdown source paths.`);
+    }
+    const seenSourcePaths = /* @__PURE__ */ new Set();
+    const items = collection.items.map((item, index) => {
+      const pathLabel = `collections.${collectionId}.items[${index}]`;
+      const normalizedPath = resolveCollectionSourcePath(item, pathLabel);
+      const sourcePath = path.resolve(sourceDir, normalizedPath);
+      if (seenSourcePaths.has(sourcePath)) {
+        throw new PrebuildConfigError(`${pathLabel} duplicates ${normalizedPath} in collections.${collectionId}.`);
+      }
+      seenSourcePaths.add(sourcePath);
+      const pageInput = pageBySourcePath.get(sourcePath);
+      if (!pageInput) {
+        const skippedReason = skippedByFile.get(sourcePath);
+        if (skippedReason) {
+          throw new PrebuildConfigError(`${pathLabel} references skipped Markdown ${normalizedPath}: ${skippedReason}`);
+        }
+        throw new PrebuildConfigError(`${pathLabel} was not discovered as a Markdown page: ${normalizedPath}`);
+      }
+      return {
+        type: "page",
+        slug: pageInput.route.slug
+      };
+    });
+    collections[collectionId] = {
+      title: readConfigString(collection.title, collectionId),
+      ...collection.description !== void 0 ? { description: readConfigString(collection.description, "") } : {},
+      items
+    };
+  }
+  return collections;
+}
+function resolveCollectionSourcePath(value, pathLabel) {
+  const normalizedPath = normalizeSourceFilePath(value, pathLabel);
+  if (!normalizedPath.toLowerCase().endsWith(".md")) {
+    throw new PrebuildConfigError(`${pathLabel} must be a Markdown source path ending in .md.`);
+  }
+  return normalizedPath;
+}
+function validateConfigId(value, pathLabel) {
+  if (!/^[a-z][a-z0-9_-]{0,63}$/.test(value)) {
+    throw new PrebuildConfigError(`${pathLabel} must use a lowercase config id such as "docs" or "reference-guides".`);
+  }
+}
 function buildPrebuildReport({
   sourceFiles,
   pageInputs,
@@ -4368,10 +4466,36 @@ function normalizePublishedFrontMatter(frontMatter, sourcePath) {
     title: normalizeFrontMatterTitle(frontMatter.title, sourcePath),
     description: normalizeFrontMatterDescription(frontMatter.description, sourcePath),
     path: normalizeFrontMatterRoutePath(frontMatter.path, sourcePath),
+    last_updated: normalizeFrontMatterLastUpdated(frontMatter.last_updated, sourcePath),
     discoverability: normalizeFrontMatterDiscoverability(frontMatter.discoverability, sourcePath),
     meta: normalizeFrontMatterMeta(frontMatter.meta, sourcePath),
     data: normalizeFrontMatterData(frontMatter.data, sourcePath)
   };
+}
+function normalizeLastUpdatedPolicy(value, pathLabel, ErrorClass, sourcePath = null) {
+  if (value === void 0) {
+    return "none";
+  }
+  if (typeof value === "string" && MARKDOWN_LAST_UPDATED_VALUES.has(value)) {
+    return value;
+  }
+  if (ErrorClass === PrebuildMarkdownError) {
+    throw new ErrorClass(
+      sourcePath,
+      `${pathLabel} must be one of: ${Array.from(MARKDOWN_LAST_UPDATED_VALUES).join(", ")}.`,
+      "  last_updated: none\n  last_updated: git"
+    );
+  }
+  throw new ErrorClass(
+    `${pathLabel} must be one of: ${Array.from(MARKDOWN_LAST_UPDATED_VALUES).join(", ")}.`,
+    '  "markdown": { "last_updated": "none" }\n  "markdown": { "last_updated": "git" }'
+  );
+}
+function normalizeFrontMatterLastUpdated(value, sourcePath) {
+  if (value === void 0) {
+    return void 0;
+  }
+  return normalizeLastUpdatedPolicy(value, "front matter last_updated", PrebuildMarkdownError, sourcePath);
 }
 function normalizeFrontMatterTitle(value, sourcePath) {
   if (value === void 0) {
@@ -4455,6 +4579,74 @@ function normalizeFrontMatterMeta(value, sourcePath) {
     meta[key] = metaValue;
   }
   return meta;
+}
+async function buildPageMeta(sourcePath, frontMatter, markdownConfig) {
+  const meta = {
+    ...frontMatter.meta
+  };
+  if (hasManualLastUpdatedMeta(meta)) {
+    return meta;
+  }
+  const lastUpdatedPolicy = frontMatter.last_updated || markdownConfig.last_updated;
+  if (lastUpdatedPolicy !== "git") {
+    return meta;
+  }
+  const lastUpdatedIso = await readGitLastUpdatedIso(sourcePath);
+  if (!lastUpdatedIso) {
+    return meta;
+  }
+  return {
+    ...meta,
+    last_updated_iso: lastUpdatedIso,
+    last_updated: lastUpdatedIso.slice(0, 10)
+  };
+}
+function hasManualLastUpdatedMeta(meta) {
+  return Object.hasOwn(meta, "last_updated") || Object.hasOwn(meta, "last_updated_iso");
+}
+async function readGitLastUpdatedIso(sourcePath) {
+  const realSourcePath = await resolveRealPath(sourcePath);
+  const realRootDir = await resolveRealPath(rootDir);
+  const gitPath = path.relative(realRootDir, realSourcePath);
+  try {
+    const { stdout } = await execFileAsync("git", [
+      "-C",
+      realRootDir,
+      "log",
+      "-1",
+      "--format=%cI",
+      "--",
+      gitPath
+    ], {
+      encoding: "utf8"
+    });
+    const value = stdout.trim();
+    if (!value) {
+      warnGitLastUpdated(sourcePath, "no commit date was found for this file.");
+      return "";
+    }
+    if (!/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+      warnGitLastUpdated(sourcePath, `unexpected git date output: ${value}`);
+      return "";
+    }
+    return value;
+  } catch (error) {
+    warnGitLastUpdated(sourcePath, error instanceof Error ? error.message : String(error));
+    return "";
+  }
+}
+async function resolveRealPath(value) {
+  try {
+    return await fs.realpath(value);
+  } catch {
+    return value;
+  }
+}
+function warnGitLastUpdated(sourcePath, reason) {
+  console.warn([
+    `[zeropress-build-pages] Warning: could not read git last_updated for ${formatSourcePath(sourcePath)}.`,
+    `Reason: ${reason}`
+  ].join("\n"));
 }
 function isPreviewMetaValue(value) {
   return value === null || typeof value === "string" || typeof value === "number" && Number.isFinite(value) || typeof value === "boolean";
@@ -4673,9 +4865,11 @@ function buildRoutePath(relativeSourcePath, sourcePath, options2 = {}) {
   return routePath;
 }
 function buildSlug(routePath) {
-  const segments = routePath.split("/");
-  const rawSlug = segments.at(-1) === "index" && segments.length > 1 ? segments.at(-2) : segments.at(-1);
-  return sanitizePathSegment(rawSlug || "");
+  const segments = routePath.split("/").filter(Boolean);
+  if (segments.length > 1 && segments.at(-1) === "index") {
+    segments.pop();
+  }
+  return sanitizePathSegment(segments.join("-") || "index");
 }
 function sanitizePathSegment(segment) {
   return segment.replace(/[^a-z0-9.-]+/g, "-").replace(/^-+|-+$/g, "").replace(/-{2,}/g, "-");

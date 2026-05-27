@@ -21,6 +21,9 @@
     "site": {
       "$ref": "#/$defs/site"
     },
+    "markdown": {
+      "$ref": "#/$defs/markdown"
+    },
     "front_page": {
       "$ref": "#/$defs/frontPage"
     },
@@ -124,6 +127,21 @@
           "type": "boolean",
           "description": "When false, bundled themes hide the Published with ZeroPress attribution. Missing or true means attribution may be shown.",
           "markdownDescription": "When `false`, bundled themes hide the Published with ZeroPress attribution. Missing or `true` means attribution may be shown."
+        }
+      }
+    },
+    "markdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Markdown source processing options.",
+      "markdownDescription": "Markdown source processing options.",
+      "properties": {
+        "last_updated": {
+          "type": "string",
+          "enum": ["none", "git"],
+          "default": "none",
+          "description": "Optional page meta enrichment. none does not generate last_updated values; git reads the latest commit date for each Markdown file.",
+          "markdownDescription": "Optional page meta enrichment. `none` does not generate `last_updated` values; `git` reads the latest commit date for each Markdown file."
         }
       }
     },
@@ -380,6 +398,9 @@
       },
       "front_page": {
         "type": "markdown"
+      },
+      "markdown": {
+        "last_updated": "git"
       },
       "custom_html": {
         "head_end": {
