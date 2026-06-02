@@ -1,6 +1,6 @@
 {
   "name": "@zeropress/build-pages",
-  "version": "0.6.4",
+  "version": "0.6.6",
   "description": "ZeroPress Markdown build action and CLI for static hosting",
   "type": "module",
   "license": "MIT",
@@ -37,7 +37,7 @@
     "node": ">=18.18.0"
   },
   "dependencies": {
-    "@zeropress/build": "0.6.4",
+    "@zeropress/build": "0.6.6",
     "gray-matter": "4.0.3"
   },
   "devDependencies": {

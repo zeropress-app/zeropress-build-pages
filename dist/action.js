@@ -52701,7 +52701,7 @@ function validatePreviewPost(post, path4, errors, authorIds) {
   }
 }
 function validatePreviewPage(page, path4, errors) {
-  validateClosedObject(page, path4, errors, ["title", "slug", "path", "content", "document_type", "excerpt", "featured_image", "meta", "data", "status", "discoverability"]);
+  validateClosedObject(page, path4, errors, ["title", "slug", "path", "content", "document_type", "excerpt", "featured_image", "updated_at_iso", "meta", "data", "status", "discoverability"]);
   if (!isObject(page)) {
     return;
   }
@@ -52715,6 +52715,9 @@ function validatePreviewPage(page, path4, errors) {
   }
   if (page.featured_image !== void 0) {
     validateUrlLike(page.featured_image, `${path4}.featured_image`, "INVALID_PAGE_FEATURED_IMAGE", errors);
+  }
+  if (page.updated_at_iso !== void 0) {
+    validateDateTimeString(page.updated_at_iso, `${path4}.updated_at_iso`, "INVALID_PAGE_UPDATED_AT_ISO", errors);
   }
   validatePreviewMeta(page.meta, `${path4}.meta`, errors);
   validatePreviewStructuredData(page.data, `${path4}.data`, errors);
@@ -53070,7 +53073,7 @@ function isOptionalKey(path4, key) {
     return key === "id" || key === "featured_image" || key === "meta" || key === "data" || key === "discoverability";
   }
   if (path4.startsWith("content.pages[")) {
-    return key === "path" || key === "excerpt" || key === "featured_image" || key === "meta" || key === "data" || key === "discoverability";
+    return key === "path" || key === "excerpt" || key === "featured_image" || key === "updated_at_iso" || key === "meta" || key === "data" || key === "discoverability";
   }
   if (path4.startsWith("content.categories[") || path4.startsWith("content.tags[")) {
     return key === "description";
@@ -53649,6 +53652,7 @@ async function validateThemeFiles(fileMap, options2 = {}) {
   const files = normalizeFileMap(fileMap);
   const errors = [];
   const warnings = [];
+  const infos = [];
   validatePathSafety(options2.pathEntries || [], errors);
   for (const requiredPath of REQUIRED_FILES) {
     if (!files.has(requiredPath)) {
@@ -53662,7 +53666,7 @@ async function validateThemeFiles(fileMap, options2 = {}) {
   }
   for (const template of OPTIONAL_TEMPLATES) {
     if (!files.has(template)) {
-      warnings.push(issue2("MISSING_OPTIONAL_TEMPLATE", template, `Optional template '${template}' is missing`, "warning"));
+      infos.push(issue2("MISSING_OPTIONAL_TEMPLATE", template, `Optional template '${template}' is missing`, "info"));
     }
   }
   let manifest;
@@ -53696,7 +53700,7 @@ async function validateThemeFiles(fileMap, options2 = {}) {
     }
     const content = getText(files.get(templatePath));
     templateContents.set(templatePath, content);
-    validateTemplateSyntax(templatePath, content, { errors, warnings, runtime: manifest?.runtime || DEFAULT_RUNTIME });
+    validateTemplateSyntax(templatePath, content, { errors, warnings, infos, runtime: manifest?.runtime || DEFAULT_RUNTIME });
   }
   for (const [filePath, value] of files.entries()) {
     if (!filePath.startsWith("partials/") || !filePath.endsWith(".html")) {
@@ -53705,13 +53709,14 @@ async function validateThemeFiles(fileMap, options2 = {}) {
     const partialName = filePath.slice("partials/".length, -".html".length);
     const content = getText(value);
     partialContents.set(partialName, content);
-    validateTemplateSyntax(filePath, content, { errors, warnings, runtime: manifest?.runtime || DEFAULT_RUNTIME });
+    validateTemplateSyntax(filePath, content, { errors, warnings, infos, runtime: manifest?.runtime || DEFAULT_RUNTIME });
   }
   validatePartialReferences(templateContents, partialContents, { errors, runtime: manifest?.runtime || DEFAULT_RUNTIME });
   return {
     ok: errors.length === 0,
     errors,
     warnings,
+    infos,
     manifest,
     checkedFiles: options2.checkedFiles ?? files.size
   };
@@ -54049,8 +54054,7 @@ function validateRuntimeV05TemplateSyntax(templatePath, content, errors) {
     const comparisonElseIfTag = getComparisonElseIfTag(token);
     if (comparisonElseIfTag) {
       const current = stack[stack.length - 1];
-      const expectedBlockTag = comparisonElseIfTag.replace(/^else_/, "");
-      if (!current || current.tag !== expectedBlockTag) {
+      if (!current || !COMPARISON_BLOCK_TAGS.has(current.tag)) {
         errors.push(issue2("UNEXPECTED_TEMPLATE_ELSE_IF", templatePath, `Unexpected {{${token}}} in ${templatePath}`, "error"));
         return;
       }
@@ -54092,7 +54096,8 @@ function validateRuntimeV05TemplateSyntax(templatePath, content, errors) {
         return;
       }
       const current = stack.pop();
-      if (!current || current.tag !== closingTag) {
+      const closesCurrentBlock = current && (current.tag === closingTag || closingTag === "if" && COMPARISON_BLOCK_TAGS.has(current.tag));
+      if (!closesCurrentBlock) {
         errors.push(issue2("INVALID_TEMPLATE_BLOCK", templatePath, `Mismatched closing tag '{{${token}}}' in ${templatePath}`, "error"));
         return;
       }
@@ -59930,7 +59935,7 @@ function renderMarkdownDocument(content) {
 function createMarkdownRenderer(toc) {
   const markdown = new lib_default({
     html: true,
-    linkify: true,
+    linkify: false,
     typographer: true,
     breaks: true,
     highlight(value, language) {
@@ -59950,6 +59955,7 @@ function createMarkdownRenderer(toc) {
   });
   markdown.use(markdownTaskLists);
   markdown.use(markdownAlerts);
+  markdown.use(markdownTableAlignmentClasses);
   markdown.use(import_markdown_it_anchor.default, {
     slugify,
     callback(token, { slug, title }) {
@@ -59966,6 +59972,23 @@ function createMarkdownRenderer(toc) {
     }
   });
   return markdown;
+}
+function markdownTableAlignmentClasses(markdown) {
+  for (const tokenName of ["th_open", "td_open"]) {
+    markdown.renderer.rules[tokenName] = (tokens, index, options2, env, self) => {
+      const token = tokens[index];
+      const styleIndex = token.attrIndex("style");
+      if (styleIndex >= 0) {
+        const styleValue = token.attrs[styleIndex][1] || "";
+        const match2 = /(?:^|;)\s*text-align\s*:\s*(left|center|right)\s*;?\s*$/i.exec(styleValue);
+        if (match2) {
+          token.attrs.splice(styleIndex, 1);
+          addTokenClass(token, `zp-align-${match2[1].toLowerCase()}`);
+        }
+      }
+      return self.renderToken(tokens, index, options2);
+    };
+  }
 }
 function markdownTaskLists(markdown) {
   markdown.core.ruler.after("inline", "zeropress_task_lists", (state) => {
@@ -60008,8 +60031,10 @@ function markdownTaskLists(markdown) {
       addTokenClass(listToken, "contains-task-list");
       addTokenClass(listItemToken, "task-list-item");
       const checkboxToken = new state.Token("html_inline", "", 0);
-      const checked = markerMatch[1].toLowerCase() === "x" ? " checked" : "";
-      checkboxToken.content = `<input class="task-list-item-checkbox" type="checkbox"${checked} disabled> `;
+      const isChecked = markerMatch[1].toLowerCase() === "x";
+      const checked = isChecked ? " checked" : "";
+      const label = isChecked ? "Completed task" : "Incomplete task";
+      checkboxToken.content = `<input class="task-list-item-checkbox" type="checkbox"${checked} disabled aria-label="${label}"> `;
       const strippedContent = token.content.slice(markerMatch[0].length);
       token.content = strippedContent;
       token.children = [];
@@ -60166,7 +60191,7 @@ function sanitizeHtml(html) {
     aside: /* @__PURE__ */ new Set(["role", "class", "id"]),
     img: /* @__PURE__ */ new Set(["src", "srcset", "sizes", "alt", "title", "class", "id", "width", "height", "loading", "decoding"]),
     iframe: /* @__PURE__ */ new Set(["src", "width", "height", "frameborder", "allowfullscreen", "class"]),
-    input: /* @__PURE__ */ new Set(["type", "checked", "disabled", "class", "id"]),
+    input: /* @__PURE__ */ new Set(["type", "checked", "disabled", "class", "id", "aria-label"]),
     source: /* @__PURE__ */ new Set(["src", "srcset", "sizes", "type", "media", "width", "height", "class", "id"]),
     "*": /* @__PURE__ */ new Set(["class", "id"])
   };
@@ -60781,9 +60806,10 @@ var ControlFlowRenderer = class {
     let alternate = [];
     let nextIndex = startIndex;
     let currentBranch = initialBranch;
-    const elseIfTag = `else_${tagName}`;
+    const comparisonStopTags = /* @__PURE__ */ new Set(["else", "if", tagName, ...COMPARISON_ELSE_IF_TAGS2]);
+    const comparisonCloseTags = /* @__PURE__ */ new Set(["if", tagName]);
     while (true) {
-      const branchResult = this.parseNodes(source, nextIndex, /* @__PURE__ */ new Set(["else", elseIfTag, tagName]), partialArgScope);
+      const branchResult = this.parseNodes(source, nextIndex, comparisonStopTags, partialArgScope);
       branches.push({
         operator: currentBranch.operator,
         left: currentBranch.left,
@@ -60791,23 +60817,24 @@ var ControlFlowRenderer = class {
         consequent: branchResult.nodes
       });
       if (branchResult.stopTag === "else") {
-        const elseResult = this.parseNodes(source, branchResult.nextIndex, /* @__PURE__ */ new Set([tagName]), partialArgScope);
-        if (elseResult.stopTag !== tagName) {
+        const elseResult = this.parseNodes(source, branchResult.nextIndex, comparisonCloseTags, partialArgScope);
+        if (!comparisonCloseTags.has(elseResult.stopTag)) {
           throw new Error(`Unclosed ${tagName} block after else`);
         }
         alternate = elseResult.nodes;
         nextIndex = elseResult.nextIndex;
         break;
       }
-      if (typeof branchResult.stopTag === "string" && branchResult.stopTag.startsWith(`#${elseIfTag} `)) {
+      const comparisonElseIfTag = typeof branchResult.stopTag === "string" ? getComparisonElseIfTag2(branchResult.stopTag) : "";
+      if (comparisonElseIfTag) {
         currentBranch = this.parseComparisonBranchExpression(
-          branchResult.stopTag.slice(`#${elseIfTag} `.length).trim(),
-          elseIfTag
+          branchResult.stopTag.slice(`#${comparisonElseIfTag} `.length).trim(),
+          comparisonElseIfTag
         );
         nextIndex = branchResult.nextIndex;
         continue;
       }
-      if (branchResult.stopTag === tagName) {
+      if (comparisonCloseTags.has(branchResult.stopTag)) {
         nextIndex = branchResult.nextIndex;
         break;
       }
@@ -61265,6 +61292,7 @@ async function renderFrontPage(state, route) {
       url: currentUrl,
       title: page.title,
       description: page.excerpt,
+      updatedAt: page.updated_at_iso,
       includeInFeed: false,
       includeInSitemap: !isDelistedDocument(page)
     };
@@ -61368,6 +61396,7 @@ async function renderPage(state, page) {
     url: currentUrl,
     title: page.title,
     description: page.excerpt,
+    updatedAt: page.updated_at_iso,
     status: page.status,
     includeInSitemap: page.omit_from_sitemap !== true && !isDelistedDocument(page)
   });
@@ -61458,6 +61487,7 @@ function normalizePreviewData(previewData, options2 = {}) {
         const featuredMedia = deriveManagedMedia(featuredImage, mediaRegistry, normalizedSite);
         return {
           ...page,
+          ...page.updated_at_iso ? { updated_at_iso: normalizeIsoTimestamp(page.updated_at_iso) } : {},
           discoverability: normalizeDiscoverability(page.discoverability),
           featured_image: featuredImage,
           ...featuredMedia ? { featured_media: featuredMedia } : {}
@@ -61874,6 +61904,8 @@ function buildCollectionPageSummary(page, frontPage) {
     url: frontPage?.type === "page" && frontPage.page_slug === page.slug ? "/" : page.url,
     excerpt: page.excerpt || "",
     featured_image: page.featured_image || "",
+    updated_at: page.updated_at || "",
+    updated_at_iso: page.updated_at_iso || "",
     ...page.featured_media ? { featured_media: { ...page.featured_media } } : {},
     meta: page.meta,
     data: page.data
@@ -61923,6 +61955,8 @@ function buildCollectionCursorItemSummary(item) {
     url: item.url,
     excerpt: item.excerpt || "",
     featured_image: item.featured_image || "",
+    updated_at: item.updated_at || "",
+    updated_at_iso: item.updated_at_iso || "",
     meta: item.meta,
     data: item.data
   };
@@ -62197,7 +62231,8 @@ function preparePage(page, site) {
     url: permalink.url,
     document_type: documentType,
     html: renderedDocument.html,
-    toc: renderedDocument.toc
+    toc: renderedDocument.toc,
+    updated_at: page.updated_at_iso ? formatTimestamp(page.updated_at_iso, site) : ""
   };
 }
 function preparePost(post, site, authorsById, categoriesBySlug, tagsBySlug, themeSupportsComments) {
@@ -63243,7 +63278,7 @@ function buildSearchPageItem(page, url) {
     categories: [],
     tags: [],
     published_at_iso: "",
-    updated_at_iso: "",
+    updated_at_iso: normalizeIsoTimestamp(page.updated_at_iso),
     content_text: htmlToSearchText(page.html)
   };
 }
@@ -63668,6 +63703,7 @@ function buildSitemapXml(site, emitted, generatedAt, stylesheetHref = "") {
   const entries = [
     ...emitted.frontPage && emitted.frontPage.includeInSitemap !== false ? [{
       url: emitted.frontPage.url,
+      ...emitted.frontPage.updatedAt ? { lastmod: toDate(emitted.frontPage.updatedAt) } : {},
       changefreq: "daily",
       priority: 1
     }] : [],
@@ -63684,6 +63720,7 @@ function buildSitemapXml(site, emitted, generatedAt, stylesheetHref = "") {
     })),
     ...emitted.pages.filter((page) => page.includeInSitemap !== false).map((page) => ({
       url: page.url,
+      ...page.updatedAt ? { lastmod: toDate(page.updatedAt) } : {},
       changefreq: "monthly",
       priority: 0.7
     }))
@@ -64246,7 +64283,8 @@ var PREVIEW_DATA_PATH = `${INTERNAL_WORK_DIR}/preview-data.json`;
 var STAGING_DIR = `${INTERNAL_WORK_DIR}/public-assets`;
 var BUNDLED_THEME_ALIASES = /* @__PURE__ */ new Map([
   ["docs", "docs"],
-  ["docs1", "docs"]
+  ["docs1", "docs"],
+  ["docs2", "docs2"]
 ]);
 async function runBuildPages(options2) {
   const cwd = path3.resolve(options2.cwd || process.cwd());
