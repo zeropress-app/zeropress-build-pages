@@ -1,5 +1,0 @@
-[zeropress-build-pages] Invalid Markdown page: test/fixtures/prebuild-errors/invalid-front-matter-last-updated/documents/page.md
-Reason: front matter last_updated must be one of: none, git.
-Expected one of:
-  last_updated: none
-  last_updated: git

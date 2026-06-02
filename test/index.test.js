@@ -210,7 +210,6 @@ const failureCases = [
   'malformed-front-matter',
   'invalid-front-matter-path',
   'invalid-front-matter-discoverability',
-  'invalid-front-matter-last-updated',
   'invalid-front-matter-meta',
   'invalid-front-matter-data',
   'missing-h1',
@@ -886,7 +885,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.equal(resolvedConfig.$schema, 'https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json');
   assert.equal(resolvedConfig.version, '0.1');
   assert.deepEqual(resolvedConfig.markdown, {
-    last_updated: 'none',
+    updated_at: 'none',
   });
   assert.deepEqual(resolvedConfig.front_page, {
     type: 'markdown',
@@ -962,14 +961,14 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   await fs.access(path.join(tempDir, '_site', 'topic.md'));
 });
 
-test('adds git last_updated meta and honors page-level overrides', async () => {
+test('adds git updated_at timestamp and honors page-level overrides', async () => {
   const tempDir = await makeTempDir();
   const sourceDir = path.join(tempDir, 'docs');
   await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
   await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nContent.', 'utf8');
   await fs.writeFile(path.join(sourceDir, 'skip.md'), [
     '---',
-    'last_updated: none',
+    'updated_at: none',
     '---',
     '',
     '# Skip Date',
@@ -978,19 +977,28 @@ test('adds git last_updated meta and honors page-level overrides', async () => {
   ].join('\n'), 'utf8');
   await fs.writeFile(path.join(sourceDir, 'manual.md'), [
     '---',
-    'meta:',
-    '  last_updated_iso: "2026-01-01T00:00:00Z"',
-    '  last_updated: "2026-01-01"',
+    'updated_at: "2026-01-01T00:00:00Z"',
     '---',
     '',
     '# Manual Date',
     '',
     'Content.',
   ].join('\n'), 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'legacy-meta.md'), [
+    '---',
+    'meta:',
+    '  last_updated_iso: "2000-01-01T00:00:00Z"',
+    '  last_updated: "2000-01-01"',
+    '---',
+    '',
+    '# Legacy Meta Date',
+    '',
+    'Content.',
+  ].join('\n'), 'utf8');
   await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
     version: '0.1',
     markdown: {
-      last_updated: 'git',
+      updated_at: 'git',
     },
     front_page: {
       type: 'markdown',
@@ -1012,23 +1020,23 @@ test('adds git last_updated meta and honors page-level overrides', async () => {
   const pages = new Map(previewData.content.pages.map((page) => [page.slug, page]));
 
   assert.deepEqual(resolvedConfig.markdown, {
-    last_updated: 'git',
+    updated_at: 'git',
   });
-  assert.equal(pages.get('index').meta.last_updated_iso, '2026-05-27T11:20:30+09:00');
-  assert.equal(pages.get('index').meta.last_updated, '2026-05-27');
-  assert.equal(Object.hasOwn(pages.get('skip').meta, 'last_updated_iso'), false);
-  assert.equal(Object.hasOwn(pages.get('skip').meta, 'last_updated'), false);
-  assert.equal(pages.get('manual').meta.last_updated_iso, '2026-01-01T00:00:00Z');
-  assert.equal(pages.get('manual').meta.last_updated, '2026-01-01');
+  assert.equal(pages.get('index').updated_at_iso, '2026-05-27T11:20:30+09:00');
+  assert.equal(Object.hasOwn(pages.get('skip'), 'updated_at_iso'), false);
+  assert.equal(pages.get('manual').updated_at_iso, '2026-01-01T00:00:00Z');
+  assert.equal(pages.get('legacy-meta').updated_at_iso, '2026-05-27T11:20:30+09:00');
+  assert.equal(pages.get('legacy-meta').meta.last_updated_iso, '2000-01-01T00:00:00Z');
+  assert.equal(pages.get('legacy-meta').meta.last_updated, '2000-01-01');
 });
 
-test('front matter can opt into git last_updated when config default is none', async () => {
+test('front matter can opt into git updated_at when config default is none', async () => {
   const tempDir = await makeTempDir();
   const sourceDir = path.join(tempDir, 'docs');
   await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
   await fs.writeFile(path.join(sourceDir, 'index.md'), [
     '---',
-    'last_updated: git',
+    'updated_at: git',
     '---',
     '',
     '# Home',
@@ -1038,7 +1046,7 @@ test('front matter can opt into git last_updated when config default is none', a
   await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
     version: '0.1',
     markdown: {
-      last_updated: 'none',
+      updated_at: 'none',
     },
     front_page: {
       type: 'markdown',
@@ -1057,11 +1065,10 @@ test('front matter can opt into git last_updated when config default is none', a
 
   const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
   const home = previewData.content.pages.find((page) => page.slug === 'index');
-  assert.equal(home.meta.last_updated_iso, '2026-06-02T03:04:05Z');
-  assert.equal(home.meta.last_updated, '2026-06-02');
+  assert.equal(home.updated_at_iso, '2026-06-02T03:04:05Z');
 });
 
-test('git last_updated warning is non-blocking when git history is unavailable', () => {
+test('git updated_at warning is non-blocking when git history is unavailable', () => {
   const tempDir = fsSync.mkdtempSync(path.join(os.tmpdir(), 'zeropress-build-pages-no-git-'));
   const sourceDir = path.join(tempDir, 'docs');
   fsSync.mkdirSync(path.join(sourceDir, '.zeropress'), { recursive: true });
@@ -1069,7 +1076,7 @@ test('git last_updated warning is non-blocking when git history is unavailable',
   fsSync.writeFileSync(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
     version: '0.1',
     markdown: {
-      last_updated: 'git',
+      updated_at: 'git',
     },
     front_page: {
       type: 'markdown',
@@ -1087,11 +1094,53 @@ test('git last_updated warning is non-blocking when git history is unavailable',
   });
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stderr, /Warning: could not read git last_updated/);
+  assert.match(result.stderr, /Warning: could not read git updated_at/);
   assert.match(result.stdout, /Wrote \.zeropress-build-page\/preview-data\.json with 1 pages/);
 });
 
-test('rejects invalid markdown last_updated config', async () => {
+test('warns and ignores invalid front matter updated_at values', () => {
+  for (const invalidUpdatedAt of ['yesterday', '2026-05-27']) {
+    const tempDir = fsSync.mkdtempSync(path.join(os.tmpdir(), 'zeropress-build-pages-invalid-updated-at-'));
+    const sourceDir = path.join(tempDir, 'docs');
+    fsSync.mkdirSync(path.join(sourceDir, '.zeropress'), { recursive: true });
+    fsSync.writeFileSync(path.join(sourceDir, 'index.md'), [
+      '---',
+      `updated_at: ${invalidUpdatedAt}`,
+      '---',
+      '',
+      '# Home',
+      '',
+      'Content.',
+    ].join('\n'), 'utf8');
+    fsSync.writeFileSync(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
+      version: '0.1',
+      markdown: {
+        updated_at: 'git',
+      },
+      front_page: {
+        type: 'markdown',
+      },
+    }, null, 2), 'utf8');
+
+    const result = spawnSync(process.execPath, [prebuildScript], {
+      cwd: tempDir,
+      env: {
+        ...process.env,
+        ZEROPRESS_BUILD_PAGES_SOURCE: sourceDir,
+        ZEROPRESS_SKIP_UNTITLED_MARKDOWN: 'false',
+      },
+      encoding: 'utf8',
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stderr, /Warning: ignored invalid front matter updated_at/);
+    const previewData = JSON.parse(fsSync.readFileSync(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
+    const home = previewData.content.pages.find((page) => page.slug === 'index');
+    assert.equal(Object.hasOwn(home, 'updated_at_iso'), false);
+  }
+});
+
+test('rejects invalid markdown updated_at config', async () => {
   const tempDir = await makeTempDir();
   const sourceDir = path.join(tempDir, 'docs');
   await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
@@ -1099,7 +1148,7 @@ test('rejects invalid markdown last_updated config', async () => {
   await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
     version: '0.1',
     markdown: {
-      last_updated: 'mtime',
+      updated_at: 'mtime',
     },
     front_page: {
       type: 'markdown',

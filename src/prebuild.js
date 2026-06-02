@@ -26,7 +26,7 @@ const FRONT_MATTER_DATA_MAX_DEPTH = 4;
 const FRONT_MATTER_DATA_MAX_KEYS = 64;
 const FRONT_MATTER_DATA_MAX_ARRAY_LENGTH = 256;
 const FRONT_MATTER_DISCOVERABILITY_VALUES = new Set(['default', 'noindex', 'delist']);
-const MARKDOWN_LAST_UPDATED_VALUES = new Set(['none', 'git']);
+const MARKDOWN_UPDATED_AT_VALUES = new Set(['none', 'git']);
 const markdownDiscoverExcludeRoots = buildMarkdownDiscoverExcludeRoots();
 
 class PrebuildMarkdownError extends Error {
@@ -110,13 +110,14 @@ async function main() {
 
   const pages = [];
   for (const { sourcePath, bodyMarkdown, frontMatter, title, route } of pageInputs) {
-    const meta = await buildPageMeta(sourcePath, frontMatter, markdownConfig);
+    const updatedAtIso = await buildPageUpdatedAtIso(sourcePath, frontMatter, markdownConfig);
     pages.push({
       title,
       slug: route.slug,
       path: route.path,
+      ...(updatedAtIso ? { updated_at_iso: updatedAtIso } : {}),
       meta: {
-        ...meta,
+        ...frontMatter.meta,
         ...(copyMarkdownSource ? { source_markdown_url: buildSourceMarkdownUrl(sourcePath) } : {}),
       },
       ...(frontMatter.data !== undefined ? { data: frontMatter.data } : {}),
@@ -302,19 +303,19 @@ function buildResolvedConfig(config, { frontPageConfig, menus, customHtmlConfig,
 function normalizeMarkdownConfig(value) {
   if (value === undefined) {
     return {
-      last_updated: 'none',
+      updated_at: 'none',
     };
   }
   if (!isPlainObject(value)) {
     throw new PrebuildConfigError(
       'markdown must be an object.',
-      '  "markdown": { "last_updated": "git" }',
+      '  "markdown": { "updated_at": "git" }',
     );
   }
-  assertKnownConfigKeys(value, ['last_updated'], 'markdown');
+  assertKnownConfigKeys(value, ['updated_at'], 'markdown');
 
   return {
-    last_updated: normalizeLastUpdatedPolicy(value.last_updated, 'markdown.last_updated', PrebuildConfigError),
+    updated_at: normalizeUpdatedAtPolicy(value.updated_at, 'markdown.updated_at'),
   };
 }
 
@@ -1081,40 +1082,43 @@ function normalizePublishedFrontMatter(frontMatter, sourcePath) {
     title: normalizeFrontMatterTitle(frontMatter.title, sourcePath),
     description: normalizeFrontMatterDescription(frontMatter.description, sourcePath),
     path: normalizeFrontMatterRoutePath(frontMatter.path, sourcePath),
-    last_updated: normalizeFrontMatterLastUpdated(frontMatter.last_updated, sourcePath),
+    updated_at: normalizeFrontMatterUpdatedAt(frontMatter.updated_at, sourcePath),
     discoverability: normalizeFrontMatterDiscoverability(frontMatter.discoverability, sourcePath),
     meta: normalizeFrontMatterMeta(frontMatter.meta, sourcePath),
     data: normalizeFrontMatterData(frontMatter.data, sourcePath),
   };
 }
 
-function normalizeLastUpdatedPolicy(value, pathLabel, ErrorClass, sourcePath = null) {
+function normalizeUpdatedAtPolicy(value, pathLabel) {
   if (value === undefined) {
     return 'none';
   }
-  if (typeof value === 'string' && MARKDOWN_LAST_UPDATED_VALUES.has(value)) {
+  if (typeof value === 'string' && MARKDOWN_UPDATED_AT_VALUES.has(value)) {
     return value;
   }
 
-  if (ErrorClass === PrebuildMarkdownError) {
-    throw new ErrorClass(
-      sourcePath,
-      `${pathLabel} must be one of: ${Array.from(MARKDOWN_LAST_UPDATED_VALUES).join(', ')}.`,
-      '  last_updated: none\n  last_updated: git',
-    );
-  }
-
-  throw new ErrorClass(
-    `${pathLabel} must be one of: ${Array.from(MARKDOWN_LAST_UPDATED_VALUES).join(', ')}.`,
-    '  "markdown": { "last_updated": "none" }\n  "markdown": { "last_updated": "git" }',
+  throw new PrebuildConfigError(
+    `${pathLabel} must be one of: ${Array.from(MARKDOWN_UPDATED_AT_VALUES).join(', ')}.`,
+    '  "markdown": { "updated_at": "none" }\n  "markdown": { "updated_at": "git" }',
   );
 }
 
-function normalizeFrontMatterLastUpdated(value, sourcePath) {
+function normalizeFrontMatterUpdatedAt(value, sourcePath) {
   if (value === undefined) {
     return undefined;
   }
-  return normalizeLastUpdatedPolicy(value, 'front matter last_updated', PrebuildMarkdownError, sourcePath);
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+    if (MARKDOWN_UPDATED_AT_VALUES.has(trimmedValue)) {
+      return trimmedValue === 'none' ? null : trimmedValue;
+    }
+    if (isValidDateTimeString(trimmedValue)) {
+      return trimmedValue;
+    }
+  }
+
+  warnInvalidFrontMatterUpdatedAt(sourcePath, value);
+  return null;
 }
 
 function normalizeFrontMatterTitle(value, sourcePath) {
@@ -1223,40 +1227,23 @@ function normalizeFrontMatterMeta(value, sourcePath) {
   return meta;
 }
 
-async function buildPageMeta(sourcePath, frontMatter, markdownConfig) {
-  const meta = {
-    ...frontMatter.meta,
-  };
-
-  if (hasManualLastUpdatedMeta(meta)) {
-    return meta;
+async function buildPageUpdatedAtIso(sourcePath, frontMatter, markdownConfig) {
+  if (frontMatter.updated_at === null) {
+    return '';
+  }
+  if (typeof frontMatter.updated_at === 'string' && frontMatter.updated_at !== 'git') {
+    return frontMatter.updated_at;
   }
 
-  const lastUpdatedPolicy = frontMatter.last_updated || markdownConfig.last_updated;
-  if (lastUpdatedPolicy !== 'git') {
-    return meta;
+  const updatedAtPolicy = frontMatter.updated_at || markdownConfig.updated_at;
+  if (updatedAtPolicy !== 'git') {
+    return '';
   }
 
-  const lastUpdatedIso = await readGitLastUpdatedIso(sourcePath);
-  if (!lastUpdatedIso) {
-    return meta;
-  }
-
-  return {
-    ...meta,
-    last_updated_iso: lastUpdatedIso,
-    last_updated: lastUpdatedIso.slice(0, 10),
-  };
+  return readGitUpdatedAtIso(sourcePath);
 }
 
-function hasManualLastUpdatedMeta(meta) {
-  return (
-    Object.hasOwn(meta, 'last_updated')
-    || Object.hasOwn(meta, 'last_updated_iso')
-  );
-}
-
-async function readGitLastUpdatedIso(sourcePath) {
+async function readGitUpdatedAtIso(sourcePath) {
   const realSourcePath = await resolveRealPath(sourcePath);
   const realRootDir = await resolveRealPath(rootDir);
   const gitPath = path.relative(realRootDir, realSourcePath);
@@ -1275,16 +1262,16 @@ async function readGitLastUpdatedIso(sourcePath) {
 
     const value = stdout.trim();
     if (!value) {
-      warnGitLastUpdated(sourcePath, 'no commit date was found for this file.');
+      warnGitUpdatedAt(sourcePath, 'no commit date was found for this file.');
       return '';
     }
     if (!/^\d{4}-\d{2}-\d{2}T/.test(value)) {
-      warnGitLastUpdated(sourcePath, `unexpected git date output: ${value}`);
+      warnGitUpdatedAt(sourcePath, `unexpected git date output: ${value}`);
       return '';
     }
     return value;
   } catch (error) {
-    warnGitLastUpdated(sourcePath, error instanceof Error ? error.message : String(error));
+    warnGitUpdatedAt(sourcePath, error instanceof Error ? error.message : String(error));
     return '';
   }
 }
@@ -1297,11 +1284,25 @@ async function resolveRealPath(value) {
   }
 }
 
-function warnGitLastUpdated(sourcePath, reason) {
+function warnGitUpdatedAt(sourcePath, reason) {
   console.warn([
-    `[zeropress-build-pages] Warning: could not read git last_updated for ${formatSourcePath(sourcePath)}.`,
+    `[zeropress-build-pages] Warning: could not read git updated_at for ${formatSourcePath(sourcePath)}.`,
     `Reason: ${reason}`,
   ].join('\n'));
+}
+
+function warnInvalidFrontMatterUpdatedAt(sourcePath, value) {
+  console.warn([
+    `[zeropress-build-pages] Warning: ignored invalid front matter updated_at in ${formatSourcePath(sourcePath)}.`,
+    `Reason: Expected "none", "git", or an ISO datetime string, received ${JSON.stringify(value)}.`,
+  ].join('\n'));
+}
+
+function isValidDateTimeString(value) {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return false;
+  }
+  return /^\d{4}-\d{2}-\d{2}T/.test(value) && !Number.isNaN(new Date(value).getTime());
 }
 
 function isPreviewMetaValue(value) {

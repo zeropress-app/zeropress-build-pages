@@ -312,7 +312,7 @@ description: Build a static docs site from Markdown.
 path: guides/install
 status: published
 discoverability: default
-last_updated: none
+updated_at: none
 meta:
   source: docs
 data:
@@ -338,7 +338,7 @@ Supported front matter fields:
 | `path` | Generated route path, such as `guides/install` for `/guides/install`. |
 | `status` | `published` includes the page. `draft` skips the page. Other values warn and skip. |
 | `discoverability` | `default`, `noindex`, or `delist`. Missing is `default`. |
-| `last_updated` | `none` or `git`. Overrides config `markdown.last_updated` for this page. |
+| `updated_at` | `none`, `git`, or an ISO datetime string. Overrides config `markdown.updated_at` for this page. Invalid strings warn and are ignored for that page. |
 | `meta` | Optional scalar/null metadata copied to the generated page. |
 | `data` | Optional structured JSON-style data for theme-facing lists, facts, galleries, timelines, or swatches. |
 
@@ -354,7 +354,7 @@ Unknown front matter fields are ignored to make migration from existing Markdown
 
 `delist` is not a security or permission feature. Direct links, explicit menus, explicit collections, and body links can still expose the page.
 
-`last_updated` controls optional Git-based page metadata. If config uses `markdown.last_updated: "git"`, set `last_updated: none` on landing, index, or promotional pages that should not show an update date. If config uses `none`, set `last_updated: git` on a specific information page to opt in.
+`updated_at` controls optional page update metadata. If config uses `markdown.updated_at: "git"`, set `updated_at: none` on landing, index, or promotional pages that should not show an update date. If config uses `none`, set `updated_at: git` on a specific information page to opt in. A valid ISO datetime string is copied directly to generated preview-data as `page.updated_at_iso`.
 
 Use `meta` for small scalar flags and metadata. Use `data` when a theme should iterate structured content:
 
@@ -443,7 +443,7 @@ See the public config reference at [zeropress.dev/build-pages-config](https://ze
     }
   },
   "markdown": {
-    "last_updated": "git"
+    "updated_at": "git"
   },
   "front_page": {
     "type": "markdown"
@@ -493,15 +493,13 @@ Menu item `meta` is optional scalar display metadata copied into generated previ
 
 `collections` defines group-level reading order from Markdown source paths. Build Pages converts each source-relative `.md` path into preview-data collection items such as `{ "type": "page", "slug": "deployment" }`. Collection prev/next cursors stop at collection boundaries, so the last item in `collections.guides` does not continue into another collection.
 
-`markdown.last_updated` is optional and accepts `none` or `git`. Missing or `none` keeps current behavior and generates no update date. `git` reads each Markdown file's latest Git commit date and adds `page.meta.last_updated_iso` plus `page.meta.last_updated` to generated preview-data when the page does not already define those meta keys. `last_updated_iso` keeps the Git ISO timestamp; `last_updated` is a stable `YYYY-MM-DD` fallback display string. For accurate history in GitHub Actions, configure checkout with `fetch-depth: 0`.
+`markdown.updated_at` is optional and accepts `none` or `git`. Missing or `none` keeps current behavior and generates no update date. `git` reads each Markdown file's latest Git commit date and adds `page.updated_at_iso` to generated preview-data. For accurate history in GitHub Actions, configure checkout with `fetch-depth: 0`.
 
 Themes can render the generated value with normal escaped interpolation:
 
 ```html
-{{#if page.meta.last_updated_iso}}
-  <time datetime="{{page.meta.last_updated_iso}}" data-zp-local-date>
-    {{page.meta.last_updated}}
-  </time>
+{{#if page.updated_at_iso}}
+  <time datetime="{{page.updated_at_iso}}" data-zp-local-date>{{page.updated_at}}</time>
 {{/if}}
 ```
 

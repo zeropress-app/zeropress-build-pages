@@ -136,12 +136,12 @@
       "description": "Markdown source processing options.",
       "markdownDescription": "Markdown source processing options.",
       "properties": {
-        "last_updated": {
+        "updated_at": {
           "type": "string",
           "enum": ["none", "git"],
           "default": "none",
-          "description": "Optional page meta enrichment. none does not generate last_updated values; git reads the latest commit date for each Markdown file.",
-          "markdownDescription": "Optional page meta enrichment. `none` does not generate `last_updated` values; `git` reads the latest commit date for each Markdown file."
+          "description": "Optional page update timestamp enrichment. none does not generate updated_at_iso values; git reads the latest commit date for each Markdown file.",
+          "markdownDescription": "Optional page update timestamp enrichment. `none` does not generate `updated_at_iso` values; `git` reads the latest commit date for each Markdown file."
         }
       }
     },
@@ -400,7 +400,7 @@
         "type": "markdown"
       },
       "markdown": {
-        "last_updated": "git"
+        "updated_at": "git"
       },
       "custom_html": {
         "head_end": {
