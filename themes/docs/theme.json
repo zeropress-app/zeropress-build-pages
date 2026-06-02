@@ -6,7 +6,7 @@
   "version": "0.6.1",
   "license": "MIT",
   "runtime": "0.6",
-  "description": "Clean documentation theme",
+  "description": "Lightweight top-navigation documentation theme for small Build Pages sites. Includes native search, source Markdown links, and light/dark mode.",
   "features": {
     "post_index": false,
     "search": true

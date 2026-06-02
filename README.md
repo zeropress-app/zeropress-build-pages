@@ -571,3 +571,4 @@ The `destination` directory contains the deployable static site. It includes gen
 ## Demo
 
 - [zeropress.dev](https://github.com/zeropress-app/zeropress.dev) is built with `@zeropress/build-pages`.
+- [build-pages.zeropress.dev](https://github.com/zeropress-app/build-pages.zeropress.dev) is built with `@zeropress/build-pages` and the bundled `docs2` theme.
