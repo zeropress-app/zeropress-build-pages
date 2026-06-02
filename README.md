@@ -9,6 +9,11 @@ Build ZeroPress static output for modern hosting platforms.
 
 The generated output is plain static files that can be deployed to GitHub Pages, Cloudflare Pages, Netlify, Vercel, or any static hosting provider.
 
+Build Pages is the Markdown-source document publishing entry point for ZeroPress.
+Other ZeroPress workflows can build directly from `preview-data.json` and a
+theme, or publish from ZeroPress Studio after managed authoring, media upload,
+WXR import, and build trigger workflows.
+
 ## Build Flow
 
 ```txt
@@ -160,7 +165,7 @@ In the action inputs:
 - `site-url` overrides the canonical site URL from config.
 - `skip-untitled-markdown` skips Markdown files without a page title instead of failing. The default is `false`.
 - `skip-link-check` skips internal link checking after build. The default is `false`; broken internal links are reported as warnings and do not fail the build.
-- `copy-markdown-source` copies original Markdown files to the generated output and enables `View this page as Markdown` links in the bundled docs theme. The default is `true`; when set to `false`, public `.md` passthrough files are also skipped.
+- `copy-markdown-source` copies original Markdown files to the generated output and enables `View this page as Markdown` links in bundled documentation themes. The default is `true`; when set to `false`, public `.md` passthrough files are also skipped.
 
 For GitHub Pages, the generated `destination` directory can be passed to `actions/upload-pages-artifact`. For Cloudflare Pages, Netlify, Vercel, or another static host, pass the same `destination` directory to that provider's deploy step.
 
@@ -505,9 +510,9 @@ Themes can render the generated value with normal escaped interpolation:
 
 Client-side progressive enhancement may replace the fallback text with a localized date. The fallback remains useful when JavaScript is unavailable.
 
-`site.footer.copyright_text` is rendered by the bundled docs theme when present. If it is omitted, the bundled docs theme falls back to `site.title`. ZeroPress does not add a copyright symbol automatically.
+`site.footer.copyright_text` is rendered by bundled documentation themes when present. If it is omitted, they fall back to `site.title`. ZeroPress does not add a copyright symbol automatically.
 
-The bundled docs theme shows `Published with ZeroPress.` by default. Set `site.footer.attribution` to `false` to hide it.
+Bundled documentation themes show `Published with ZeroPress` by default. Set `site.footer.attribution` to `false` to hide it.
 
 `site.logo` is optional theme-facing brand data. Use a root-relative public path for public logo files, or an absolute URL for media-hosted logos. Build Pages emits `media_base_url: ""`, so root-relative logo paths remain same-host public paths.
 
@@ -525,13 +530,13 @@ Schemas:
 
 ## Search
 
-The bundled docs theme supports ZeroPress native search. `site.search` controls whether search artifacts and bundled search UI are enabled.
+Bundled documentation themes support ZeroPress native search. `site.search` controls whether search artifacts and bundled search UI are enabled.
 
-Missing or `true` enables native search for the bundled docs theme. Build Pages writes `/_zeropress/search.json`, `/_zeropress/search.js`, and `/_zeropress/search_pagefind.js`.
+Missing or `true` enables native search for bundled documentation themes. Build Pages writes `/_zeropress/search.json`, `/_zeropress/search.js`, and `/_zeropress/search_pagefind.js`.
 
 Set `site.search` to `false` to omit those search artifacts and hide the bundled search form.
 
-The bundled docs theme marks post/page body content with `data-pagefind-body`. If you run Pagefind after the ZeroPress build, keep the theme UI pointed at `/_zeropress/search.js` and replace the native adapter:
+Bundled documentation themes mark post/page body content with `data-pagefind-body`. If you run Pagefind after the ZeroPress build, keep the theme UI pointed at `/_zeropress/search.js` and replace the native adapter:
 
 ```bash
 npx pagefind@latest --site ./_site --output-subdir _zeropress/pagefind
