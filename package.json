@@ -19,10 +19,7 @@
     "type": "git",
     "url": "git+https://github.com/zeropress-app/zeropress-build-pages.git"
   },
-  "bugs": {
-    "url": "https://github.com/zeropress-app/zeropress-build-pages/issues"
-  },
-  "homepage": "https://github.com/zeropress-app/zeropress-build-pages#readme",
+  "homepage": "https://build-pages.zeropress.dev",
   "keywords": [
     "zeropress",
     "github-pages",
