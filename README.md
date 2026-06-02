@@ -159,7 +159,7 @@ In the action inputs:
 - `source` is the directory that contains your Markdown pages and optional `.zeropress/config.json`. The default is `./docs`.
 - `public-dir` is the directory copied as public passthrough files. The default is `source`. If you set it explicitly, the directory must exist.
 - `destination` is the directory where the generated static site is written. The default is `./_site`.
-- `theme` is the bundled theme name. The default is `docs`; `docs1` is an alias for `docs`.
+- `theme` is the bundled theme name. The default is `docs`; `docs1` is an alias for `docs`, and `docs2` is an additional documentation theme.
 - `theme-path` is a custom local ZeroPress theme directory. It takes precedence over `theme`.
 - `config` is the config file path. The default is `<source>/.zeropress/config.json`.
 - `site-url` overrides the canonical site URL from config.
@@ -240,7 +240,7 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | `--source <dir>` | required | Dedicated source directory containing Markdown and optional config |
 | `--public-dir <dir>` | source | Public passthrough directory. Explicit paths must exist. |
 | `--destination <dir>` | required | Output directory |
-| `--theme <name>` | `docs` | Bundled theme name. `docs1` aliases `docs`. |
+| `--theme <name>` | `docs` | Bundled theme name. `docs1` aliases `docs`; `docs2` is also available. |
 | `--theme-path <dir>` | none | Custom ZeroPress theme directory |
 | `--config <path>` | `<source>/.zeropress/config.json` | Build Pages config |
 | `--site-url <url>` | config `site.url` | Canonical URL override |

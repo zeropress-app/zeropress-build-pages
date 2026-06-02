@@ -1,0 +1,22 @@
+<div class="cmdk" data-cmdk hidden>
+  <div class="cmdk__backdrop" data-cmdk-close></div>
+  <div class="cmdk__panel" role="dialog" aria-modal="true" aria-label="Search docs">
+    <div class="cmdk__field">
+      <svg class="icon" width="14" height="14" aria-hidden="true"><use href="#icon-search"/></svg>
+      <input
+        type="text"
+        data-cmdk-input
+        role="combobox"
+        aria-label="Search pages and sections"
+        aria-expanded="false"
+        aria-controls="cmdk-results"
+        aria-autocomplete="list"
+        placeholder="Search pages and sections..."
+        autocomplete="off"
+      >
+      <kbd class="kbd">esc</kbd>
+    </div>
+    <ul class="cmdk__list" id="cmdk-results" role="listbox" aria-label="Search results" data-cmdk-list></ul>
+    <p class="cmdk__empty" data-cmdk-empty hidden>Type to search.</p>
+  </div>
+</div>

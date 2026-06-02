@@ -1,0 +1,39 @@
+{{!--
+  Root listing template (route.type "post_index" / combined default root).
+
+  This docs theme ships with features.post_index = false, so a Markdown front
+  page is rendered through page.html and this template is used only when a site
+  opts back into a generated post index. It renders a navigational overview
+  rather than a single content body, so — like archive and tag listings — it is
+  intentionally NOT marked as a Pagefind search body. Real searchable content
+  lives in page.html / post.html, which carry data-pagefind-body.
+--}}
+<article class="doc-article">
+  <div class="article-grid">
+    <div class="article-content">
+      <div class="prose">
+        <h1>{{site.title}}</h1>
+        {{#if site.description}}<p class="lede">{{site.description}}</p>{{/if}}
+
+        {{#if menus.primary.items}}
+        <h2 id="start">Start</h2>
+        <ul>
+          {{#for group in menus.primary.items}}
+          <li>
+            <a href="{{group.url}}">{{group.title}}</a>
+            {{#if group.children}}
+            <ul>
+              {{#for item in group.children}}
+              <li><a href="{{item.url}}">{{item.title}}</a></li>
+              {{/for}}
+            </ul>
+            {{/if}}
+          </li>
+          {{/for}}
+        </ul>
+        {{/if}}
+      </div>
+    </div>
+    {{partial:toc}}
+  </div>
+</article>

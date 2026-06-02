@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schemas.zeropress.dev/theme-runtime/v0.6/schema.json",
+  "name": "ZeroPress Template Docs2",
+  "namespace": "zeropress",
+  "slug": "docs2",
+  "version": "0.6.0",
+  "license": "MIT",
+  "runtime": "0.6",
+  "description": "General-purpose documentation theme for Markdown-source ZeroPress sites. Supports collection-based previous/next navigation through generic route cursors.",
+  "features": {
+    "post_index": false,
+    "search": true
+  },
+  "menu_slots": {
+    "primary": {
+      "title": "Primary",
+      "description": "Primary documentation navigation rendered as a sidebar. Top-level items become collapsible groups; up to two child levels are rendered as page links."
+    },
+    "legal": {
+      "title": "Legal",
+      "description": "Footer legal link list"
+    }
+  }
+}

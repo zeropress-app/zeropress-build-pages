@@ -1,0 +1,75 @@
+<aside id="site-sidebar" class="sidebar" aria-label="Documentation navigation">
+  <div class="sidebar__inner">
+    <nav class="sidebar__nav">
+      {{#if menus.primary.items}}
+        {{#for group in menus.primary.items}}
+          {{#if group.children}}
+            <details class="sidebar__group{{#if group.meta.accent}} sidebar__group--{{group.meta.accent}}{{/if}}" data-group="{{group.url}}" open>
+              <summary class="sidebar__title">
+                <span class="sidebar__accent"></span>
+                <span class="sidebar__title-label">{{group.title}}</span>
+                <svg class="sidebar__chevron" width="12" height="12" aria-hidden="true"><use href="#icon-chevron-right"/></svg>
+              </summary>
+              <ul class="sidebar__items">
+                {{#for item in group.children}}
+                  <li class="sidebar__item{{#if item.children}} sidebar__item--has-children{{/if}}">
+                    <a
+                      class="sidebar__link{{#if item.children}} sidebar__link--parent{{/if}}"
+                      href="{{item.url}}"
+                      {{#if item.target}}target="{{item.target}}"{{/if}}
+                      {{#if_eq item.target "_blank"}}rel="noopener noreferrer"{{/if}}
+                      {{#if_eq item.url "/"}}
+                        {{#if_eq route.url item.url}}aria-current="page"{{/if}}
+                      {{#else_if_eq route.url item.url}}
+                        aria-current="page"
+                      {{#else_if_starts_with route.url item.url}}
+                        {{#if item.children}}data-current-parent="true"{{#else}}aria-current="page"{{/if}}
+                      {{/if}}
+                    >
+                      {{item.title}}
+                    </a>
+                    {{#if item.children}}
+                      <ul class="sidebar__children">
+                        {{#for child in item.children}}
+                          <li class="sidebar__child">
+                            <a
+                              class="sidebar__link sidebar__link--child"
+                              href="{{child.url}}"
+                              {{#if child.target}}target="{{child.target}}"{{/if}}
+                              {{#if_eq child.target "_blank"}}rel="noopener noreferrer"{{/if}}
+                              {{#if_eq child.url "/"}}
+                                {{#if_eq route.url child.url}}aria-current="page"{{/if}}
+                              {{#else_if_starts_with route.url child.url}}
+                                aria-current="page"
+                              {{/if}}
+                            >
+                              {{child.title}}
+                            </a>
+                          </li>
+                        {{/for}}
+                      </ul>
+                    {{/if}}
+                  </li>
+                {{/for}}
+              </ul>
+            </details>
+          {{#else}}
+            <a
+              class="sidebar__link sidebar__link--top"
+              href="{{group.url}}"
+              {{#if group.target}}target="{{group.target}}"{{/if}}
+              {{#if_eq group.target "_blank"}}rel="noopener noreferrer"{{/if}}
+              {{#if_eq group.url "/"}}
+                {{#if_eq route.url group.url}}aria-current="page"{{/if}}
+              {{#else_if_starts_with route.url group.url}}
+                aria-current="page"
+              {{/if}}
+            >
+              {{group.title}}
+            </a>
+          {{/if}}
+        {{/for}}
+      {{/if}}
+    </nav>
+  </div>
+</aside>

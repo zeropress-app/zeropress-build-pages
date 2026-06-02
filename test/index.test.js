@@ -167,7 +167,7 @@ test('parseArgs requires explicit CLI options and applies flag defaults', () => 
   assert.equal(publicParsed.publicDir, 'public');
 });
 
-test('bundled theme docs1 aliases docs and unknown themes list supported names', async () => {
+test('bundled theme docs1 aliases docs, docs2 builds, and unknown themes list supported names', async () => {
   const tempDir = await makeTempDir();
   await fs.mkdir(path.join(tempDir, 'docs'), { recursive: true });
   await fs.writeFile(path.join(tempDir, 'docs', 'index.md'), '# Home\n\nAlias build.', 'utf8');
@@ -182,6 +182,16 @@ test('bundled theme docs1 aliases docs and unknown themes list supported names',
 
   await fs.access(path.join(tempDir, '_site', 'index.html'));
 
+  await runBuildPages({
+    cwd: tempDir,
+    source: 'docs',
+    destination: '_site-docs2',
+    theme: 'docs2',
+    skipLinkCheck: true,
+  });
+
+  await fs.access(path.join(tempDir, '_site-docs2', 'index.html'));
+
   await assert.rejects(
     runBuildPages({
       cwd: tempDir,
@@ -190,7 +200,7 @@ test('bundled theme docs1 aliases docs and unknown themes list supported names',
       theme: 'missing-theme',
       skipLinkCheck: true,
     }),
-    /Unknown bundled theme: missing-theme\. Supported bundled themes: docs, docs1/,
+    /Unknown bundled theme: missing-theme\. Supported bundled themes: docs, docs1, docs2/,
   );
 });
 
@@ -1324,7 +1334,7 @@ test('action metadata and entrypoint use supported inputs', async () => {
       ...process.env,
       'INPUT_PUBLIC-DIR': 'public',
       INPUT_DESTINATION: '_site',
-      INPUT_THEME: 'docs1',
+      INPUT_THEME: 'docs2',
       'INPUT_SKIP-LINK-CHECK': 'true',
     },
     encoding: 'utf8',

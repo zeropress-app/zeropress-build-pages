@@ -1,0 +1,14 @@
+{{#if partial.items}}
+<aside class="toc" aria-label="On this page">
+  <p class="toc__title">On this page</p>
+  <nav>
+    <ul>
+      {{#for item in partial.items}}
+        <li class="toc__item toc__item--level-{{item.level}}"><a href="{{item.href}}" data-toc-link>{{item.title}}</a></li>
+      {{/for}}
+    </ul>
+  </nav>
+</aside>
+{{#else}}
+<aside class="toc" aria-label="On this page" data-enhance-toc hidden></aside>
+{{/if}}

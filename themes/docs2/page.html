@@ -1,0 +1,45 @@
+<article class="doc-article">
+  <div class="article-grid">
+    <div class="article-content">
+      <p class="eyebrow">{{#if page.collection_cursor.collection_title}}{{page.collection_cursor.collection_title}}{{#else}}Documentation{{/if}}</p>
+      <div class="prose" {{#if site.search}}{{#if_neq page.discoverability "delist"}}data-pagefind-body{{/if}}{{/if}}>
+        {{page.html}}
+      </div>
+      <footer class="page-meta" aria-label="Page metadata">
+        <div class="page-meta__row">
+          {{#if page.meta.source_markdown_url}}
+          <a class="page-meta__link" href="{{page.meta.source_markdown_url}}">
+            <svg class="icon" width="14" height="14" aria-hidden="true"><use href="#icon-file"/></svg>
+            View as Markdown
+          </a>
+          {{/if}}
+          {{#if page.updated_at_iso}}<span class="page-meta__updated">Updated <time datetime="{{page.updated_at_iso}}" title="{{page.updated_at_iso}}" data-zp-local-date>{{page.updated_at}}</time></span>{{/if}}
+        </div>
+      </footer>
+
+      {{#if page.collection_cursor.prev}}
+      <nav class="pager">
+        <a class="pager__prev" href="{{page.collection_cursor.prev.url}}">
+          <span class="pager__kicker">Previous</span>
+          <span class="pager__label">{{page.collection_cursor.prev.title}}</span>
+        </a>
+        {{#if page.collection_cursor.next}}
+        <a class="pager__next" href="{{page.collection_cursor.next.url}}">
+          <span class="pager__kicker">Next up</span>
+          <span class="pager__label">{{page.collection_cursor.next.title}}</span>
+        </a>
+        {{/if}}
+      </nav>
+      {{#else_if page.collection_cursor.next}}
+      <nav class="pager pager--next-only">
+        <span></span>
+        <a class="pager__next" href="{{page.collection_cursor.next.url}}">
+          <span class="pager__kicker">Next up</span>
+          <span class="pager__label">{{page.collection_cursor.next.title}}</span>
+        </a>
+      </nav>
+      {{/if}}
+    </div>
+    {{partial:toc items=page.toc}}
+  </div>
+</article>

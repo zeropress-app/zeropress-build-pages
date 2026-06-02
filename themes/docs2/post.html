@@ -1,0 +1,45 @@
+<article class="doc-article">
+  <div class="article-grid">
+    <div class="article-content">
+      <p class="eyebrow">{{#if post.collection_cursor.collection_title}}{{post.collection_cursor.collection_title}}{{#else}}Post{{/if}}</p>
+      <div class="prose" {{#if site.search}}{{#if_neq post.discoverability "delist"}}data-pagefind-body{{/if}}{{/if}}>
+        {{post.html}}
+      </div>
+      <footer class="page-meta" aria-label="Post metadata">
+        <div class="page-meta__row">
+          {{#if post.meta.source_markdown_url}}
+          <a class="page-meta__link" href="{{post.meta.source_markdown_url}}">
+            <svg class="icon" width="14" height="14" aria-hidden="true"><use href="#icon-file"/></svg>
+            View as Markdown
+          </a>
+          {{/if}}
+          {{#if post.updated_at_iso}}<span class="page-meta__updated">Updated <time datetime="{{post.updated_at_iso}}" title="{{post.updated_at_iso}}" data-zp-local-date>{{post.updated_at}}</time></span>{{/if}}
+        </div>
+      </footer>
+
+      {{#if post.collection_cursor.prev}}
+      <nav class="pager">
+        <a class="pager__prev" href="{{post.collection_cursor.prev.url}}">
+          <span class="pager__kicker">Previous</span>
+          <span class="pager__label">{{post.collection_cursor.prev.title}}</span>
+        </a>
+        {{#if post.collection_cursor.next}}
+        <a class="pager__next" href="{{post.collection_cursor.next.url}}">
+          <span class="pager__kicker">Next up</span>
+          <span class="pager__label">{{post.collection_cursor.next.title}}</span>
+        </a>
+        {{/if}}
+      </nav>
+      {{#else_if post.collection_cursor.next}}
+      <nav class="pager pager--next-only">
+        <span></span>
+        <a class="pager__next" href="{{post.collection_cursor.next.url}}">
+          <span class="pager__kicker">Next up</span>
+          <span class="pager__label">{{post.collection_cursor.next.title}}</span>
+        </a>
+      </nav>
+      {{/if}}
+    </div>
+    {{partial:toc items=post.toc}}
+  </div>
+</article>

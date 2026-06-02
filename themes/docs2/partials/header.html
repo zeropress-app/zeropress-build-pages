@@ -1,0 +1,28 @@
+<header class="top-bar">
+  <label for="nav-toggle" class="icon-btn nav-trigger" role="button" tabindex="0" aria-label="Open navigation" aria-controls="site-sidebar" aria-expanded="false" data-nav-trigger>
+    <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-menu"/></svg>
+  </label>
+  <a class="top-bar__brand" href="/">
+    {{#if site.logo.src}}
+    <img
+      class="top-bar__brand-mark"
+      src="{{site.logo.src}}"
+      alt="{{#if site.logo.alt}}{{site.logo.alt}}{{#else}}{{site.title}}{{/if}}"
+    >
+    {{/if}}
+    <span>{{site.title}}</span>
+  </a>
+  <div class="top-bar__actions">
+    {{#if site.search}}
+    <button type="button" class="icon-btn top-bar__search" data-cmdk-open aria-label="Search docs" disabled>
+      <svg class="icon" width="14" height="14" aria-hidden="true"><use href="#icon-search"/></svg>
+      <span>Search docs</span>
+      <kbd class="kbd">⌘K</kbd>
+    </button>
+    {{/if}}
+    <button type="button" class="icon-btn theme-toggle" data-theme-toggle aria-label="Toggle theme" title="Toggle theme" disabled>
+      <svg class="icon theme-toggle__icon theme-toggle__icon--sun" width="16" height="16" aria-hidden="true"><use href="#icon-sun"/></svg>
+      <svg class="icon theme-toggle__icon theme-toggle__icon--moon" width="16" height="16" aria-hidden="true"><use href="#icon-moon"/></svg>
+    </button>
+  </div>
+</header>

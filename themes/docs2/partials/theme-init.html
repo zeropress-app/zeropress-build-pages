@@ -1,0 +1,45 @@
+<script>
+  (function () {
+    try {
+      var stored = localStorage.getItem('zeropress-docs2-theme'); // 'light' | 'dark' | null (= system)
+      var systemTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      var resolved = stored === 'light' || stored === 'dark'
+        ? stored
+        : systemTheme;
+      var root = document.documentElement;
+      root.dataset.theme = resolved;
+      root.dataset.themeResolved = resolved;
+    } catch (e) {}
+  })();
+
+  (function () {
+    try {
+      var raw = localStorage.getItem('zeropress-docs2-sidebar');
+      var state = raw ? JSON.parse(raw) : null;
+      if (!state || typeof state !== 'object' || Array.isArray(state)) return;
+
+      function cssAttributeValue(value) {
+        return String(value)
+          .replace(/\\/g, '\\\\')
+          .replace(/"/g, '\\"')
+          .replace(/\n/g, '\\a ')
+          .replace(/\r/g, '\\d ')
+          .replace(/\f/g, '\\c ');
+      }
+
+      var rules = Object.keys(state)
+        .filter(function (groupId) { return state[groupId] === 'closed'; })
+        .map(function (groupId) {
+          return 'html:not(.sidebar-ready) .sidebar__group[data-group="' +
+            cssAttributeValue(groupId) +
+            '"] > .sidebar__items{display:none}';
+        });
+
+      if (!rules.length) return;
+      var style = document.createElement('style');
+      style.id = 'zp-sidebar-state-style';
+      style.textContent = rules.join('\n');
+      document.head.appendChild(style);
+    } catch (e) {}
+  })();
+</script>
