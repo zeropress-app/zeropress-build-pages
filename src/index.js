@@ -15,8 +15,8 @@ const PREVIEW_DATA_PATH = `${INTERNAL_WORK_DIR}/preview-data.json`;
 const STAGING_DIR = `${INTERNAL_WORK_DIR}/public-assets`;
 const DEFAULT_THEME = 'docs';
 const BUNDLED_THEME_ALIASES = new Map([
-  ['docs', 'docs'],
-  ['docs1', 'docs'],
+  ['docs', 'docs1'],
+  ['docs1', 'docs1'],
   ['docs2', 'docs2'],
 ]);
 
@@ -215,7 +215,7 @@ Options:
   --source <dir>                Dedicated source directory (required)
   --public-dir <dir>            Public passthrough directory (default: source)
   --destination <dir>           Output directory (required)
-  --theme docs                  Bundled theme name (default: docs; docs1 aliases docs; docs2 available)
+  --theme docs                  Bundled theme name (default: docs; docs aliases docs1; docs2 available)
   --theme-path <dir>            Custom ZeroPress theme directory
   --config <path>               Config file (default: <source>/.zeropress/config.json)
   --site-url <url>              Canonical site URL override

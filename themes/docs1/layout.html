@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="{{site.locale}}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{meta.title}}</title>
+    <meta name="theme-color" content="#fbfbfd" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0b0d12" media="(prefers-color-scheme: dark)">
+    <link rel="stylesheet" href="/assets/style.css">
+    {{partial:theme-bootstrap}}
+    {{meta.head_tags}}
+  </head>
+  <body>
+    {{partial:icon-sprite}}
+    <a class="skip-link" href="#content">Skip to content</a>
+    <div class="visually-hidden" aria-live="polite" aria-atomic="true" data-zp-status></div>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle-checkbox" tabindex="-1" aria-label="Navigation menu">
+    <header class="site-header">
+      <div class="shell site-header__inner">
+        <a class="brand" href="/">
+          {{#if site.logo.src}}
+          <img
+            class="brand__mark"
+            src="{{site.logo.src}}"
+            alt="{{#if site.logo.alt}}{{site.logo.alt}}{{#else}}{{site.title}}{{/if}}"
+            width="30"
+            height="30"
+          >
+          {{/if}}
+          <span class="brand__name">{{site.title}}</span>
+        </a>
+        <label
+          for="nav-toggle"
+          class="nav-toggle"
+          role="button"
+          tabindex="0"
+          aria-controls="site-nav-panel"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+          data-nav-trigger
+        >
+          <svg class="icon" width="20" height="20" aria-hidden="true"><use href="#icon-menu"/></svg>
+        </label>
+        <div class="site-header__actions" id="site-nav-panel" data-nav-panel>
+          <nav class="site-nav" aria-label="Primary navigation">
+            <ul>
+              {{#for item in menus.primary.items}}
+                <li>
+                  <a
+                    href="{{item.url}}"
+                    {{#if item.target}}target="{{item.target}}"{{/if}}
+                    {{#if_eq item.target "_blank"}}rel="noopener noreferrer"{{/if}}
+                    {{#if_eq item.url "/"}}
+                      {{#if_eq route.url item.url}}aria-current="page"{{/if}}
+                    {{#else}}
+                      {{#if_eq route.url item.url}}aria-current="page"{{#else_if_starts_with route.url item.url}}aria-current="page"{{/if}}
+                    {{/if}}
+                  >{{item.title}}</a>
+                </li>
+              {{/for}}
+            </ul>
+          </nav>
+          {{#if site.search}}
+            <button type="button" class="site-search-button" data-cmdk-open aria-label="Search docs" disabled>
+              <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-search"/></svg>
+              <span>Search docs</span>
+              <kbd class="site-search-button__kbd" aria-hidden="true">⌘K</kbd>
+            </button>
+          {{/if}}
+          <button class="theme-toggle" type="button" aria-label="Toggle color theme" data-theme-toggle title="Toggle theme" disabled>
+            <svg class="icon theme-toggle__icon theme-toggle__icon--sun" width="18" height="18" aria-hidden="true"><use href="#icon-sun"/></svg>
+            <svg class="icon theme-toggle__icon theme-toggle__icon--moon" width="18" height="18" aria-hidden="true"><use href="#icon-moon"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+    <label for="nav-toggle" class="nav-overlay" aria-hidden="true" data-nav-overlay></label>
+    <main id="content">
+      {{slot:content}}
+    </main>
+    <footer class="site-footer">
+      <div class="shell site-footer__inner">
+        <div class="site-footer__meta">
+          {{#if site.footer.copyright_text}}
+            <p>{{site.footer.copyright_text}}</p>
+          {{#else_if site.title}}
+            <p>{{site.title}}</p>
+          {{/if}}
+          {{#if menus.footer.items}}
+            {{#if site.footer.attribution}}
+              <p>Published with <a href="https://zeropress.app" target="_blank" rel="noreferrer noopener">ZeroPress</a></p>
+            {{/if}}
+          {{/if}}
+        </div>
+        <div class="site-footer__aside">
+          {{#if menus.footer.items}}
+            <nav class="site-footer__nav" aria-label="Footer navigation">
+              {{menu:footer}}
+            </nav>
+          {{#else}}
+            {{#if site.footer.attribution}}
+              <p>Published with <a href="https://zeropress.app" target="_blank" rel="noreferrer noopener">ZeroPress</a></p>
+            {{/if}}
+          {{/if}}
+        </div>
+      </div>
+    </footer>
+    <div class="floating-actions" data-floating-actions>
+      <button
+        type="button"
+        class="clear-search-highlights"
+        data-clear-search-highlights
+        aria-label="Clear search highlights"
+        title="Clear search highlights"
+        hidden
+      >
+        <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-x"/></svg>
+      </button>
+      <button
+        type="button"
+        class="back-to-top"
+        data-back-to-top
+        aria-label="Back to top"
+        hidden
+      >
+        <span class="back-to-top__inner" aria-hidden="true">
+          <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-chevrons-up"/></svg>
+        </span>
+      </button>
+    </div>
+    {{#if site.search}}
+      <div class="cmdk" data-cmdk hidden>
+        <div class="cmdk__backdrop" data-cmdk-close></div>
+        <div class="cmdk__panel" role="dialog" aria-modal="true" aria-label="Search docs">
+          <div class="cmdk__field">
+            <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-search"/></svg>
+            <input
+              type="text"
+              data-cmdk-input
+              role="combobox"
+              aria-label="Search pages and sections"
+              aria-expanded="false"
+              aria-controls="cmdk-results"
+              aria-autocomplete="list"
+              placeholder="Search pages and sections..."
+              autocomplete="off"
+              spellcheck="false"
+            >
+            <kbd class="cmdk__kbd">esc</kbd>
+          </div>
+          <ul class="cmdk__list" id="cmdk-results" role="listbox" aria-label="Search results" data-cmdk-list></ul>
+          <p class="cmdk__empty" data-cmdk-empty hidden>Type to search.</p>
+        </div>
+      </div>
+    {{/if}}
+    {{partial:theme-scripts}}
+  </body>
+</html>

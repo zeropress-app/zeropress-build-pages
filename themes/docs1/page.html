@@ -1,0 +1,64 @@
+<article class="shell doc-layout{{#if page.toc}} doc-layout--with-toc{{/if}}">
+  <div class="doc-content">
+    <div class="prose" {{#if site.search}}{{#if_neq page.discoverability "delist"}}data-pagefind-body{{/if}}{{/if}}>
+      {{page.html}}
+    </div>
+    {{#if page.meta.source_markdown_url}}
+    <footer class="doc-meta" aria-label="Page metadata">
+      <a class="doc-meta__link" href="{{page.meta.source_markdown_url}}">
+        <svg class="icon" width="14" height="14" aria-hidden="true"><use href="#icon-file"/></svg>
+        View as Markdown
+      </a>
+      {{#if page.updated_at_iso}}<span class="doc-meta__updated">Updated <time datetime="{{page.updated_at_iso}}" title="{{page.updated_at_iso}}" data-zp-local-date>{{page.updated_at}}</time></span>{{/if}}
+    </footer>
+    {{#else_if page.updated_at_iso}}
+    <footer class="doc-meta doc-meta--end" aria-label="Page metadata">
+      <span class="doc-meta__updated">Updated <time datetime="{{page.updated_at_iso}}" title="{{page.updated_at_iso}}" data-zp-local-date>{{page.updated_at}}</time></span>
+    </footer>
+    {{/if}}
+    {{#if page.collection_cursor.prev}}
+    <nav class="pager" aria-label="Documentation pages">
+      <a class="pager__link pager__prev" href="{{page.collection_cursor.prev.url}}" rel="prev">
+        <span class="pager__kicker">
+          <svg class="icon" width="14" height="14" aria-hidden="true"><use href="#icon-arrow-left"/></svg>
+          Previous
+        </span>
+        <span class="pager__label">{{page.collection_cursor.prev.title}}</span>
+      </a>
+      {{#if page.collection_cursor.next}}
+      <a class="pager__link pager__next" href="{{page.collection_cursor.next.url}}" rel="next">
+        <span class="pager__kicker">
+          Next
+          <svg class="icon" width="14" height="14" aria-hidden="true"><use href="#icon-arrow-right"/></svg>
+        </span>
+        <span class="pager__label">{{page.collection_cursor.next.title}}</span>
+      </a>
+      {{/if}}
+    </nav>
+    {{#else_if page.collection_cursor.next}}
+    <nav class="pager pager--next-only" aria-label="Documentation pages">
+      <a class="pager__link pager__next" href="{{page.collection_cursor.next.url}}" rel="next">
+        <span class="pager__kicker">
+          Next
+          <svg class="icon" width="14" height="14" aria-hidden="true"><use href="#icon-arrow-right"/></svg>
+        </span>
+        <span class="pager__label">{{page.collection_cursor.next.title}}</span>
+      </a>
+    </nav>
+    {{/if}}
+  </div>
+  {{#if page.toc}}
+  <aside class="doc-toc" aria-label="Table of contents">
+    <p class="doc-toc__title">On this page</p>
+    <nav>
+      <ol>
+        {{#for item in page.toc}}<li class="doc-toc__item doc-toc__item--level-{{item.level}}"><a href="{{item.href}}" data-doc-toc-link>{{item.title}}</a></li>{{/for}}
+      </ol>
+    </nav>
+  </aside>
+  {{#else}}
+  {{#if_eq page.document_type "html"}}
+  <aside class="doc-toc" aria-label="Table of contents" data-enhance-toc hidden></aside>
+  {{/if}}
+  {{/if}}
+</article>

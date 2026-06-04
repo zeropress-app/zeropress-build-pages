@@ -64282,8 +64282,8 @@ var INTERNAL_WORK_DIR = ".zeropress-build-page";
 var PREVIEW_DATA_PATH = `${INTERNAL_WORK_DIR}/preview-data.json`;
 var STAGING_DIR = `${INTERNAL_WORK_DIR}/public-assets`;
 var BUNDLED_THEME_ALIASES = /* @__PURE__ */ new Map([
-  ["docs", "docs"],
-  ["docs1", "docs"],
+  ["docs", "docs1"],
+  ["docs1", "docs1"],
   ["docs2", "docs2"]
 ]);
 async function runBuildPages(options2) {

@@ -1,12 +1,12 @@
 {
   "$schema": "https://schemas.zeropress.dev/theme-runtime/v0.6/schema.json",
-  "name": "ZeroPress Template Docs1",
+  "name": "ZeroPress Docs (Top Nav)",
   "namespace": "zeropress",
   "slug": "docs1",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "license": "MIT",
   "runtime": "0.6",
-  "description": "Lightweight top-navigation documentation theme for small Build Pages sites. Includes native search, source Markdown links, and light/dark mode.",
+  "description": "Lightweight top-navigation documentation theme for small Build Pages sites. Includes native search, Mermaid progressive enhancement, heading anchor links, collection previous/next pager, updated dates, source Markdown links, no-JavaScript mobile navigation, and light/dark mode.",
   "features": {
     "post_index": false,
     "search": true

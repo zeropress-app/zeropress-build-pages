@@ -13,8 +13,8 @@
     <a class="docs-card" href="{{item.url}}">
       <span class="docs-card__kicker">Section</span>
       <strong>{{item.title}}</strong>
-      <span>Open this documentation section.</span>
+      {{#if item.meta.description}}<span class="docs-card__desc">{{item.meta.description}}</span>{{/if}}
     </a>
-    {{/if_eq}}
+    {{/if}}
   {{/for}}
 </section>

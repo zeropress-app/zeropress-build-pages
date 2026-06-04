@@ -167,7 +167,7 @@ test('parseArgs requires explicit CLI options and applies flag defaults', () => 
   assert.equal(publicParsed.publicDir, 'public');
 });
 
-test('bundled theme docs1 aliases docs, docs2 builds, and unknown themes list supported names', async () => {
+test('bundled theme docs aliases docs1, docs2 builds, and unknown themes list supported names', async () => {
   const tempDir = await makeTempDir();
   await fs.mkdir(path.join(tempDir, 'docs'), { recursive: true });
   await fs.writeFile(path.join(tempDir, 'docs', 'index.md'), '# Home\n\nAlias build.', 'utf8');
@@ -367,7 +367,7 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.match(guideHtml, /contains-task-list/);
   assert.match(customHtml, /Body Heading/);
   assert.match(customHtml, /<meta name="robots" content="noindex">/);
-  assert.match(customHtml, /View this page as Markdown/);
+  assert.match(customHtml, /View as Markdown/);
   assert.doesNotMatch(customHtml, /title: Custom Front Matter Title|---/);
   const searchItems = JSON.parse(await fs.readFile(path.join(tempDir, '_site', '_zeropress', 'search.json'), 'utf8'));
   assert.equal(searchItems.some((item) => item.id === 'page:guides-custom-page'), false);
@@ -840,7 +840,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     source: 'docs',
     destination: '_site',
     theme: 'docs',
-    themePath: path.join(packageDir, 'themes', 'docs'),
+    themePath: path.join(packageDir, 'themes', 'docs1'),
     siteUrl: 'https://override.example',
     skipLinkCheck: true,
   });
@@ -1021,7 +1021,7 @@ test('adds git updated_at timestamp and honors page-level overrides', async () =
     source: 'docs',
     destination: '_site',
     theme: 'docs',
-    themePath: path.join(packageDir, 'themes', 'docs'),
+    themePath: path.join(packageDir, 'themes', 'docs1'),
     skipLinkCheck: true,
   });
 
@@ -1069,7 +1069,7 @@ test('front matter can opt into git updated_at when config default is none', asy
     source: 'docs',
     destination: '_site',
     theme: 'docs',
-    themePath: path.join(packageDir, 'themes', 'docs'),
+    themePath: path.join(packageDir, 'themes', 'docs1'),
     skipLinkCheck: true,
   });
 
@@ -1170,7 +1170,7 @@ test('rejects invalid markdown updated_at config', async () => {
       cwd: tempDir,
       source: 'docs',
       destination: '_site',
-      themePath: path.join(packageDir, 'themes', 'docs'),
+      themePath: path.join(packageDir, 'themes', 'docs1'),
       skipLinkCheck: true,
     }),
     /Build pages prebuild failed/,
@@ -1217,7 +1217,7 @@ test('rejects invalid site logo and site meta config', async () => {
         cwd: tempDir,
         source: 'docs',
         destination: '_site',
-        themePath: path.join(packageDir, 'themes', 'docs'),
+        themePath: path.join(packageDir, 'themes', 'docs1'),
         skipLinkCheck: true,
       }),
       /Build pages prebuild failed/,
