@@ -39,7 +39,7 @@ Markdown. The following data shapes are useful:
 - `site.description`: used by generated metadata
 - `site.logo`: optional brand image
 - `menus.primary`: sidebar navigation
-- `menus.legal`: footer legal links
+- `menus.footer`: footer links
 - `collections`: optional reading-order groups
 - `site.search`: enables command palette search and search artifacts
 - `page.updated_at_iso` / `post.updated_at_iso`: optional update metadata
@@ -125,6 +125,6 @@ progressively enhance the displayed date for the visitor's locale.
 
 ## Footer
 
-`menus.legal` is rendered in the footer. The footer also supports
+`menus.footer` is rendered in the footer. The footer also supports
 `site.footer.copyright_text` and the standard ZeroPress attribution controlled by
 `site.footer.attribution`.

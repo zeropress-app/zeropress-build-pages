@@ -24,12 +24,12 @@
   --border: hsl(28 9% 51% / 0.2);
   --border-strong: hsl(28 9% 51% / 0.32);
   --radius: 0.75rem;
-  --shadow-sm: 0 1px 2px hsl(18 8% 21% / 0.06);
   --scrim: hsl(18 8% 21% / 0.4);
   --topbar-bg: hsl(40 22% 97% / 0.85);
   --surface-hover: hsl(28 9% 51% / 0.08);
   --active-bg: hsl(14 38% 40% / 0.1);
   --active-border: hsl(14 38% 40% / 0.4);
+  --selection-bg: hsl(14 38% 40% / 0.22);
   --focus-ring: var(--tab-terracotta);
   --success-muted: hsl(120 12% 40% / 0.18);
   --code-ui-bg: hsl(0 0% 100% / 0.08);
@@ -87,10 +87,10 @@
 
   --border: hsl(30 9% 58% / 0.18);
   --border-strong: hsl(30 9% 58% / 0.3);
-  --shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.4);
   --topbar-bg: hsl(22 8% 12% / 0.85);
   --active-bg: hsl(14 42% 66% / 0.14);
   --active-border: hsl(14 42% 66% / 0.42);
+  --selection-bg: hsl(14 42% 66% / 0.34);
   --scrollbar-thumb: hsl(30 9% 58% / 0.42);
   --scrollbar-thumb-hover: hsl(12 55% 65% / 0.5);
   --code-scrollbar-thumb: hsl(40 22% 97% / 0.24);
@@ -132,10 +132,10 @@
 
     --border: hsl(30 9% 58% / 0.18);
     --border-strong: hsl(30 9% 58% / 0.3);
-    --shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.4);
     --topbar-bg: hsl(22 8% 12% / 0.85);
     --active-bg: hsl(14 42% 66% / 0.14);
     --active-border: hsl(14 42% 66% / 0.42);
+    --selection-bg: hsl(14 42% 66% / 0.34);
     --scrollbar-thumb: hsl(30 9% 58% / 0.42);
     --scrollbar-thumb-hover: hsl(12 55% 65% / 0.5);
     --code-scrollbar-thumb: hsl(40 22% 97% / 0.24);
@@ -160,6 +160,12 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+
+::selection {
+  background: var(--selection-bg);
+  color: var(--ink-dark);
+}
+
 html {
   scroll-behavior: smooth;
   scrollbar-gutter: stable;
@@ -658,7 +664,10 @@ a { color: inherit; }
 .prose pre::selection,
 .prose pre *::selection {
   background: var(--code-selection);
-  color: inherit;
+  /* Code blocks always use a dark background in both color modes, so force a
+     light selected-text color instead of inheriting the page ink (which is dark
+     in light mode and would make selected code nearly invisible). */
+  color: hsl(40 22% 97%);
 }
 .prose pre::-webkit-scrollbar-track {
   background: var(--code-bg);

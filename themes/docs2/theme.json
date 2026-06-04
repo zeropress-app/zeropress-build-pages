@@ -1,9 +1,9 @@
 {
   "$schema": "https://schemas.zeropress.dev/theme-runtime/v0.6/schema.json",
-  "name": "ZeroPress Template Docs2",
+  "name": "ZeroPress Docs (Sidebar)",
   "namespace": "zeropress",
   "slug": "docs2",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "license": "MIT",
   "runtime": "0.6",
   "description": "Sidebar documentation theme for larger Build Pages sites. Includes command palette search, two-level sidebar groups, page TOC, collection cursor pager, updated dates, and Mermaid progressive enhancement.",
@@ -16,9 +16,9 @@
       "title": "Primary",
       "description": "Primary documentation navigation rendered as a sidebar. Top-level items become collapsible groups; up to two child levels are rendered as page links."
     },
-    "legal": {
-      "title": "Legal",
-      "description": "Footer legal link list"
+    "footer": {
+      "title": "Footer",
+      "description": "Footer link list"
     }
   }
 }

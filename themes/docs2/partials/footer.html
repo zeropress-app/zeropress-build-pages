@@ -5,9 +5,9 @@
     {{#else_if site.title}}
       <p>{{site.title}}</p>
     {{/if}}
-    {{#if menus.legal.items}}
+    {{#if menus.footer.items}}
     <div class="site-footer__links">
-      {{#for item in menus.legal.items}}
+      {{#for item in menus.footer.items}}
         <a href="{{item.url}}" {{#if item.target}}target="{{item.target}}"{{/if}} {{#if_eq item.target "_blank"}}rel="noopener noreferrer"{{/if}}>{{item.title}}</a>
       {{/for}}
     </div>
