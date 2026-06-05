@@ -27,6 +27,7 @@ const FRONT_MATTER_DATA_MAX_KEYS = 64;
 const FRONT_MATTER_DATA_MAX_ARRAY_LENGTH = 256;
 const FRONT_MATTER_DISCOVERABILITY_VALUES = new Set(['default', 'noindex', 'delist']);
 const MARKDOWN_UPDATED_AT_VALUES = new Set(['none', 'git']);
+const MARKDOWN_LINK_OUTPUT_VALUES = new Set(['clean', 'html']);
 const markdownDiscoverExcludeRoots = buildMarkdownDiscoverExcludeRoots();
 
 class PrebuildMarkdownError extends Error {
@@ -122,7 +123,7 @@ async function main() {
       },
       ...(frontMatter.data !== undefined ? { data: frontMatter.data } : {}),
       ...(frontMatter.discoverability !== 'default' ? { discoverability: frontMatter.discoverability } : {}),
-      content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath),
+      content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath, markdownConfig.link_output),
       document_type: 'markdown',
       excerpt: frontMatter.description || extractExcerpt(bodyMarkdown, title),
       status: 'published',
@@ -304,18 +305,20 @@ function normalizeMarkdownConfig(value) {
   if (value === undefined) {
     return {
       updated_at: 'none',
+      link_output: 'clean',
     };
   }
   if (!isPlainObject(value)) {
     throw new PrebuildConfigError(
       'markdown must be an object.',
-      '  "markdown": { "updated_at": "git" }',
+      '  "markdown": { "updated_at": "git", "link_output": "clean" }',
     );
   }
-  assertKnownConfigKeys(value, ['updated_at'], 'markdown');
+  assertKnownConfigKeys(value, ['updated_at', 'link_output'], 'markdown');
 
   return {
     updated_at: normalizeUpdatedAtPolicy(value.updated_at, 'markdown.updated_at'),
+    link_output: normalizeMarkdownLinkOutput(value.link_output, 'markdown.link_output'),
   };
 }
 
@@ -1103,6 +1106,20 @@ function normalizeUpdatedAtPolicy(value, pathLabel) {
   );
 }
 
+function normalizeMarkdownLinkOutput(value, pathLabel) {
+  if (value === undefined) {
+    return 'clean';
+  }
+  if (typeof value === 'string' && MARKDOWN_LINK_OUTPUT_VALUES.has(value)) {
+    return value;
+  }
+
+  throw new PrebuildConfigError(
+    `${pathLabel} must be one of: ${Array.from(MARKDOWN_LINK_OUTPUT_VALUES).join(', ')}.`,
+    '  "markdown": { "link_output": "clean" }\n  "markdown": { "link_output": "html" }',
+  );
+}
+
 function normalizeFrontMatterUpdatedAt(value, sourcePath) {
   if (value === undefined) {
     return undefined;
@@ -1732,17 +1749,18 @@ function isMarkdownHeadingBlock(block) {
   );
 }
 
-function rewriteMarkdownLinks(markdown, sourcePath, routes) {
+function rewriteMarkdownLinks(markdown, sourcePath, routes, linkOutput = 'clean') {
   return markdown.replace(/(\[[^\]]+\]\()([^)]+)(\))/g, (full, prefix, rawTarget, suffix) => {
-    const rewritten = rewriteLinkTarget(rawTarget.trim(), sourcePath, routes);
+    const rewritten = rewriteLinkTarget(rawTarget.trim(), sourcePath, routes, linkOutput);
     return rewritten === rawTarget.trim() ? full : `${prefix}${rewritten}${suffix}`;
   });
 }
 
-function rewriteLinkTarget(target, sourcePath, routes) {
+function rewriteLinkTarget(target, sourcePath, routes, linkOutput = 'clean') {
   if (
     !target ||
     target.startsWith('#') ||
+    target.startsWith('/') ||
     /^[a-z][a-z0-9+.-]*:/i.test(target) ||
     target.startsWith('//')
   ) {
@@ -1756,7 +1774,21 @@ function rewriteLinkTarget(target, sourcePath, routes) {
 
   const resolvedPath = resolveMarkdownTarget(pathname, sourcePath);
   const route = routes.get(resolvedPath);
-  return route ? `${route.url}${suffix}` : target;
+  return route ? `${formatMarkdownLinkUrl(route.url, linkOutput)}${suffix}` : target;
+}
+
+function formatMarkdownLinkUrl(routeUrl, linkOutput) {
+  if (linkOutput !== 'html') {
+    return routeUrl;
+  }
+
+  if (routeUrl === '/') {
+    return '/index.html';
+  }
+  if (routeUrl.endsWith('/')) {
+    return `${routeUrl}index.html`;
+  }
+  return `${routeUrl}.html`;
 }
 
 function splitLinkTarget(target) {
@@ -1768,10 +1800,6 @@ function splitLinkTarget(target) {
 }
 
 function resolveMarkdownTarget(targetPath, sourcePath) {
-  if (targetPath.startsWith('/')) {
-    return path.normalize(path.join(sourceDir, targetPath.replace(/^\/+/, '')));
-  }
-
   return path.normalize(path.resolve(path.dirname(sourcePath), targetPath));
 }
 

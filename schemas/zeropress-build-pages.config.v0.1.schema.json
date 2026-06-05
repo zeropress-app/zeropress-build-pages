@@ -142,6 +142,13 @@
           "default": "none",
           "description": "Optional page update timestamp enrichment. none does not generate updated_at_iso values; git reads the latest commit date for each Markdown file.",
           "markdownDescription": "Optional page update timestamp enrichment. `none` does not generate `updated_at_iso` values; `git` reads the latest commit date for each Markdown file."
+        },
+        "link_output": {
+          "type": "string",
+          "enum": ["clean", "html"],
+          "default": "clean",
+          "description": "Controls how source-relative Markdown links are rewritten. clean uses generated clean URLs; html uses explicit HTML file URLs.",
+          "markdownDescription": "Controls how source-relative Markdown links are rewritten. `clean` uses generated clean URLs; `html` uses explicit HTML file URLs."
         }
       }
     },
@@ -400,7 +407,8 @@
         "type": "markdown"
       },
       "markdown": {
-        "updated_at": "git"
+        "updated_at": "git",
+        "link_output": "clean"
       },
       "custom_html": {
         "head_end": {

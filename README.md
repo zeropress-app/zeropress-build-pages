@@ -203,6 +203,8 @@ npx --yes @zeropress/build-pages --source ./docs --public-dir ./public --destina
 
 If your project uses a `package.json` script, set the Vercel Build Command to `npm run build` and keep the Output Directory as `_site`.
 
+Vercel users should normally add `vercel.json` with `{ "cleanUrls": true }` so extensionless links resolve like the major static hosts. If you prefer explicit HTML links without provider clean URL behavior, set Build Pages config `markdown.link_output` to `html`.
+
 ### npx
 
 Use `npx` when you want to run Build Pages without adding it to your project dependencies.
@@ -304,7 +306,8 @@ Additional Markdown discovery ignores:
 - Root `index.md` becomes the front page when no config is present.
 - Nested `index.md` maps to a directory route, such as `cli/index.md` -> `/cli/`.
 - Other Markdown files map to extensionless routes, such as `cli/tool.md` -> `/cli/tool`.
-- Markdown links to other discovered `.md` files are rewritten to generated public URLs.
+- Source-relative Markdown links to other discovered `.md` files are rewritten to generated public URLs.
+- Config `markdown.link_output` controls whether rewritten links use clean URLs or explicit `.html` URLs.
 - Original Markdown files remain available as public passthrough files by default.
 - Use `--no-copy-markdown-source` or Action input `copy-markdown-source: false` to keep source Markdown and public `.md` passthrough files out of the generated output. This also hides bundled theme `View this page as Markdown` links.
 
@@ -448,7 +451,8 @@ See the public config reference at [zeropress.dev/build-pages-config](https://ze
     }
   },
   "markdown": {
-    "updated_at": "git"
+    "updated_at": "git",
+    "link_output": "clean"
   },
   "front_page": {
     "type": "markdown"
@@ -499,6 +503,8 @@ Menu item `meta` is optional scalar display metadata copied into generated previ
 `collections` defines group-level reading order from Markdown source paths. Build Pages converts each source-relative `.md` path into preview-data collection items such as `{ "type": "page", "slug": "deployment" }`. Collection prev/next cursors stop at collection boundaries, so the last item in `collections.guides` does not continue into another collection.
 
 `markdown.updated_at` is optional and accepts `none` or `git`. Missing or `none` keeps current behavior and generates no update date. `git` reads each Markdown file's latest Git commit date and adds `page.updated_at_iso` to generated preview-data. For accurate history in GitHub Actions, configure checkout with `fetch-depth: 0`.
+
+`markdown.link_output` is optional and accepts `clean` or `html`. Missing or `clean` keeps the default clean URL rewrite, such as `../guide/index.md` -> `/guide/` and `../spec/foo.md` -> `/spec/foo`. Use `html` when a host requires explicit HTML links, such as `../guide/index.md` -> `/guide/index.html` and `../spec/foo.md` -> `/spec/foo.html`. Query strings and hash fragments are preserved. Only source-relative `.md` links are rewritten; external URLs, root-relative URLs, anchors, and asset links are left unchanged.
 
 Themes can render the generated value with normal escaped interpolation:
 

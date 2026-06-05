@@ -386,6 +386,71 @@ test('builds a source directory without config and preserves markdown passthroug
   await fs.access(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'));
 });
 
+test('rewrites source-relative markdown links with explicit html output when configured', async () => {
+  const tempDir = await makeTempDir();
+  const sourceDir = path.join(tempDir, 'docs');
+  await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
+  await fs.mkdir(path.join(sourceDir, 'section'), { recursive: true });
+  await fs.writeFile(path.join(sourceDir, 'index.md'), [
+    '# Home',
+    '',
+    '[Guide](guide.md)',
+    '[Nested](section/index.md)',
+    '[Home](index.md)',
+    '[Guide hash](guide.md#part)',
+    '[Guide query](guide.md?view=full)',
+    '[External](https://example.com/guide.md)',
+    '[Root relative](/guide.md)',
+    '[Asset](file.pdf)',
+    '[Local hash](#local)',
+  ].join('\n'), 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'guide.md'), [
+    '# Guide',
+    '',
+    'Guide content.',
+  ].join('\n'), 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'section', 'index.md'), [
+    '# Nested',
+    '',
+    'Nested content.',
+  ].join('\n'), 'utf8');
+  await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
+    version: '0.1',
+    markdown: {
+      link_output: 'html',
+    },
+    front_page: {
+      type: 'markdown',
+    },
+  }, null, 2), 'utf8');
+
+  await runBuildPages({
+    cwd: tempDir,
+    source: 'docs',
+    destination: '_site',
+    theme: 'docs',
+    themePath: path.join(packageDir, 'themes', 'docs1'),
+    skipLinkCheck: true,
+  });
+
+  const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
+  const resolvedConfig = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'build-pages-config.json'), 'utf8'));
+
+  assert.deepEqual(resolvedConfig.markdown, {
+    updated_at: 'none',
+    link_output: 'html',
+  });
+  assert.match(indexHtml, /href="\/guide\.html"/);
+  assert.match(indexHtml, /href="\/section\/index\.html"/);
+  assert.match(indexHtml, /href="\/index\.html"/);
+  assert.match(indexHtml, /href="\/guide\.html#part"/);
+  assert.match(indexHtml, /href="\/guide\.html\?view=full"/);
+  assert.match(indexHtml, /href="https:\/\/example\.com\/guide\.md"/);
+  assert.match(indexHtml, /href="\/guide\.md"/);
+  assert.match(indexHtml, /href="file\.pdf"/);
+  assert.match(indexHtml, /href="#local"/);
+});
+
 test('builds with a separated public directory', async () => {
   const tempDir = await makeTempDir();
   const sourceDir = path.join(tempDir, 'docs');
@@ -896,6 +961,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.equal(resolvedConfig.version, '0.1');
   assert.deepEqual(resolvedConfig.markdown, {
     updated_at: 'none',
+    link_output: 'clean',
   });
   assert.deepEqual(resolvedConfig.front_page, {
     type: 'markdown',
@@ -1031,6 +1097,7 @@ test('adds git updated_at timestamp and honors page-level overrides', async () =
 
   assert.deepEqual(resolvedConfig.markdown, {
     updated_at: 'git',
+    link_output: 'clean',
   });
   assert.equal(pages.get('index').updated_at_iso, '2026-05-27T11:20:30+09:00');
   assert.equal(Object.hasOwn(pages.get('skip'), 'updated_at_iso'), false);
@@ -1150,31 +1217,34 @@ test('warns and ignores invalid front matter updated_at values', () => {
   }
 });
 
-test('rejects invalid markdown updated_at config', async () => {
-  const tempDir = await makeTempDir();
-  const sourceDir = path.join(tempDir, 'docs');
-  await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
-  await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nContent.', 'utf8');
-  await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-    version: '0.1',
-    markdown: {
-      updated_at: 'mtime',
-    },
-    front_page: {
-      type: 'markdown',
-    },
-  }, null, 2), 'utf8');
+test('rejects invalid markdown config', async () => {
+  for (const markdownConfig of [
+    { updated_at: 'mtime' },
+    { link_output: 'pretty' },
+  ]) {
+    const tempDir = await makeTempDir();
+    const sourceDir = path.join(tempDir, 'docs');
+    await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
+    await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nContent.', 'utf8');
+    await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
+      version: '0.1',
+      markdown: markdownConfig,
+      front_page: {
+        type: 'markdown',
+      },
+    }, null, 2), 'utf8');
 
-  await assert.rejects(
-    () => runBuildPages({
-      cwd: tempDir,
-      source: 'docs',
-      destination: '_site',
-      themePath: path.join(packageDir, 'themes', 'docs1'),
-      skipLinkCheck: true,
-    }),
-    /Build pages prebuild failed/,
-  );
+    await assert.rejects(
+      () => runBuildPages({
+        cwd: tempDir,
+        source: 'docs',
+        destination: '_site',
+        themePath: path.join(packageDir, 'themes', 'docs1'),
+        skipLinkCheck: true,
+      }),
+      /Build pages prebuild failed/,
+    );
+  }
 });
 
 test('rejects invalid site logo and site meta config', async () => {
