@@ -10,7 +10,7 @@ export async function checkInternalLinks(siteDir) {
     const links = extractInternalLinks(html);
 
     for (const link of links) {
-      if (!(await linkExists(siteDir, link))) {
+      if (!(await linkExists(siteDir, filePath, link))) {
         brokenLinks.push(`${path.relative(siteDir, filePath)} -> ${link}`);
       }
     }
@@ -43,41 +43,68 @@ async function listFiles(dir, predicate) {
 
 function extractInternalLinks(html) {
   const links = [];
-  const pattern = /\b(?:href|src)="([^"]+)"/g;
+  const pattern = /\b(href|src|poster|srcset)\s*=\s*(["'])(.*?)\2/gi;
   let match;
 
   while ((match = pattern.exec(html)) !== null) {
-    const raw = match[1].trim();
-    if (
-      !raw
-      || raw.startsWith('#')
-      || /^[a-z][a-z0-9+.-]*:/i.test(raw)
-      || raw.startsWith('//')
-    ) {
+    const attrName = match[1].toLowerCase();
+    const raw = match[3].trim();
+    if (attrName === 'srcset') {
+      for (const link of extractSrcsetLinks(raw)) {
+        if (shouldCheckInternalLink(link)) {
+          links.push(stripHashAndQuery(link));
+        }
+      }
       continue;
     }
 
-    links.push(stripHashAndQuery(raw));
+    if (shouldCheckInternalLink(raw)) {
+      links.push(stripHashAndQuery(raw));
+    }
   }
 
   return links.filter(Boolean);
+}
+
+function extractSrcsetLinks(value) {
+  return value
+    .split(',')
+    .map((candidate) => candidate.trim().split(/\s+/)[0])
+    .filter(Boolean);
+}
+
+function shouldCheckInternalLink(raw) {
+  return !(
+    !raw
+    || raw.startsWith('#')
+    || /^[a-z][a-z0-9+.-]*:/i.test(raw)
+    || raw.startsWith('//')
+  );
 }
 
 function stripHashAndQuery(link) {
   return link.split('#')[0].split('?')[0];
 }
 
-async function linkExists(siteDir, link) {
-  const relativePath = decodeURIComponent(link.replace(/^\/+/, ''));
+async function linkExists(siteDir, htmlFilePath, link) {
+  const target = resolveLinkTarget(siteDir, htmlFilePath, link);
+  if (!target || !isPathInside(siteDir, target)) {
+    return false;
+  }
+
   const candidates = link.endsWith('/')
-    ? [path.join(siteDir, relativePath, 'index.html')]
+    ? [path.join(target, 'index.html')]
     : [
-      path.join(siteDir, relativePath),
-      path.join(siteDir, `${relativePath}.html`),
-      path.join(siteDir, relativePath, 'index.html'),
+      target,
+      `${target}.html`,
+      path.join(target, 'index.html'),
     ];
 
   for (const candidate of candidates) {
+    if (!isPathInside(siteDir, candidate)) {
+      continue;
+    }
+
     try {
       const stat = await fs.stat(candidate);
       if (stat.isFile()) {
@@ -91,4 +118,24 @@ async function linkExists(siteDir, link) {
   }
 
   return false;
+}
+
+function resolveLinkTarget(siteDir, htmlFilePath, link) {
+  let decodedLink;
+  try {
+    decodedLink = decodeURIComponent(link);
+  } catch {
+    return '';
+  }
+
+  if (decodedLink.startsWith('/')) {
+    return path.resolve(siteDir, decodedLink.replace(/^\/+/, ''));
+  }
+
+  return path.resolve(path.dirname(htmlFilePath), decodedLink);
+}
+
+function isPathInside(parent, child) {
+  const relativePath = path.relative(path.resolve(parent), path.resolve(child));
+  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
 }

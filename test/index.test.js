@@ -451,6 +451,70 @@ test('rewrites source-relative markdown links with explicit html output when con
   assert.match(indexHtml, /href="#local"/);
 });
 
+test('rewrites source-relative public asset links when the target exists in public-dir', async () => {
+  const tempDir = await makeTempDir();
+  const sourceDir = path.join(tempDir, 'docs');
+  const publicDir = path.join(tempDir, 'public');
+  await fs.mkdir(path.join(sourceDir, 'markdown', 'features'), { recursive: true });
+  await fs.mkdir(path.join(publicDir, 'files'), { recursive: true });
+  await fs.mkdir(path.join(publicDir, 'images'), { recursive: true });
+  await fs.mkdir(path.join(publicDir, 'videos'), { recursive: true });
+  await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nHome.', 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'guide.md'), '# Guide\n\nGuide.', 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'markdown', 'features', 'index.md'), [
+    '# Features',
+    '',
+    '![Logo](../../../public/favicon.png)',
+    '[PDF](../../../public/files/doc.pdf?download=1#page)',
+    '[Missing](../../../public/missing.png)',
+    '[Outside](../../../outside.png)',
+    '[Root](/root-logo.png)',
+    '[External](https://example.com/favicon.png)',
+    '[Hash](#images)',
+    '[Guide](../../guide.md#part)',
+    '<img src="../../../public/favicon.svg#icon" alt="Icon">',
+    '<video poster="../../../public/images/poster.png" src="../../../public/videos/demo.mp4"></video>',
+    '<source srcset="../../../public/images/small.png 1x, ../../../public/images/large.png 2x">',
+    '',
+    '```md',
+    '![Code](../../../public/code-only.png)',
+    '```',
+  ].join('\n'), 'utf8');
+  await fs.writeFile(path.join(publicDir, 'favicon.png'), 'png', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'favicon.svg'), '<svg></svg>', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'files', 'doc.pdf'), 'pdf', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'images', 'poster.png'), 'poster', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'images', 'small.png'), 'small', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'images', 'large.png'), 'large', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'videos', 'demo.mp4'), 'video', 'utf8');
+
+  await runBuildPages({
+    cwd: tempDir,
+    source: 'docs',
+    publicDir: 'public',
+    destination: '_site',
+    theme: 'docs',
+    themePath: path.join(packageDir, 'themes', 'docs1'),
+    skipLinkCheck: true,
+  });
+
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
+  const featuresPage = previewData.content.pages.find((page) => page.slug === 'markdown-features');
+
+  assert.match(featuresPage.content, /!\[Logo\]\(\/favicon\.png\)/);
+  assert.match(featuresPage.content, /\[PDF\]\(\/files\/doc\.pdf\?download=1#page\)/);
+  assert.match(featuresPage.content, /\[Missing\]\(\.\.\/\.\.\/\.\.\/public\/missing\.png\)/);
+  assert.match(featuresPage.content, /\[Outside\]\(\.\.\/\.\.\/\.\.\/outside\.png\)/);
+  assert.match(featuresPage.content, /\[Root\]\(\/root-logo\.png\)/);
+  assert.match(featuresPage.content, /\[External\]\(https:\/\/example\.com\/favicon\.png\)/);
+  assert.match(featuresPage.content, /\[Hash\]\(#images\)/);
+  assert.match(featuresPage.content, /\[Guide\]\(\/guide#part\)/);
+  assert.match(featuresPage.content, /<img src="\/favicon\.svg#icon" alt="Icon">/);
+  assert.match(featuresPage.content, /<video poster="\/images\/poster\.png" src="\/videos\/demo\.mp4"><\/video>/);
+  assert.match(featuresPage.content, /<source srcset="\/images\/small\.png 1x, \/images\/large\.png 2x">/);
+  assert.match(featuresPage.content, /!\[Code\]\(\.\.\/\.\.\/\.\.\/public\/code-only\.png\)/);
+});
+
 test('builds with a separated public directory', async () => {
   const tempDir = await makeTempDir();
   const sourceDir = path.join(tempDir, 'docs');
@@ -1377,12 +1441,28 @@ test('rejects invalid config collections', async () => {
 test('link checker reports broken links without throwing', async () => {
   const tempDir = await makeTempDir();
   const siteDir = path.join(tempDir, '_site');
-  await fs.mkdir(siteDir, { recursive: true });
+  await fs.mkdir(path.join(siteDir, 'docs', 'topic'), { recursive: true });
+  await fs.mkdir(path.join(siteDir, 'docs'), { recursive: true });
+  await fs.mkdir(path.join(siteDir, 'assets'), { recursive: true });
+  await fs.writeFile(path.join(siteDir, 'assets', 'logo.png'), 'logo', 'utf8');
+  await fs.writeFile(path.join(siteDir, 'assets', 'large.png'), 'large', 'utf8');
+  await fs.writeFile(path.join(siteDir, 'docs', 'index.html'), '<h1>Docs</h1>', 'utf8');
+  await fs.writeFile(path.join(siteDir, 'docs', 'topic', 'index.html'), [
+    '<img src="../../assets/logo.png">',
+    '<img srcset="../../assets/logo.png 1x, ../../assets/large.png 2x">',
+    '<video poster="../../assets/logo.png"></video>',
+    '<a href="../">Parent</a>',
+    '<a href="/assets/logo.png">Root</a>',
+    '<a href="../../../outside.txt">Escape</a>',
+  ].join('\n'), 'utf8');
   await fs.writeFile(path.join(siteDir, 'index.html'), '<a href="/missing">Missing</a>', 'utf8');
 
   const result = await checkInternalLinks(siteDir);
-  assert.equal(result.htmlFiles.length, 1);
-  assert.deepEqual(result.brokenLinks, ['index.html -> /missing']);
+  assert.equal(result.htmlFiles.length, 3);
+  assert.deepEqual(result.brokenLinks.sort(), [
+    'docs/topic/index.html -> ../../../outside.txt',
+    'index.html -> /missing',
+  ]);
 });
 
 test('action metadata and entrypoint use supported inputs', async () => {

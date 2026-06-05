@@ -104,6 +104,7 @@ async function main() {
   const routeBySourcePath = new Map(
     pageInputs.map(({ sourcePath, route }) => [sourcePath, route]),
   );
+  const publicAssetUrls = await buildPublicAssetUrlMap(publicDir);
   const collections = normalizeCollections(config.collections, pageInputs, skippedMarkdown);
   if (Object.keys(collections).length > 0) {
     resolvedConfig.collections = collections;
@@ -123,7 +124,7 @@ async function main() {
       },
       ...(frontMatter.data !== undefined ? { data: frontMatter.data } : {}),
       ...(frontMatter.discoverability !== 'default' ? { discoverability: frontMatter.discoverability } : {}),
-      content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath, markdownConfig.link_output),
+      content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath, markdownConfig.link_output, publicAssetUrls),
       document_type: 'markdown',
       excerpt: frontMatter.description || extractExcerpt(bodyMarkdown, title),
       status: 'published',
@@ -1498,6 +1499,56 @@ async function listMarkdownFiles(dir) {
   return files.sort((left, right) => left.localeCompare(right));
 }
 
+async function buildPublicAssetUrlMap(dir) {
+  const assetUrls = new Map();
+  await collectPublicAssetUrls(dir, dir, assetUrls);
+  return assetUrls;
+}
+
+async function collectPublicAssetUrls(root, currentDir, assetUrls) {
+  const entries = await fs.readdir(currentDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (shouldIgnorePublicAssetEntry(entry.name) || entry.isSymbolicLink()) {
+      continue;
+    }
+
+    const entryPath = path.join(currentDir, entry.name);
+    if (entry.isDirectory()) {
+      await collectPublicAssetUrls(root, entryPath, assetUrls);
+      continue;
+    }
+
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    assetUrls.set(path.resolve(entryPath), buildPublicAssetUrl(root, entryPath));
+  }
+}
+
+function buildPublicAssetUrl(root, filePath) {
+  const relativePath = path.relative(root, filePath).replace(/\\/g, '/');
+  const encodedPath = relativePath
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+
+  return `/${encodedPath}`;
+}
+
+function shouldIgnorePublicAssetEntry(name) {
+  const basename = String(name || '');
+  const lowerName = basename.toLowerCase();
+  return (
+    basename.startsWith('.')
+    || lowerName === 'node_modules'
+    || lowerName === 'thumbs.db'
+    || lowerName.endsWith('.key')
+    || lowerName.endsWith('.pem')
+  );
+}
+
 function buildMarkdownDiscoverExcludeRoots() {
   if (samePath(sourceDir, publicDir) || !isPathInside(sourceDir, publicDir)) {
     return [];
@@ -1749,32 +1800,130 @@ function isMarkdownHeadingBlock(block) {
   );
 }
 
-function rewriteMarkdownLinks(markdown, sourcePath, routes, linkOutput = 'clean') {
-  return markdown.replace(/(\[[^\]]+\]\()([^)]+)(\))/g, (full, prefix, rawTarget, suffix) => {
-    const rewritten = rewriteLinkTarget(rawTarget.trim(), sourcePath, routes, linkOutput);
-    return rewritten === rawTarget.trim() ? full : `${prefix}${rewritten}${suffix}`;
+function rewriteMarkdownLinks(markdown, sourcePath, routes, linkOutput = 'clean', publicAssetUrls = new Map()) {
+  return rewriteMarkdownOutsideFences(markdown, (chunk) => {
+    const withMarkdownLinks = chunk.replace(/(!?\[[^\]]+\]\()([^)]+)(\))/g, (full, prefix, rawTarget, suffix) => {
+      const trimmedTarget = rawTarget.trim();
+      const rewritten = rewriteLinkTarget(trimmedTarget, sourcePath, routes, linkOutput, publicAssetUrls);
+      return rewritten === trimmedTarget ? full : `${prefix}${rewritten}${suffix}`;
+    });
+
+    return rewriteRawHtmlAssetLinks(withMarkdownLinks, sourcePath, publicAssetUrls);
   });
 }
 
-function rewriteLinkTarget(target, sourcePath, routes, linkOutput = 'clean') {
-  if (
-    !target ||
-    target.startsWith('#') ||
-    target.startsWith('/') ||
-    /^[a-z][a-z0-9+.-]*:/i.test(target) ||
-    target.startsWith('//')
-  ) {
+function rewriteMarkdownOutsideFences(markdown, rewriteChunk) {
+  const lines = markdown.match(/.*(?:\r\n|\n|$)/g) || [];
+  if (lines.at(-1) === '') {
+    lines.pop();
+  }
+
+  const output = [];
+  let buffer = '';
+  let fence = null;
+
+  const flushBuffer = () => {
+    if (buffer) {
+      output.push(rewriteChunk(buffer));
+      buffer = '';
+    }
+  };
+
+  for (const line of lines) {
+    const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (fenceMatch) {
+      const marker = fenceMatch[1];
+      if (!fence) {
+        flushBuffer();
+        fence = {
+          char: marker[0],
+          length: marker.length,
+        };
+        output.push(line);
+        continue;
+      }
+
+      if (marker[0] === fence.char && marker.length >= fence.length) {
+        fence = null;
+      }
+      output.push(line);
+      continue;
+    }
+
+    if (fence) {
+      output.push(line);
+    } else {
+      buffer += line;
+    }
+  }
+
+  flushBuffer();
+  return output.join('');
+}
+
+function rewriteLinkTarget(target, sourcePath, routes, linkOutput = 'clean', publicAssetUrls = new Map()) {
+  if (shouldSkipContentUrl(target)) {
     return target;
   }
 
   const { pathname, suffix } = splitLinkTarget(target);
-  if (!pathname.endsWith('.md')) {
+  if (pathname.toLowerCase().endsWith('.md')) {
+    const resolvedPath = resolveContentTarget(pathname, sourcePath);
+    const route = routes.get(resolvedPath);
+    return route ? `${formatMarkdownLinkUrl(route.url, linkOutput)}${suffix}` : target;
+  }
+
+  return rewritePublicAssetTarget(target, sourcePath, publicAssetUrls);
+}
+
+function rewriteRawHtmlAssetLinks(html, sourcePath, publicAssetUrls) {
+  return html.replace(/\b(href|src|poster|srcset)\s*=\s*(["'])(.*?)\2/gi, (full, attrName, quote, rawValue) => {
+    const rewritten = attrName.toLowerCase() === 'srcset'
+      ? rewriteSrcset(rawValue, sourcePath, publicAssetUrls)
+      : rewritePublicAssetTarget(rawValue.trim(), sourcePath, publicAssetUrls);
+
+    return rewritten === rawValue.trim() ? full : `${attrName}=${quote}${rewritten}${quote}`;
+  });
+}
+
+function rewriteSrcset(value, sourcePath, publicAssetUrls) {
+  return value.split(',').map((candidate) => {
+    const prefix = candidate.match(/^\s*/)?.[0] || '';
+    const suffix = candidate.match(/\s*$/)?.[0] || '';
+    const trimmed = candidate.trim();
+    if (!trimmed) {
+      return candidate;
+    }
+
+    const parts = trimmed.split(/\s+/);
+    const rewrittenUrl = rewritePublicAssetTarget(parts[0], sourcePath, publicAssetUrls);
+    return `${prefix}${[rewrittenUrl, ...parts.slice(1)].join(' ')}${suffix}`;
+  }).join(',');
+}
+
+function rewritePublicAssetTarget(target, sourcePath, publicAssetUrls) {
+  if (shouldSkipContentUrl(target)) {
     return target;
   }
 
-  const resolvedPath = resolveMarkdownTarget(pathname, sourcePath);
-  const route = routes.get(resolvedPath);
-  return route ? `${formatMarkdownLinkUrl(route.url, linkOutput)}${suffix}` : target;
+  const { pathname, suffix } = splitLinkTarget(target);
+  if (!pathname || pathname.toLowerCase().endsWith('.md')) {
+    return target;
+  }
+
+  const resolvedPath = resolveContentTarget(pathname, sourcePath);
+  const publicUrl = publicAssetUrls.get(resolvedPath);
+  return publicUrl ? `${publicUrl}${suffix}` : target;
+}
+
+function shouldSkipContentUrl(target) {
+  return (
+    !target
+    || target.startsWith('#')
+    || target.startsWith('/')
+    || /^[a-z][a-z0-9+.-]*:/i.test(target)
+    || target.startsWith('//')
+  );
 }
 
 function formatMarkdownLinkUrl(routeUrl, linkOutput) {
@@ -1799,7 +1948,7 @@ function splitLinkTarget(target) {
   };
 }
 
-function resolveMarkdownTarget(targetPath, sourcePath) {
+function resolveContentTarget(targetPath, sourcePath) {
   return path.normalize(path.resolve(path.dirname(sourcePath), targetPath));
 }
 

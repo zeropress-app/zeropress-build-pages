@@ -64211,7 +64211,7 @@ async function checkInternalLinks(siteDir) {
     const html = await fs2.readFile(filePath, "utf8");
     const links = extractInternalLinks(html);
     for (const link2 of links) {
-      if (!await linkExists(siteDir, link2)) {
+      if (!await linkExists(siteDir, filePath, link2)) {
         brokenLinks.push(`${path2.relative(siteDir, filePath)} -> ${link2}`);
       }
     }
@@ -64238,28 +64238,48 @@ async function listFiles(dir, predicate) {
 }
 function extractInternalLinks(html) {
   const links = [];
-  const pattern = /\b(?:href|src)="([^"]+)"/g;
+  const pattern = /\b(href|src|poster|srcset)\s*=\s*(["'])(.*?)\2/gi;
   let match2;
   while ((match2 = pattern.exec(html)) !== null) {
-    const raw = match2[1].trim();
-    if (!raw || raw.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith("//")) {
+    const attrName = match2[1].toLowerCase();
+    const raw = match2[3].trim();
+    if (attrName === "srcset") {
+      for (const link2 of extractSrcsetLinks(raw)) {
+        if (shouldCheckInternalLink(link2)) {
+          links.push(stripHashAndQuery(link2));
+        }
+      }
       continue;
     }
-    links.push(stripHashAndQuery(raw));
+    if (shouldCheckInternalLink(raw)) {
+      links.push(stripHashAndQuery(raw));
+    }
   }
   return links.filter(Boolean);
+}
+function extractSrcsetLinks(value) {
+  return value.split(",").map((candidate) => candidate.trim().split(/\s+/)[0]).filter(Boolean);
+}
+function shouldCheckInternalLink(raw) {
+  return !(!raw || raw.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith("//"));
 }
 function stripHashAndQuery(link2) {
   return link2.split("#")[0].split("?")[0];
 }
-async function linkExists(siteDir, link2) {
-  const relativePath = decodeURIComponent(link2.replace(/^\/+/, ""));
-  const candidates = link2.endsWith("/") ? [path2.join(siteDir, relativePath, "index.html")] : [
-    path2.join(siteDir, relativePath),
-    path2.join(siteDir, `${relativePath}.html`),
-    path2.join(siteDir, relativePath, "index.html")
+async function linkExists(siteDir, htmlFilePath, link2) {
+  const target = resolveLinkTarget(siteDir, htmlFilePath, link2);
+  if (!target || !isPathInside2(siteDir, target)) {
+    return false;
+  }
+  const candidates = link2.endsWith("/") ? [path2.join(target, "index.html")] : [
+    target,
+    `${target}.html`,
+    path2.join(target, "index.html")
   ];
   for (const candidate of candidates) {
+    if (!isPathInside2(siteDir, candidate)) {
+      continue;
+    }
     try {
       const stat = await fs2.stat(candidate);
       if (stat.isFile()) {
@@ -64272,6 +64292,22 @@ async function linkExists(siteDir, link2) {
     }
   }
   return false;
+}
+function resolveLinkTarget(siteDir, htmlFilePath, link2) {
+  let decodedLink;
+  try {
+    decodedLink = decodeURIComponent(link2);
+  } catch {
+    return "";
+  }
+  if (decodedLink.startsWith("/")) {
+    return path2.resolve(siteDir, decodedLink.replace(/^\/+/, ""));
+  }
+  return path2.resolve(path2.dirname(htmlFilePath), decodedLink);
+}
+function isPathInside2(parent, child) {
+  const relativePath = path2.relative(path2.resolve(parent), path2.resolve(child));
+  return relativePath === "" || !relativePath.startsWith("..") && !path2.isAbsolute(relativePath);
 }
 
 // src/index.js
@@ -64486,7 +64522,7 @@ function assertBuildPagesPathLayout({
   assertSourceIsNotInsidePublicDirectory(cwd, sourceDir, publicDir);
 }
 function assertSourceIsNotInsidePublicDirectory(cwd, sourceDir, publicDir) {
-  if (samePath(sourceDir, publicDir) || !isPathInside2(publicDir, sourceDir)) {
+  if (samePath(sourceDir, publicDir) || !isPathInside3(publicDir, sourceDir)) {
     return;
   }
   throw new Error(
@@ -64541,7 +64577,7 @@ async function copySourceMarkdownFiles(sourceDir, targetDir, previewData) {
       continue;
     }
     const sourcePath = path3.join(sourceDir, relativePath);
-    if (!isPathInside2(sourceDir, sourcePath)) {
+    if (!isPathInside3(sourceDir, sourcePath)) {
       continue;
     }
     const targetPath = path3.join(targetDir, relativePath);
@@ -64584,12 +64620,12 @@ function isExcludedPath(candidate, excludePaths) {
 function pathsOverlap2(firstPath, secondPath) {
   const first = path3.resolve(firstPath);
   const second = path3.resolve(secondPath);
-  return first === second || isPathInside2(first, second) || isPathInside2(second, first);
+  return first === second || isPathInside3(first, second) || isPathInside3(second, first);
 }
 function samePath(firstPath, secondPath) {
   return path3.resolve(firstPath) === path3.resolve(secondPath);
 }
-function isPathInside2(parentPath, childPath) {
+function isPathInside3(parentPath, childPath) {
   const relativePath = path3.relative(parentPath, childPath);
   return Boolean(relativePath) && !relativePath.startsWith("..") && !path3.isAbsolute(relativePath);
 }

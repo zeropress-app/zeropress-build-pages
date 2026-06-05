@@ -308,6 +308,7 @@ Additional Markdown discovery ignores:
 - Other Markdown files map to extensionless routes, such as `cli/tool.md` -> `/cli/tool`.
 - Source-relative Markdown links to other discovered `.md` files are rewritten to generated public URLs.
 - Config `markdown.link_output` controls whether rewritten links use clean URLs or explicit `.html` URLs.
+- Source-relative links to existing files under `public-dir` are rewritten to output-root public URLs.
 - Original Markdown files remain available as public passthrough files by default.
 - Use `--no-copy-markdown-source` or Action input `copy-markdown-source: false` to keep source Markdown and public `.md` passthrough files out of the generated output. This also hides bundled theme `View this page as Markdown` links.
 
@@ -504,7 +505,15 @@ Menu item `meta` is optional scalar display metadata copied into generated previ
 
 `markdown.updated_at` is optional and accepts `none` or `git`. Missing or `none` keeps current behavior and generates no update date. `git` reads each Markdown file's latest Git commit date and adds `page.updated_at_iso` to generated preview-data. For accurate history in GitHub Actions, configure checkout with `fetch-depth: 0`.
 
-`markdown.link_output` is optional and accepts `clean` or `html`. Missing or `clean` keeps the default clean URL rewrite, such as `../guide/index.md` -> `/guide/` and `../spec/foo.md` -> `/spec/foo`. Use `html` when a host requires explicit HTML links, such as `../guide/index.md` -> `/guide/index.html` and `../spec/foo.md` -> `/spec/foo.html`. Query strings and hash fragments are preserved. Only source-relative `.md` links are rewritten; external URLs, root-relative URLs, anchors, and asset links are left unchanged.
+`markdown.link_output` is optional and accepts `clean` or `html`. Missing or `clean` keeps the default clean URL rewrite, such as `../guide/index.md` -> `/guide/` and `../spec/foo.md` -> `/spec/foo`. Use `html` when a host requires explicit HTML links, such as `../guide/index.md` -> `/guide/index.html` and `../spec/foo.md` -> `/spec/foo.html`. Query strings and hash fragments are preserved. This setting only controls source-relative `.md` page links; external URLs, root-relative URLs, anchors, and non-Markdown links are not changed by `markdown.link_output`.
+
+Source-relative links to existing files under `public-dir` are rewritten independently to output-root URLs. This keeps links usable in GitHub repository browsing and editors while still producing clean deployed asset URLs:
+
+```md
+![Logo](../public/logo.svg)
+```
+
+If `public-dir` is `./public` and `public/logo.svg` exists, Build Pages rewrites that image URL to `/logo.svg`. Query strings and hash fragments are preserved, such as `../public/icons.svg#mark` -> `/icons.svg#mark`. Missing files and files outside `public-dir` are left unchanged.
 
 Themes can render the generated value with normal escaped interpolation:
 
