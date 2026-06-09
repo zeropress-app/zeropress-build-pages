@@ -424,7 +424,7 @@ progressive enhancement owned by the theme or site.
 
 Build Pages reads `<source>/.zeropress/config.json` when present. Missing config falls back to defaults.
 
-See the public config reference at [zeropress.dev/build-pages-config](https://zeropress.dev/build-pages/config/).
+See the public config reference at [build-pages.zeropress.dev/reference/config/](https://build-pages.zeropress.dev/reference/config/).
 
 ```json
 {
