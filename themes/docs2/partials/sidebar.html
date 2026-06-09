@@ -23,7 +23,7 @@
                       {{#else_if_eq route.url item.url}}
                         aria-current="page"
                       {{#else_if_starts_with route.url item.url}}
-                        {{#if item.children}}data-current-parent="true"{{#else}}aria-current="page"{{/if}}
+                        {{#if item.children}}data-current-parent="true"{{/if}}
                       {{/if}}
                     >
                       {{item.title}}
@@ -39,8 +39,10 @@
                               {{#if_eq child.target "_blank"}}rel="noopener noreferrer"{{/if}}
                               {{#if_eq child.url "/"}}
                                 {{#if_eq route.url child.url}}aria-current="page"{{/if}}
-                              {{#else_if_starts_with route.url child.url}}
+                              {{#else_if_eq route.url child.url}}
                                 aria-current="page"
+                              {{#else_if_starts_with route.url child.url}}
+                                {{#if child.children}}data-current-parent="true"{{/if}}
                               {{/if}}
                             >
                               {{child.title}}
