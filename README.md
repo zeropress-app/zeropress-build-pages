@@ -575,7 +575,7 @@ Build Pages reads optional user-authored site config from `<source>/.zeropress/c
 
 `preview-data.json` is an internal generated build input for the ZeroPress renderer. Most users do not need to edit or understand this file.
 
-`build-report.json` records source/public roots, discovered Markdown counts, skipped Markdown files, front page resolution, source Markdown copy policy, and custom HTML slots.
+`build-report.json` records the Build Pages package version, source/public roots, discovered Markdown counts, skipped Markdown files, front page resolution, source Markdown copy policy, and custom HTML slots.
 
 `public-assets/` is a temporary staged public root used before the final ZeroPress render.
 

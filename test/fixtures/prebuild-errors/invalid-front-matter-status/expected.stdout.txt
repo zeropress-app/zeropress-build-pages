@@ -2,11 +2,14 @@ Wrote .zeropress-build-page/preview-data.json with 0 pages
 ZeroPress build report
 - Source root: test/fixtures/prebuild-errors/invalid-front-matter-status/documents
 - Public root: test/fixtures/prebuild-errors/invalid-front-matter-status/documents
+- Theme: unknown
 - Markdown discovered: 1
 - Markdown pages generated: 0
 - Markdown skipped: 1
 - Total preview pages: 0
+- Source config: test/fixtures/prebuild-errors/invalid-front-matter-status/documents/.zeropress/config.json (not found; using defaults)
+- Config reference: https://build-pages.zeropress.dev/reference/config/
+- Resolved config: .zeropress-build-page/build-pages-config.json (generated effective config)
 - Front page: theme_index -> /
 - Custom HTML slots: none
-- Resolved config: .zeropress-build-page/build-pages-config.json
 - Report: .zeropress-build-page/build-report.json

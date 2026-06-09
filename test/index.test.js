@@ -7,7 +7,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { checkInternalLinks } from '../src/check-links.js';
-import { formatBuildPagesSuccessMessage, parseArgs, runBuildPages } from '../src/index.js';
+import {
+  formatBuildPagesBanner,
+  formatBuildPagesSuccessMessage,
+  parseArgs,
+  runBuildPages,
+} from '../src/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageDir = path.resolve(__dirname, '..');
@@ -16,6 +21,15 @@ const actionPath = path.join(packageDir, 'dist', 'action.js');
 const bundledPrebuildPath = path.join(packageDir, 'dist', 'prebuild.js');
 const fixtureRoot = path.join(packageDir, 'test', 'fixtures', 'prebuild-errors');
 const prebuildScript = path.join(packageDir, 'src', 'prebuild.js');
+
+async function readBundledThemeId(themeName) {
+  const manifest = JSON.parse(await fs.readFile(path.join(packageDir, 'themes', themeName, 'theme.json'), 'utf8'));
+  return `${manifest.namespace}.${manifest.slug}@${manifest.version}`;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function withColorEnv(env, fn) {
   const previousForceColor = process.env.FORCE_COLOR;
@@ -56,6 +70,14 @@ test('formatBuildPagesSuccessMessage uses success color when color is enabled', 
   ));
 
   assert.equal(message, '\x1b[32mBuilt ZeroPress Pages site successfully\x1b[0m');
+});
+
+test('formatBuildPagesBanner uses bold cyan color when color is enabled', () => {
+  const message = withColorEnv({ FORCE_COLOR: '1' }, () => (
+    formatBuildPagesBanner('0.6.7', { isTTY: false })
+  ));
+
+  assert.equal(message, '\x1b[1;36mZeroPress Build Pages 0.6.7\x1b[0m');
 });
 
 test('CLI prints help and version', () => {
@@ -332,6 +354,9 @@ test('builds a source directory without config and preserves markdown passthroug
 
   assert.equal(previewData.site.indexing, true);
   assert.equal(previewData.site.expose_generator, true);
+  assert.equal(buildReport.build_pages_version, JSON.parse(await fs.readFile(path.join(packageDir, 'package.json'), 'utf8')).version);
+  assert.equal(buildReport.theme_id, await readBundledThemeId('docs1'));
+  assert.match(buildReport.theme_id, /^[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*@\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/);
   assert.equal(homePage.title, 'Front Matter Home');
   assert.equal(homePage.excerpt, 'Home from front matter.');
   assert.equal(customPage.title, 'Custom Front Matter Title');
@@ -547,6 +572,7 @@ test('builds with a separated public directory', async () => {
 
   assert.match(buildReport.source_dir, /docs$/);
   assert.match(buildReport.public_dir, /public$/);
+  assert.equal(buildReport.theme_id, await readBundledThemeId('docs1'));
   assert.equal(previewData.content.pages.find((page) => page.slug === 'guide').meta.source_markdown_url, '/guide.md');
   assert.match(indexHtml, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
   assert.equal(robotsTxt, 'User-agent: *\nDisallow: /tmp\n');
@@ -1493,6 +1519,12 @@ test('action metadata and entrypoint use supported inputs', async () => {
   });
 
   assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /ZeroPress Build Pages \d+\.\d+\.\d+/);
+  assert.match(result.stdout, /Docs: https:\/\/build-pages\.zeropress\.dev\//);
+  assert.match(result.stdout, new RegExp(`Theme: ${escapeRegExp(await readBundledThemeId('docs2'))}`));
+  assert.match(result.stdout, /Source config: .*\.zeropress\/config\.json \(not found; using defaults\)/);
+  assert.match(result.stdout, /Config reference: https:\/\/build-pages\.zeropress\.dev\/reference\/config\//);
+  assert.match(result.stdout, /Resolved config: \.zeropress-build-page\/build-pages-config\.json \(generated effective config\)/);
   await fs.access(path.join(tempDir, '_site', 'index.html'));
   await fs.access(path.join(tempDir, '_site', 'index.md'));
   await fs.access(path.join(tempDir, '_site', 'asset.txt'));

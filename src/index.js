@@ -14,6 +14,7 @@ const INTERNAL_WORK_DIR = '.zeropress-build-page';
 const PREVIEW_DATA_PATH = `${INTERNAL_WORK_DIR}/preview-data.json`;
 const STAGING_DIR = `${INTERNAL_WORK_DIR}/public-assets`;
 const DEFAULT_THEME = 'docs';
+const BUILD_PAGES_DOCS_URL = 'https://build-pages.zeropress.dev/';
 const BUNDLED_THEME_ALIASES = new Map([
   ['docs', 'docs1'],
   ['docs1', 'docs1'],
@@ -46,6 +47,10 @@ export async function runCli(argv = process.argv.slice(2)) {
 }
 
 export async function runBuildPages(options) {
+  const packageJson = await readPackageJson();
+  console.log(formatBuildPagesBanner(packageJson.version));
+  console.log(`Docs: ${formatDocsUrl(packageJson.homepage || BUILD_PAGES_DOCS_URL)}`);
+
   const cwd = path.resolve(options.cwd || process.cwd());
   const copyMarkdownSource = options.copyMarkdownSource !== false;
   const sourceDir = path.resolve(cwd, options.source);
@@ -70,6 +75,7 @@ export async function runBuildPages(options) {
   await assertDirectory(themeDir, 'Theme directory');
   await assertPublicDirectory(publicDir, publicDirExplicit);
   await assertDestinationPath(destinationDir);
+  const themeId = await readThemeId(themeDir);
   await fs.rm(generatedDir, { recursive: true, force: true });
   await fs.mkdir(generatedDir, { recursive: true });
 
@@ -80,6 +86,7 @@ export async function runBuildPages(options) {
     ZEROPRESS_PUBLIC_DIR: publicDir,
     ZEROPRESS_SKIP_UNTITLED_MARKDOWN: String(Boolean(options.skipUntitledMarkdown)),
     ZEROPRESS_COPY_MARKDOWN_SOURCE: String(copyMarkdownSource),
+    ZEROPRESS_BUILD_PAGES_THEME_ID: themeId,
   };
   if (options.config) {
     env.ZEROPRESS_BUILD_PAGES_CONFIG = path.resolve(cwd, options.config);
@@ -136,6 +143,45 @@ export async function runBuildPages(options) {
     }
     console.log(`Checked ${result.htmlFiles.length} HTML files for internal links`);
   }
+}
+
+async function readPackageJson() {
+  return JSON.parse(await fs.readFile(path.join(packageDir, 'package.json'), 'utf8'));
+}
+
+async function readThemeId(themeDir) {
+  const themeJsonPath = path.join(themeDir, 'theme.json');
+  let rawThemeJson;
+  try {
+    rawThemeJson = await fs.readFile(themeJsonPath, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      throw new Error(`Theme manifest not found: ${themeJsonPath}`);
+    }
+    throw error;
+  }
+
+  let manifest;
+  try {
+    manifest = JSON.parse(rawThemeJson);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Theme manifest is not valid JSON: ${themeJsonPath}\nReason: ${message}`);
+  }
+
+  const namespace = typeof manifest.namespace === 'string' ? manifest.namespace.trim() : '';
+  const slug = typeof manifest.slug === 'string' ? manifest.slug.trim() : '';
+  const version = typeof manifest.version === 'string' ? manifest.version.trim() : '';
+
+  if (!namespace || !slug || !version) {
+    throw new Error(`Theme manifest must include namespace, slug, and version: ${themeJsonPath}`);
+  }
+
+  return `${namespace}.${slug}@${version}`;
+}
+
+function formatDocsUrl(value) {
+  return value.endsWith('/') ? value : `${value}/`;
 }
 
 export function parseArgs(argv) {
@@ -237,6 +283,10 @@ export function formatBuildPagesSuccessMessage(stream = process.stdout) {
   return createColor(stream).green('Built ZeroPress Pages site successfully');
 }
 
+export function formatBuildPagesBanner(version, stream = process.stdout) {
+  return createColor(stream).cyanBold(`ZeroPress Build Pages ${version}`);
+}
+
 function colorizeError(message) {
   if (!colorsEnabled(process.stderr)) {
     return message;
@@ -256,6 +306,7 @@ function createColor(stream) {
     red: (value) => wrap('31', value),
     yellow: (value) => wrap('33', value),
     green: (value) => wrap('32', value),
+    cyanBold: (value) => wrap('1;36', value),
   };
 }
 
