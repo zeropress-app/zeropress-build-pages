@@ -56,7 +56,7 @@ flowchart TD
   output --> html["HTML pages"]
   output --> assets["Theme assets"]
   output --> copied["Copied public files"]
-  output --> special["sitemap.xml / fallback robots.txt / feed.xml"]
+  output --> special["sitemap.xml / fallback robots.txt"]
 ```
 
 ## Usage

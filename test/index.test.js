@@ -383,6 +383,7 @@ test('builds a source directory without config and preserves markdown passthroug
     await fs.readFile(path.join(tempDir, '_site', 'sitemap.xml'), 'utf8'),
     /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<\?xml-stylesheet type="text\/xsl" href="\/sitemap\.xsl"\?>\n<urlset/,
   );
+  await assert.rejects(() => fs.access(path.join(tempDir, '_site', 'feed.xml')));
   await fs.access(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'));
 });
 
@@ -1485,6 +1486,7 @@ test('action metadata and entrypoint use supported inputs', async () => {
       'INPUT_PUBLIC-DIR': 'public',
       INPUT_DESTINATION: '_site',
       INPUT_THEME: 'docs2',
+      'INPUT_SITE-URL': 'https://example.com',
       'INPUT_SKIP-LINK-CHECK': 'true',
     },
     encoding: 'utf8',
@@ -1494,6 +1496,8 @@ test('action metadata and entrypoint use supported inputs', async () => {
   await fs.access(path.join(tempDir, '_site', 'index.html'));
   await fs.access(path.join(tempDir, '_site', 'index.md'));
   await fs.access(path.join(tempDir, '_site', 'asset.txt'));
+  await fs.access(path.join(tempDir, '_site', 'sitemap.xml'));
+  assert.equal(await pathExists(path.join(tempDir, '_site', 'feed.xml')), false);
 
   const privateTempDir = await makeTempDir();
   await fs.mkdir(path.join(privateTempDir, 'docs'), { recursive: true });

@@ -114,7 +114,7 @@ export async function runBuildPages(options) {
   const previousPublicDir = process.env.ZEROPRESS_PUBLIC_DIR;
   process.env.ZEROPRESS_PUBLIC_DIR = stagingDir;
   try {
-    const result = await runBuild(themeDir, previewData, destinationDir);
+    const result = await runBuild(themeDir, previewData, destinationDir, { generateFeed: false });
     console.log(formatBuildPagesSuccessMessage());
     console.log(`Files: ${result.files.length}`);
     console.log(`Output: ${formatPath(cwd, destinationDir)}`);
