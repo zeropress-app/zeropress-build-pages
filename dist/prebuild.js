@@ -3526,6 +3526,7 @@ import { fileURLToPath } from "node:url";
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var execFileAsync = promisify(execFile);
 var rootDir = process.cwd();
+var packageDir = path.resolve(__dirname, "..");
 var sourceDir = resolveEnvPath(["ZEROPRESS_BUILD_PAGES_SOURCE"], "docs");
 var publicDir = resolveEnvPath(["ZEROPRESS_BUILD_PAGES_PUBLIC_DIR"], sourceDir);
 var defaultConfigPath = path.join(sourceDir, ".zeropress", "config.json");
@@ -3536,6 +3537,7 @@ var previewDataPath = path.join(outDir, "preview-data.json");
 var buildReportPath = path.join(outDir, "build-report.json");
 var skipUntitledMarkdown = readBooleanEnv("ZEROPRESS_SKIP_UNTITLED_MARKDOWN");
 var copyMarkdownSource = readBooleanEnv("ZEROPRESS_COPY_MARKDOWN_SOURCE", true);
+var themeId = process.env.ZEROPRESS_BUILD_PAGES_THEME_ID || "";
 var FRONT_PAGE_TYPES = /* @__PURE__ */ new Set(["theme_index", "markdown", "html"]);
 var BUILD_PAGES_CONFIG_SCHEMA_URL = "https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json";
 var PREVIEW_DATA_SCHEMA_URL = "https://schemas.zeropress.dev/preview-data/v0.6/schema.json";
@@ -3546,7 +3548,9 @@ var FRONT_MATTER_DATA_MAX_ARRAY_LENGTH = 256;
 var FRONT_MATTER_DISCOVERABILITY_VALUES = /* @__PURE__ */ new Set(["default", "noindex", "delist"]);
 var MARKDOWN_UPDATED_AT_VALUES = /* @__PURE__ */ new Set(["none", "git"]);
 var MARKDOWN_LINK_OUTPUT_VALUES = /* @__PURE__ */ new Set(["clean", "html"]);
+var CONFIG_REFERENCE_URL = "https://build-pages.zeropress.dev/reference/config/";
 var markdownDiscoverExcludeRoots = buildMarkdownDiscoverExcludeRoots();
+var configFound = false;
 var PrebuildMarkdownError = class extends Error {
   constructor(sourcePath, reason, expected = "", code = "invalid_markdown") {
     super(reason);
@@ -3567,6 +3571,7 @@ var PrebuildConfigError = class extends Error {
 };
 main().catch(handlePrebuildError);
 async function main() {
+  const packageJson = await readPackageJson();
   const config = await loadPrebuildConfig();
   const frontPageConfig = await normalizeDefaultFrontPageConfig(
     normalizeFrontPageConfig(config.front_page),
@@ -3673,6 +3678,7 @@ async function main() {
   await fs.writeFile(previewDataPath, `${JSON.stringify(previewData, null, 2)}
 `, "utf8");
   const report = buildPrebuildReport({
+    packageJson,
     sourceFiles,
     pageInputs,
     pages,
@@ -3727,6 +3733,7 @@ ${error.expected}`);
 async function loadPrebuildConfig() {
   try {
     const rawConfig = await fs.readFile(configPath, "utf8");
+    configFound = true;
     const parsed = JSON.parse(rawConfig);
     if (!isPlainObject(parsed)) {
       throw new PrebuildConfigError("config.json must contain a JSON object.");
@@ -3734,6 +3741,7 @@ async function loadPrebuildConfig() {
     return parsed;
   } catch (error) {
     if (error?.code === "ENOENT") {
+      configFound = false;
       return {};
     }
     if (error instanceof SyntaxError) {
@@ -3741,6 +3749,9 @@ async function loadPrebuildConfig() {
     }
     throw error;
   }
+}
+async function readPackageJson() {
+  return JSON.parse(await fs.readFile(path.join(packageDir, "package.json"), "utf8"));
 }
 function buildSiteData(config, frontPage) {
   const configuredSite = isPlainObject(config.site) ? config.site : normalizeSiteConfig(void 0);
@@ -4364,6 +4375,7 @@ function validateConfigId(value, pathLabel) {
   }
 }
 function buildPrebuildReport({
+  packageJson,
   sourceFiles,
   pageInputs,
   pages,
@@ -4374,9 +4386,13 @@ function buildPrebuildReport({
 }) {
   return {
     generated_at: (/* @__PURE__ */ new Date()).toISOString(),
+    build_pages_version: packageJson.version,
+    theme_id: themeId,
     source_dir: formatSourcePath(sourceDir),
     public_dir: formatSourcePath(publicDir),
     config_path: formatSourcePath(configPath),
+    config_found: configFound,
+    config_reference_url: CONFIG_REFERENCE_URL,
     build_pages_config_path: formatSourcePath(buildPagesConfigPath),
     preview_data_path: formatSourcePath(previewDataPath),
     report_path: formatSourcePath(buildReportPath),
@@ -4403,16 +4419,25 @@ function printPrebuildSummary(report) {
     "ZeroPress build report",
     `- Source root: ${report.source_dir}`,
     `- Public root: ${report.public_dir}`,
+    `- Theme: ${report.theme_id || "unknown"}`,
     `- Markdown discovered: ${report.markdown.discovered}`,
     `- Markdown pages generated: ${report.markdown.generated_pages}`,
     `- Markdown skipped: ${report.markdown.skipped}`,
     `- Total preview pages: ${report.pages.total}`,
+    `- Source config: ${formatConfigSummary(report)}`,
+    `- Config reference: ${report.config_reference_url}`,
+    `- Resolved config: ${report.build_pages_config_path} (generated effective config)`,
     `- Front page: ${formatFrontPageSummary(report.front_page)}`,
     `- Custom HTML slots: ${report.custom_html.length ? report.custom_html.join(", ") : "none"}`,
-    `- Resolved config: ${report.build_pages_config_path}`,
     `- Report: ${report.report_path}`
   ];
   console.log(lines.join("\n"));
+}
+function formatConfigSummary(report) {
+  if (report.config_found) {
+    return report.config_path;
+  }
+  return `${report.config_path} (not found; using defaults)`;
 }
 function formatFrontPageSummary(frontPageReport) {
   const config = frontPageReport.config;

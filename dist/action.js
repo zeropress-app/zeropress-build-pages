@@ -61034,6 +61034,7 @@ var ZeroPressEngine = class {
 var DEFAULT_OPTIONS = {
   assetHashing: true,
   generateSpecialFiles: true,
+  generateFeed: true,
   generateRobotsTxt: true,
   writeManifest: false
 };
@@ -61129,7 +61130,9 @@ async function buildSite(input2) {
         buildSitemapXml(state.previewData.site, state.emitted, state.generatedAt, options2.sitemapStylesheetHref),
         "application/xml"
       );
-      await writeOutput(state.writer, state.summaries, "feed.xml", buildFeedXml(state.previewData.site, state.emitted, state.generatedAt), "application/rss+xml");
+      if (shouldGenerateFeed(options2)) {
+        await writeOutput(state.writer, state.summaries, "feed.xml", buildFeedXml(state.previewData.site, state.emitted, state.generatedAt), "application/rss+xml");
+      }
     }
     if (shouldGenerateRobotsTxt(options2)) {
       await writeOutput(state.writer, state.summaries, "robots.txt", buildRobotsTxt(state.previewData.site), "text/plain");
@@ -63111,7 +63114,10 @@ function assertPlannedOutputPathsSafe(state) {
       plannedPaths.push("robots.txt");
     }
     if (hasCanonicalSiteUrl(state.previewData.site.url)) {
-      plannedPaths.push("sitemap.xml", "feed.xml");
+      plannedPaths.push("sitemap.xml");
+      if (shouldGenerateFeed(state.options)) {
+        plannedPaths.push("feed.xml");
+      }
     }
   }
   for (const plannedPath of plannedPaths) {
@@ -63786,6 +63792,9 @@ function buildRobotsTxt(site) {
 function shouldGenerateRobotsTxt(options2) {
   return options2.generateSpecialFiles && options2.generateRobotsTxt !== false;
 }
+function shouldGenerateFeed(options2) {
+  return options2.generateSpecialFiles && options2.generateFeed !== false;
+}
 function shouldGenerateSearchArtifacts(state, options2) {
   return options2.generateSpecialFiles && state.previewData.site.search === true;
 }
@@ -64032,6 +64041,7 @@ async function runBuild(themeDir, previewData, outDir, options2 = {}) {
     options: {
       favicon: publicFavicon,
       sitemapStylesheetHref,
+      generateFeed: options2.generateFeed,
       generateRobotsTxt: !hasPublicRobotsTxt
     }
   });
@@ -64317,12 +64327,16 @@ var prebuildScript = __dirname === path3.join(packageDir, "dist") ? path3.join(_
 var INTERNAL_WORK_DIR = ".zeropress-build-page";
 var PREVIEW_DATA_PATH = `${INTERNAL_WORK_DIR}/preview-data.json`;
 var STAGING_DIR = `${INTERNAL_WORK_DIR}/public-assets`;
+var BUILD_PAGES_DOCS_URL = "https://build-pages.zeropress.dev/";
 var BUNDLED_THEME_ALIASES = /* @__PURE__ */ new Map([
   ["docs", "docs1"],
   ["docs1", "docs1"],
   ["docs2", "docs2"]
 ]);
 async function runBuildPages(options2) {
+  const packageJson = await readPackageJson();
+  console.log(formatBuildPagesBanner(packageJson.version));
+  console.log(`Docs: ${formatDocsUrl(packageJson.homepage || BUILD_PAGES_DOCS_URL)}`);
   const cwd = path3.resolve(options2.cwd || process.cwd());
   const copyMarkdownSource = options2.copyMarkdownSource !== false;
   const sourceDir = path3.resolve(cwd, options2.source);
@@ -64346,6 +64360,7 @@ async function runBuildPages(options2) {
   await assertDirectory(themeDir, "Theme directory");
   await assertPublicDirectory(publicDir, publicDirExplicit);
   await assertDestinationPath(destinationDir);
+  const themeId = await readThemeId(themeDir);
   await fs3.rm(generatedDir, { recursive: true, force: true });
   await fs3.mkdir(generatedDir, { recursive: true });
   const env = {
@@ -64354,7 +64369,8 @@ async function runBuildPages(options2) {
     ZEROPRESS_BUILD_PAGES_PUBLIC_DIR: publicDir,
     ZEROPRESS_PUBLIC_DIR: publicDir,
     ZEROPRESS_SKIP_UNTITLED_MARKDOWN: String(Boolean(options2.skipUntitledMarkdown)),
-    ZEROPRESS_COPY_MARKDOWN_SOURCE: String(copyMarkdownSource)
+    ZEROPRESS_COPY_MARKDOWN_SOURCE: String(copyMarkdownSource),
+    ZEROPRESS_BUILD_PAGES_THEME_ID: themeId
   };
   if (options2.config) {
     env.ZEROPRESS_BUILD_PAGES_CONFIG = path3.resolve(cwd, options2.config);
@@ -64386,7 +64402,7 @@ async function runBuildPages(options2) {
   const previousPublicDir = process.env.ZEROPRESS_PUBLIC_DIR;
   process.env.ZEROPRESS_PUBLIC_DIR = stagingDir;
   try {
-    const result = await runBuild(themeDir, previewData, destinationDir);
+    const result = await runBuild(themeDir, previewData, destinationDir, { generateFeed: false });
     console.log(formatBuildPagesSuccessMessage());
     console.log(`Files: ${result.files.length}`);
     console.log(`Output: ${formatPath(cwd, destinationDir)}`);
@@ -64408,8 +64424,44 @@ async function runBuildPages(options2) {
     console.log(`Checked ${result.htmlFiles.length} HTML files for internal links`);
   }
 }
+async function readPackageJson() {
+  return JSON.parse(await fs3.readFile(path3.join(packageDir, "package.json"), "utf8"));
+}
+async function readThemeId(themeDir) {
+  const themeJsonPath = path3.join(themeDir, "theme.json");
+  let rawThemeJson;
+  try {
+    rawThemeJson = await fs3.readFile(themeJsonPath, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      throw new Error(`Theme manifest not found: ${themeJsonPath}`);
+    }
+    throw error;
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(rawThemeJson);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Theme manifest is not valid JSON: ${themeJsonPath}
+Reason: ${message}`);
+  }
+  const namespace = typeof manifest.namespace === "string" ? manifest.namespace.trim() : "";
+  const slug = typeof manifest.slug === "string" ? manifest.slug.trim() : "";
+  const version = typeof manifest.version === "string" ? manifest.version.trim() : "";
+  if (!namespace || !slug || !version) {
+    throw new Error(`Theme manifest must include namespace, slug, and version: ${themeJsonPath}`);
+  }
+  return `${namespace}.${slug}@${version}`;
+}
+function formatDocsUrl(value) {
+  return value.endsWith("/") ? value : `${value}/`;
+}
 function formatBuildPagesSuccessMessage(stream = process.stdout) {
   return createColor2(stream).green("Built ZeroPress Pages site successfully");
+}
+function formatBuildPagesBanner(version, stream = process.stdout) {
+  return createColor2(stream).cyanBold(`ZeroPress Build Pages ${version}`);
 }
 function createColor2(stream) {
   const enabled = colorsEnabled(stream);
@@ -64417,7 +64469,8 @@ function createColor2(stream) {
   return {
     red: (value) => wrap("31", value),
     yellow: (value) => wrap("33", value),
-    green: (value) => wrap("32", value)
+    green: (value) => wrap("32", value),
+    cyanBold: (value) => wrap("1;36", value)
   };
 }
 function colorsEnabled(stream) {
