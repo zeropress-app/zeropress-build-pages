@@ -64331,7 +64331,8 @@ var BUILD_PAGES_DOCS_URL = "https://build-pages.zeropress.dev/";
 var BUNDLED_THEME_ALIASES = /* @__PURE__ */ new Map([
   ["docs", "docs1"],
   ["docs1", "docs1"],
-  ["docs2", "docs2"]
+  ["docs2", "docs2"],
+  ["plain", "plain"]
 ]);
 async function runBuildPages(options2) {
   const packageJson = await readPackageJson();
