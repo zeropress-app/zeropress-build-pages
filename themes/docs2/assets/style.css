@@ -168,9 +168,11 @@ html, body { margin: 0; padding: 0; }
 }
 
 html {
-  scroll-behavior: smooth;
   scrollbar-gutter: stable;
   scrollbar-color: var(--scrollbar-thumb) var(--page);
+}
+html.is-scroll-enhanced {
+  scroll-behavior: smooth;
 }
 body {
   background: var(--canvas);
@@ -178,7 +180,6 @@ body {
   font-family: var(--font-sans);
   font-weight: 400;
   line-height: 1.65;
-  -webkit-font-smoothing: antialiased;
   scrollbar-color: var(--scrollbar-thumb) var(--page);
 }
 
@@ -426,8 +427,20 @@ a { color: inherit; }
 .article-content { max-width: var(--content-w); min-width: 0; }
 
 /* ===== Prose ===== */
-.prose { max-width: var(--content-w); }
+.prose {
+  max-width: var(--content-w);
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
 .prose > * + * { margin-top: 1.25rem; }
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 .prose h1 {
   margin: 0 0 1.25rem;
   font-family: var(--font-serif);
@@ -513,12 +526,12 @@ a { color: inherit; }
   font-family: var(--font-mono);
 }
 .prose table {
-  display: block;
+  display: table;
   width: 100%;
-  overflow-x: auto;
   border-collapse: collapse;
   border-spacing: 0;
   font-size: 0.92rem;
+  table-layout: auto;
 }
 .prose th,
 .prose td {
@@ -650,19 +663,28 @@ a { color: inherit; }
   background: var(--code-bg);
   border-radius: 0.75rem;
   /* Top strip reserved for language label + copy button */
-  padding: 2.4rem 1.5rem 1.25rem;
-  overflow-x: auto;
+  padding: 0;
+  overflow: visible;
   font-family: var(--font-mono);
   font-size: 0.85rem; line-height: 1.7;
   color: hsl(40 22% 97% / 0.9);
   box-shadow: inset 0 2px 10px hsl(0 0% 0% / 0.2);
-  scrollbar-color: var(--code-scrollbar-thumb) var(--code-bg);
   tab-size: 2;
   -moz-tab-size: 2;
+}
+.prose pre code {
+  display: block;
+  overflow-x: auto;
+  padding: 2.4rem 1.5rem 1.25rem;
+  border-radius: 0.75rem;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  scrollbar-color: var(--code-scrollbar-thumb) var(--code-bg);
   -webkit-overflow-scrolling: touch;
 }
 /* Keyboard focus for horizontally scrollable code (tabindex set via JS) */
-.prose pre:focus-visible {
+.prose pre code:focus-visible {
   outline: 2px solid var(--tab-terracotta);
   outline-offset: 2px;
 }
@@ -674,14 +696,14 @@ a { color: inherit; }
      in light mode and would make selected code nearly invisible). */
   color: hsl(40 22% 97%);
 }
-.prose pre::-webkit-scrollbar-track {
+.prose pre code::-webkit-scrollbar-track {
   background: var(--code-bg);
 }
-.prose pre::-webkit-scrollbar-thumb {
+.prose pre code::-webkit-scrollbar-thumb {
   background: var(--code-scrollbar-thumb);
   border-color: var(--code-bg);
 }
-.prose pre::-webkit-scrollbar-thumb:hover {
+.prose pre code::-webkit-scrollbar-thumb:hover {
   background: var(--code-scrollbar-thumb-hover);
 }
 .copy-btn {
@@ -1138,10 +1160,15 @@ a { color: inherit; }
     width: 2.9rem;
     height: 2.9rem;
   }
+  .prose table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
+  html.is-scroll-enhanced { scroll-behavior: auto; }
   .sidebar { transition: none; }
   .clear-search-highlights,
   .back-to-top { transition: none; }
@@ -1149,6 +1176,10 @@ a { color: inherit; }
 
 /* ===== Print stylesheet ===== */
 @media print {
+  @page {
+    margin: 1.6cm;
+  }
+
   :root {
     --canvas: #ffffff;
     --page: #ffffff;
@@ -1172,7 +1203,7 @@ a { color: inherit; }
   .copy-btn,
   .skip-link,
   .heading-anchor,
-  .site-footer__attribution,
+  .site-footer,
   .floating-actions,
   .clear-search-highlights,
   .back-to-top,
@@ -1188,6 +1219,10 @@ a { color: inherit; }
   .doc-article { max-width: none; }
   .article-grid { grid-template-columns: 1fr !important; gap: 0 !important; }
   .toc { display: none !important; }
+
+  /* Center the readable text column instead of leaving the former TOC
+     track empty on the right edge of the page. */
+  .article-content { max-width: 46rem; margin-inline: auto; }
 
   /* Prose adjustments */
   .prose {
@@ -1210,6 +1245,8 @@ a { color: inherit; }
   }
   .prose pre code {
     color: #000 !important;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
   .hljs-keyword, .hljs-string, .hljs-number, .hljs-comment,
   .hljs-built_in, .hljs-type, .hljs-attr, .hljs-attribute,
@@ -1222,7 +1259,36 @@ a { color: inherit; }
     background: transparent !important;
   }
   .hljs-comment, .hljs-quote, .hljs-meta { color: #555 !important; font-style: italic; }
-  .hljs-keyword { font-weight: 600; }
+
+  /* Task-list checkboxes: browsers drop the filled background in print
+     (economy mode), collapsing checked and unchecked into identical empty
+     boxes. Draw a dark check on a white box and force the mark to print so the
+     two states stay distinguishable (and stay grayscale for ink-frugal print). */
+  .prose .task-list-item-checkbox,
+  .prose .task-list-item-checkbox:checked {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    background: #ffffff !important;
+    border-color: #000000 !important;
+  }
+  .prose .task-list-item-checkbox:checked::after {
+    border-color: #000000 !important;
+  }
+
+  /* Reset the brand accent (terracotta) to grayscale in print so links and
+     inline code match the rest of the ink-frugal page. Links stay identifiable
+     by their underline and the printed URL footnote below. */
+  .prose a { color: #000 !important; }
+  .prose code:not(pre code) { color: #000 !important; }
+  .prose blockquote { border-left-color: #999 !important; }
+
+  /* Code language label: the screen colors assume a dark code surface and are
+     near-invisible on the light print background. Use dark-on-light instead. */
+  .prose pre[class*="language-"]::before {
+    color: #555 !important;
+    background: #fff !important;
+    border-color: #ccc !important;
+  }
 
   /* External link footnoting */
   .prose a[href^="http"]::after,

@@ -3,6 +3,17 @@
 
   document.documentElement.classList.add('js');
 
+  var smoothScrollEnhanced = false;
+  function enableSmoothScrollAfterInitialNavigation() {
+    if (smoothScrollEnhanced) return;
+    smoothScrollEnhanced = true;
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () {
+        document.documentElement.classList.add('is-scroll-enhanced');
+      });
+    });
+  }
+
   var liveRegion = document.querySelector('[data-zp-status]');
   function announce(message) {
     if (!liveRegion) return;
@@ -344,7 +355,6 @@
 
   // ===== Code copy buttons + language labels =====
   var copyIcon = '<svg class="icon" width="14" height="14" aria-hidden="true"><use href="#icon-copy"/></svg>';
-  var copyCheckIcon = '<svg class="icon" width="14" height="14" aria-hidden="true"><use href="#icon-check"/></svg>';
 
   document.querySelectorAll('pre > code').forEach(function (code) {
     var pre = code.closest('pre');
@@ -361,11 +371,11 @@
     }
 
     // Make horizontally scrollable code reachable by keyboard.
-    if (!pre.hasAttribute('tabindex')) {
-      pre.setAttribute('tabindex', '0');
-      pre.setAttribute('role', 'region');
-      if (!pre.hasAttribute('aria-label')) {
-        pre.setAttribute('aria-label', pre.dataset.language ? pre.dataset.language + ' code sample' : 'Code sample');
+    if (!code.hasAttribute('tabindex')) {
+      code.setAttribute('tabindex', '0');
+      code.setAttribute('role', 'region');
+      if (!code.hasAttribute('aria-label')) {
+        code.setAttribute('aria-label', pre.dataset.language ? pre.dataset.language + ' code sample' : 'Code sample');
       }
     }
 
@@ -495,7 +505,10 @@
 
   // ===== Command palette =====
   var palette = document.querySelector('[data-cmdk]');
-  if (!palette) return;
+  if (!palette) {
+    enableSmoothScrollAfterInitialNavigation();
+    return;
+  }
   var input = palette.querySelector('[data-cmdk-input]');
   var list = palette.querySelector('[data-cmdk-list]');
   var empty = palette.querySelector('[data-cmdk-empty]');
@@ -684,10 +697,10 @@
       query = '';
     }
     var terms = uniqueTerms(tokenize(query));
-    if (!terms.length) return;
+    if (!terms.length) return false;
 
     var root = document.querySelector('[data-pagefind-body]') || document.querySelector('.prose');
-    if (!root) return;
+    if (!root) return false;
 
     var sorted = terms.slice().sort(function (a, b) { return b.length - a.length; });
     var rx = new RegExp('(' + sorted.map(escapeRegExp).join('|') + ')', 'gi');
@@ -739,13 +752,19 @@
       window.setTimeout(function () {
         firstHit.scrollIntoView({
           block: 'center',
-          behavior: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+          behavior: 'auto'
         });
+        enableSmoothScrollAfterInitialNavigation();
       }, 120);
+      return true;
     }
+
+    return false;
   }
 
-  highlightSearchLanding();
+  if (!highlightSearchLanding()) {
+    enableSmoothScrollAfterInitialNavigation();
+  }
 
   if (clearSearchButton) {
     clearSearchButton.addEventListener('click', clearSearchHighlights);
