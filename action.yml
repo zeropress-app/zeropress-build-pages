@@ -17,7 +17,7 @@ inputs:
     required: false
     default: ./_site
   theme:
-    description: Bundled theme name. Supports "docs" aliasing "docs1", "docs1", and "docs2".
+    description: Bundled theme name. Supports "docs" aliasing "docs1", "docs1", "docs2", and "plain".
     required: false
     default: docs
   theme-path:

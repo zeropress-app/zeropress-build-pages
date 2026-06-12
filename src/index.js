@@ -19,6 +19,7 @@ const BUNDLED_THEME_ALIASES = new Map([
   ['docs', 'docs1'],
   ['docs1', 'docs1'],
   ['docs2', 'docs2'],
+  ['plain', 'plain'],
 ]);
 
 export async function runCli(argv = process.argv.slice(2)) {
@@ -261,7 +262,7 @@ Options:
   --source <dir>                Dedicated source directory (required)
   --public-dir <dir>            Public passthrough directory (default: source)
   --destination <dir>           Output directory (required)
-  --theme docs                  Bundled theme name (default: docs; docs aliases docs1; docs2 available)
+  --theme docs                  Bundled theme name (default: docs; available: docs, docs1, docs2, plain)
   --theme-path <dir>            Custom ZeroPress theme directory
   --config <path>               Config file (default: <source>/.zeropress/config.json)
   --site-url <url>              Canonical site URL override

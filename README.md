@@ -159,13 +159,13 @@ In the action inputs:
 - `source` is the directory that contains your Markdown pages and optional `.zeropress/config.json`. The default is `./docs`.
 - `public-dir` is the directory copied as public passthrough files. The default is `source`. If you set it explicitly, the directory must exist.
 - `destination` is the directory where the generated static site is written. The default is `./_site`.
-- `theme` is the bundled theme name. The default is `docs`, which aliases `docs1`; `docs2` is an additional documentation theme.
+- `theme` is the bundled theme name. The default is `docs`, which aliases `docs1`. Available bundled names are `docs`, `docs1`, `docs2`, and `plain`.
 - `theme-path` is a custom local ZeroPress theme directory. It takes precedence over `theme`.
 - `config` is the config file path. The default is `<source>/.zeropress/config.json`.
 - `site-url` overrides the canonical site URL from config.
 - `skip-untitled-markdown` skips Markdown files without a page title instead of failing. The default is `false`.
 - `skip-link-check` skips internal link checking after build. The default is `false`; broken internal links are reported as warnings and do not fail the build.
-- `copy-markdown-source` copies original Markdown files to the generated output and enables `View this page as Markdown` links in bundled documentation themes. The default is `true`; when set to `false`, public `.md` passthrough files are also skipped.
+- `copy-markdown-source` copies original Markdown files to the generated output and enables bundled theme source links such as `View as Markdown`. The default is `true`; when set to `false`, public `.md` passthrough files are also skipped.
 
 For GitHub Pages, the generated `destination` directory can be passed to `actions/upload-pages-artifact`. For Cloudflare Pages, Netlify, Vercel, or another static host, pass the same `destination` directory to that provider's deploy step.
 
@@ -242,7 +242,7 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | `--source <dir>` | required | Dedicated source directory containing Markdown and optional config |
 | `--public-dir <dir>` | source | Public passthrough directory. Explicit paths must exist. |
 | `--destination <dir>` | required | Output directory |
-| `--theme <name>` | `docs` | Bundled theme name. `docs` aliases `docs1`; `docs2` is also available. |
+| `--theme <name>` | `docs` | Bundled theme name. `docs` aliases `docs1`; available names are `docs`, `docs1`, `docs2`, and `plain`. |
 | `--theme-path <dir>` | none | Custom ZeroPress theme directory |
 | `--config <path>` | `<source>/.zeropress/config.json` | Build Pages config |
 | `--site-url <url>` | config `site.url` | Canonical URL override |
@@ -310,7 +310,7 @@ Additional Markdown discovery ignores:
 - Config `markdown.link_output` controls whether rewritten links use clean URLs or explicit `.html` URLs.
 - Source-relative links to existing files under `public-dir` are rewritten to output-root public URLs.
 - Original Markdown files remain available as public passthrough files by default.
-- Use `--no-copy-markdown-source` or Action input `copy-markdown-source: false` to keep source Markdown and public `.md` passthrough files out of the generated output. This also hides bundled theme `View this page as Markdown` links.
+- Use `--no-copy-markdown-source` or Action input `copy-markdown-source: false` to keep source Markdown and public `.md` passthrough files out of the generated output. This also hides bundled theme source links such as `View as Markdown`.
 
 Optional YAML front matter is supported at the top of Markdown files:
 
