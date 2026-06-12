@@ -1,0 +1,604 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f8fafc;
+  --text: #17202b;
+  --body: #232d3a;
+  --muted: #5c6674;
+  --line: #d9e0e8;
+  --link: #1d4ed8;
+  --link-hover: #1e40af;
+  --code-bg: #edf2f7;
+  --code-text: #223041;
+  --syntax-keyword: #9f1239;
+  --syntax-string: #92400e;
+  --syntax-number: #166534;
+  --syntax-built-in: #0f766e;
+  --syntax-attr: #854d0e;
+  --syntax-comment: #64748b;
+  --syntax-punctuation: #475569;
+  --alert-note: #2563eb;
+  --alert-tip: #15803d;
+  --alert-important: #7c3aed;
+  --alert-warning: #b45309;
+  --alert-caution: #dc2626;
+  --radius: 8px;
+  --measure: 61rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f141b;
+    --text: #e7edf5;
+    --body: #c9d3df;
+    --muted: #aab4c0;
+    --line: #2a3442;
+    --link: #93c5fd;
+    --link-hover: #bfdbfe;
+    --code-bg: #1c2530;
+    --code-text: #eef4fb;
+    --syntax-keyword: #fda4af;
+    --syntax-string: #fbbf24;
+    --syntax-number: #86efac;
+    --syntax-built-in: #67e8f9;
+    --syntax-attr: #fde68a;
+    --syntax-comment: #94a3b8;
+    --syntax-punctuation: #cbd5e1;
+    --alert-note: #60a5fa;
+    --alert-tip: #4ade80;
+    --alert-important: #c4b5fd;
+    --alert-warning: #fbbf24;
+    --alert-caution: #f87171;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.6;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+a {
+  color: var(--link);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  color: var(--link-hover);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--link) 28%, transparent);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.shell {
+  width: min(var(--measure), calc(100% - 2rem));
+  margin: 0 auto;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  z-index: 10;
+  transform: translateY(-150%);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 0 0 2px var(--line);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.site-main {
+  padding: 2.5rem 0;
+}
+
+.page {
+  padding: 0;
+}
+
+.prose {
+  font-size: 1rem;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.prose > :first-child {
+  margin-top: 0;
+}
+
+.prose > :last-child {
+  margin-bottom: 0;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  color: var(--text);
+  line-height: 1.2;
+  margin: 2rem 0 0.75rem;
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.prose h1 {
+  font-size: clamp(2rem, 4vw, 2.5rem);
+  letter-spacing: 0;
+}
+
+.prose h2 {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  font-size: clamp(1.5rem, 3vw, 1.9rem);
+}
+
+.prose h3 {
+  font-size: 1.2rem;
+}
+
+.prose h4 {
+  font-size: 1rem;
+}
+
+.prose h2[id],
+.prose h3[id],
+.prose h4[id] {
+  position: relative;
+  scroll-margin-top: 1rem;
+}
+
+.heading-anchor {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: 0.08em;
+  margin-left: 0.45rem;
+  color: var(--muted);
+  font-size: 0.8em;
+  font-weight: 500;
+  opacity: 0;
+  text-decoration: none;
+}
+
+.prose h2:hover .heading-anchor,
+.prose h3:hover .heading-anchor,
+.prose h4:hover .heading-anchor,
+.heading-anchor:focus-visible {
+  opacity: 1;
+}
+
+.prose p,
+.prose li {
+  color: var(--body);
+}
+
+.prose figcaption {
+  color: var(--muted);
+}
+
+.prose strong,
+.prose th {
+  color: var(--text);
+}
+
+.prose table {
+  width: 100%;
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+}
+
+.prose th,
+.prose td {
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  vertical-align: top;
+  text-align: left;
+}
+
+.prose th {
+  background: var(--code-bg);
+}
+
+.prose .zp-align-left {
+  text-align: left;
+}
+
+.prose .zp-align-center {
+  text-align: center;
+}
+
+.prose .zp-align-right {
+  text-align: right;
+}
+
+.prose blockquote {
+  margin: 1.5rem 0;
+  padding: 0.1rem 0 0.1rem 1rem;
+  border-left: 4px solid var(--line);
+  color: var(--muted);
+}
+
+.prose blockquote > :first-child {
+  margin-top: 0;
+}
+
+.prose blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.prose .contains-task-list {
+  padding-left: 0;
+  list-style: none;
+}
+
+.prose .task-list-item {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+}
+
+.prose .task-list-item-checkbox {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  margin: 0.32rem 0 0;
+  accent-color: var(--link);
+}
+
+.zp-alert {
+  margin: 1.5rem 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--alert-color) 55%, var(--line));
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--alert-color) 10%, transparent);
+}
+
+.zp-alert__title {
+  margin: 0 0 0.35rem;
+  color: var(--alert-color);
+  font-weight: 700;
+}
+
+.zp-alert > :last-child {
+  margin-bottom: 0;
+}
+
+.zp-alert--note {
+  --alert-color: var(--alert-note);
+}
+
+.zp-alert--tip {
+  --alert-color: var(--alert-tip);
+}
+
+.zp-alert--important {
+  --alert-color: var(--alert-important);
+}
+
+.zp-alert--warning {
+  --alert-color: var(--alert-warning);
+}
+
+.zp-alert--caution {
+  --alert-color: var(--alert-caution);
+}
+
+.prose code {
+  padding: 0.12rem 0.28rem;
+  border-radius: 5px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.9em;
+}
+
+.prose pre {
+  position: relative;
+  overflow: visible;
+  padding: 0;
+  border-radius: var(--radius);
+  background: var(--code-bg);
+  color: var(--code-text);
+}
+
+.prose pre code:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+.prose pre code {
+  display: block;
+  overflow-x: auto;
+  padding: 2rem 1.25rem 1.25rem;
+  border-radius: var(--radius);
+  background: transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--code-bg);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.prose pre:hover .copy-btn,
+.prose pre:focus-within .copy-btn,
+.copy-btn:focus-visible {
+  opacity: 1;
+}
+
+/* Touch devices cannot hover, so keep the control visible there. */
+@media (hover: none) {
+  .copy-btn {
+    opacity: 1;
+  }
+}
+
+.copy-btn:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.copy-btn.is-copied {
+  color: var(--alert-tip);
+  border-color: color-mix(in srgb, var(--alert-tip) 55%, var(--line));
+}
+
+.copy-btn svg {
+  flex: 0 0 auto;
+}
+
+/* highlight.js output from ZeroPress Markdown rendering */
+.prose .hljs-comment,
+.prose .hljs-quote,
+.prose .hljs-meta {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+
+.prose .hljs-keyword,
+.prose .hljs-literal,
+.prose .hljs-selector-tag,
+.prose .hljs-section,
+.prose .hljs-title {
+  color: var(--syntax-keyword);
+}
+
+.prose .hljs-string,
+.prose .hljs-regexp,
+.prose .hljs-template-tag,
+.prose .hljs-template-variable {
+  color: var(--syntax-string);
+}
+
+.prose .hljs-number,
+.prose .hljs-symbol,
+.prose .hljs-bullet,
+.prose .hljs-variable,
+.prose .hljs-params {
+  color: var(--syntax-number);
+}
+
+.prose .hljs-built_in,
+.prose .hljs-type,
+.prose .hljs-class .hljs-title,
+.prose .hljs-title.class_,
+.prose .hljs-title.function_ {
+  color: var(--syntax-built-in);
+}
+
+.prose .hljs-attr,
+.prose .hljs-attribute,
+.prose .hljs-name,
+.prose .hljs-property {
+  color: var(--syntax-attr);
+}
+
+.prose .hljs-punctuation,
+.prose .hljs-operator,
+.prose .hljs-tag {
+  color: var(--syntax-punctuation);
+}
+
+.prose .hljs-emphasis {
+  font-style: italic;
+}
+
+.prose .hljs-strong {
+  font-weight: 700;
+}
+
+.prose .hljs-deletion {
+  color: var(--alert-caution);
+  background: color-mix(in srgb, var(--alert-caution) 14%, transparent);
+}
+
+.prose .hljs-addition {
+  color: var(--alert-tip);
+  background: color-mix(in srgb, var(--alert-tip) 14%, transparent);
+}
+
+.prose figure {
+  margin: 1.75rem 0;
+}
+
+.prose figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.92rem;
+}
+
+.prose hr {
+  height: 1px;
+  margin: 2rem 0;
+  border: 0;
+  background: var(--line);
+}
+
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.page-actions__updated {
+  margin-right: auto;
+}
+
+.page-actions__updated time {
+  color: var(--body);
+}
+
+.page-actions a {
+  font-weight: 600;
+}
+
+.zp-mermaid {
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.zp-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.zp-mermaid-error {
+  outline: 2px solid var(--alert-caution);
+  outline-offset: 2px;
+}
+
+@media (max-width: 48rem) {
+  .prose table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media print {
+  /*
+   * The plain theme prints natively by design. These overrides only sharpen
+   * print legibility without changing the on-screen look:
+   *   - darker body text and headings,
+   *   - a monochrome code block (syntax colors collapse to a dark ink so code
+   *     reads cleanly on paper; on-screen highlighting is left untouched),
+   *   - a checkbox that actually shows its checked state (native checkboxes
+   *     drop the accent fill and check glyph in print).
+   */
+  :root {
+    --text: #000;
+    --body: #1a1a1a;
+    --line: #bbb;
+    --code-text: #1a1a1a;
+    --syntax-keyword: #1a1a1a;
+    --syntax-string: #1a1a1a;
+    --syntax-number: #1a1a1a;
+    --syntax-built-in: #1a1a1a;
+    --syntax-attr: #1a1a1a;
+    --syntax-comment: #1a1a1a;
+    --syntax-punctuation: #1a1a1a;
+  }
+
+  /* Keep diff markers monochrome too. */
+  .prose .hljs-deletion,
+  .prose .hljs-addition {
+    color: #1a1a1a;
+    background: transparent;
+  }
+
+  /*
+   * The light code background is dropped in print, so give code blocks a
+   * border to keep their bounds visible. Wrap long lines (paper cannot scroll
+   * horizontally) and hide the copy button, which is meaningless in print.
+   */
+  .prose pre {
+    border: 1px solid var(--line);
+  }
+
+  .prose pre code {
+    overflow-x: visible;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 1.25rem;
+  }
+
+  .copy-btn {
+    display: none !important;
+  }
+
+  .prose .task-list-item-checkbox {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-grid;
+    place-content: center;
+    border: 1.5px solid #000;
+    border-radius: 3px;
+    background: #fff;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .prose .task-list-item-checkbox:checked::before {
+    content: "";
+    width: 0.6rem;
+    height: 0.6rem;
+    background: #000;
+    clip-path: polygon(14% 52%, 36% 74%, 82% 22%, 92% 32%, 37% 88%, 4% 60%);
+  }
+}

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="{{site.locale}}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{meta.title}}</title>
+    <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0f141b" media="(prefers-color-scheme: dark)">
+    <link rel="stylesheet" href="/assets/style.css">
+    {{meta.head_tags}}
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+    <main id="content" class="site-main">
+      {{slot:content}}
+    </main>
+    {{partial:content-enhancements}}
+  </body>
+</html>

@@ -1,0 +1,23 @@
+<article class="shell page">
+  <div class="prose">
+    {{page.html}}
+  </div>
+  {{#if page.updated_at_iso}}
+  <footer class="page-actions" aria-label="Page metadata">
+    <span class="page-actions__updated">Updated <time datetime="{{page.updated_at_iso}}" title="{{page.updated_at_iso}}" data-zp-local-date>{{page.updated_at}}</time></span>
+    {{#if page.meta.source_markdown_url}}
+    <a href="{{page.meta.source_markdown_url}}">View as Markdown</a>
+    {{#if site.meta.edit_base_url}}
+    <a href="{{site.meta.edit_base_url}}{{page.meta.source_markdown_url}}" target="_blank" rel="noopener noreferrer">Improve this page</a>
+    {{/if}}
+    {{/if}}
+  </footer>
+  {{#else_if page.meta.source_markdown_url}}
+  <footer class="page-actions" aria-label="Page source links">
+    <a href="{{page.meta.source_markdown_url}}">View as Markdown</a>
+    {{#if site.meta.edit_base_url}}
+    <a href="{{site.meta.edit_base_url}}{{page.meta.source_markdown_url}}" target="_blank" rel="noopener noreferrer">Improve this page</a>
+    {{/if}}
+  </footer>
+  {{/if}}
+</article>
