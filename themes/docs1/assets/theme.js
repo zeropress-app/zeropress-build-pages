@@ -16,9 +16,21 @@ const prefersReducedMotion = () =>
 
 const scrollBehavior = () => (prefersReducedMotion() ? 'auto' : 'smooth');
 
+let smoothScrollEnhanced = false;
+const enableSmoothScrollAfterInitialNavigation = () => {
+  if (smoothScrollEnhanced) return;
+  smoothScrollEnhanced = true;
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      document.documentElement.classList.add('is-scroll-enhanced');
+    });
+  });
+};
+
 const navToggle = document.querySelector('#nav-toggle');
 const navTrigger = document.querySelector('[data-nav-trigger]');
 const navPanel = document.querySelector('[data-nav-panel]');
+const navOverlay = document.querySelector('[data-nav-overlay]');
 
 if (navToggle && navTrigger) {
   const mobileNavQuery = window.matchMedia('(max-width: 980px)');
@@ -49,11 +61,23 @@ if (navToggle && navTrigger) {
     setNavOpen(navToggle.checked);
   });
 
+  // Once JS is active, avoid the label's native checkbox focus behavior; on
+  // mobile Safari it can scroll the page toward the hidden checkbox.
+  navTrigger.addEventListener('click', (event) => {
+    event.preventDefault();
+    setNavOpen(!navToggle.checked);
+  });
+
   // Support keyboard activation on the label (Enter / Space).
   navTrigger.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
     setNavOpen(!navToggle.checked);
+  });
+
+  navOverlay?.addEventListener('click', (event) => {
+    event.preventDefault();
+    setNavOpen(false);
   });
 
   // Close the panel after following an in-page link.
@@ -111,6 +135,7 @@ if (themeToggle) {
     try {
       localStorage.setItem(themeStorageKey, next);
     } catch (e) {}
+    window.dispatchEvent(new CustomEvent('zeropress:themechange', { detail: { theme: next } }));
   });
 }
 
@@ -359,13 +384,24 @@ const loadMermaidRuntime = () => {
 const prepareMermaidBlocks = (blocks) =>
   blocks.map((code, index) => {
     const pre = code.parentElement;
+    const source = code.textContent || '';
     const container = document.createElement('div');
     container.className = 'mermaid zp-mermaid';
     container.dataset.mermaidIndex = String(index + 1);
-    container.textContent = code.textContent || '';
+    container.dataset.mermaidSource = source;
+    container.textContent = source;
     pre.replaceWith(container);
     return { pre, container };
   });
+
+const watchMermaidThemeChanges = (handler) => {
+  window.addEventListener('zeropress:themechange', handler);
+
+  if (!window.matchMedia) return;
+  const query = window.matchMedia('(prefers-color-scheme: dark)');
+  if (query.addEventListener) query.addEventListener('change', handler);
+  else if (query.addListener) query.addListener(handler);
+};
 
 const renderMermaidBlocks = () => {
   const blocks = getMermaidCodeBlocks();
@@ -375,15 +411,41 @@ const renderMermaidBlocks = () => {
     const entries = prepareMermaidBlocks(blocks);
     if (!entries.length) return;
 
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: 'strict',
-      theme: getMermaidTheme(),
-    });
+    const runMermaid = () => {
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: getMermaidTheme(),
+      });
 
-    return Promise.resolve(mermaid.run({
-      nodes: entries.map((entry) => entry.container),
-    })).catch((error) => {
+      return Promise.resolve(mermaid.run({
+        nodes: entries
+          .filter((entry) => entry.container.isConnected)
+          .map((entry) => entry.container),
+      }));
+    };
+
+    let rerenderScheduled = false;
+    const rerenderForTheme = () => {
+      if (rerenderScheduled) return;
+      rerenderScheduled = true;
+
+      window.setTimeout(() => {
+        rerenderScheduled = false;
+        entries.forEach((entry) => {
+          if (!entry.container.isConnected) return;
+          entry.container.removeAttribute('data-processed');
+          entry.container.textContent = entry.container.dataset.mermaidSource || '';
+        });
+        runMermaid().catch((error) => {
+          console.warn('[zeropress] Mermaid re-render after theme change failed.', error);
+        });
+      }, 0);
+    };
+
+    return runMermaid().then(() => {
+      watchMermaidThemeChanges(rerenderForTheme);
+    }).catch((error) => {
       entries.forEach((entry) => {
         if (entry.container.isConnected) {
           entry.pre.classList.add('zp-mermaid-error');
@@ -401,8 +463,7 @@ renderMermaidBlocks();
 
 /* ---------- Code copy buttons + language labels ---------- */
 
-const codeCopyIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
-const codeCheckIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+const codeCopyIcon = '<svg class="icon" width="14" height="14" aria-hidden="true"><use href="#icon-copy"></use></svg>';
 
 const writeClipboardText = (text) => {
   if (navigator.clipboard?.writeText) {
@@ -430,9 +491,12 @@ const writeClipboardText = (text) => {
   });
 };
 
+const isMermaidCodeBlock = (code) =>
+  code.classList.contains('language-mermaid') || code.classList.contains('lang-mermaid');
+
 document.querySelectorAll('pre > code').forEach((code) => {
   const pre = code.closest('pre');
-  if (!pre || pre.querySelector(':scope > .copy-btn')) return;
+  if (!pre || isMermaidCodeBlock(code)) return;
 
   const match = (code.className || '').match(/(?:language|lang)-([\w-]+)/);
   if (match && !pre.dataset.language) {
@@ -441,11 +505,13 @@ document.querySelectorAll('pre > code').forEach((code) => {
 
   pre.classList.add('has-code-tools');
 
-  if (!pre.hasAttribute('tabindex')) {
-    pre.setAttribute('tabindex', '0');
-    pre.setAttribute('role', 'region');
-    pre.setAttribute('aria-label', pre.dataset.language ? `${pre.dataset.language} code sample` : 'Code sample');
+  if (!code.hasAttribute('tabindex')) {
+    code.setAttribute('tabindex', '0');
+    code.setAttribute('role', 'region');
+    code.setAttribute('aria-label', pre.dataset.language ? `${pre.dataset.language} code sample` : 'Code sample');
   }
+
+  if (pre.querySelector(':scope > .copy-btn')) return;
 
   const button = document.createElement('button');
   button.type = 'button';
@@ -459,11 +525,13 @@ document.querySelectorAll('pre > code').forEach((code) => {
     writeClipboardText(code.textContent || '').then(() => {
       window.clearTimeout(resetTimer);
       button.classList.add('is-copied');
-      button.innerHTML = `${codeCheckIcon}<span class="copy-btn__label">Copied</span>`;
+      button.querySelector('.icon use').setAttribute('href', '#icon-check');
+      if (label) label.textContent = 'Copied';
       announce('Code copied.');
       resetTimer = window.setTimeout(() => {
         button.classList.remove('is-copied');
-        button.innerHTML = `${codeCopyIcon}<span class="copy-btn__label">Copy</span>`;
+        button.querySelector('.icon use').setAttribute('href', '#icon-copy');
+        if (label) label.textContent = 'Copy';
       }, 1500);
     }).catch(() => {
       if (label) label.textContent = 'Unavailable';
@@ -515,7 +583,10 @@ if (backToTop) {
 
 (() => {
   const palette = document.querySelector('[data-cmdk]');
-  if (!palette) return;
+  if (!palette) {
+    enableSmoothScrollAfterInitialNavigation();
+    return;
+  }
 
   const input = palette.querySelector('[data-cmdk-input]');
   const list = palette.querySelector('[data-cmdk-list]');
@@ -698,10 +769,10 @@ if (backToTop) {
     }
 
     const terms = uniqueTerms(tokenize(query));
-    if (!terms.length) return;
+    if (!terms.length) return false;
 
     const root = document.querySelector('[data-pagefind-body]') || document.querySelector('.prose');
-    if (!root) return;
+    if (!root) return false;
 
     const sorted = terms.slice().sort((a, b) => b.length - a.length);
     const rx = new RegExp(`(${sorted.map(escapeRegExp).join('|')})`, 'gi');
@@ -755,10 +826,14 @@ if (backToTop) {
       window.setTimeout(() => {
         firstHit.scrollIntoView({
           block: 'center',
-          behavior: scrollBehavior(),
+          behavior: 'auto',
         });
+        enableSmoothScrollAfterInitialNavigation();
       }, 120);
+      return true;
     }
+
+    return false;
   };
 
   const renderResults = (results, terms, query) => {
@@ -862,7 +937,9 @@ if (backToTop) {
     previousFocus = null;
   };
 
-  highlightSearchLanding();
+  if (!highlightSearchLanding()) {
+    enableSmoothScrollAfterInitialNavigation();
+  }
 
   clearSearchButton?.addEventListener('click', clearSearchHighlights);
 
