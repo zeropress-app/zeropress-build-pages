@@ -37,7 +37,7 @@
     "node": ">=18.18.0"
   },
   "dependencies": {
-    "@zeropress/build": "0.6.8",
+    "@zeropress/build": "0.6.10",
     "gray-matter": "4.0.3"
   },
   "devDependencies": {
