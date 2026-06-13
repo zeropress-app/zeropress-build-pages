@@ -515,6 +515,8 @@ Source-relative links to existing files under `public-dir` are rewritten indepen
 
 If `public-dir` is `./public` and `public/logo.svg` exists, Build Pages rewrites that image URL to `/logo.svg`. Query strings and hash fragments are preserved, such as `../public/icons.svg#mark` -> `/icons.svg#mark`. Missing files and files outside `public-dir` are left unchanged.
 
+Markdown raw HTML may use safe native media elements such as `video`, `audio`, `source`, and `track`. Use source-relative public asset paths for site-owned media files.
+
 Themes can render the generated value with normal escaped interpolation:
 
 ```html

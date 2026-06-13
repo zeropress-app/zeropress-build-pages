@@ -495,6 +495,7 @@ test('rewrites source-relative public asset links when the target exists in publ
   await fs.mkdir(path.join(publicDir, 'files'), { recursive: true });
   await fs.mkdir(path.join(publicDir, 'images'), { recursive: true });
   await fs.mkdir(path.join(publicDir, 'videos'), { recursive: true });
+  await fs.mkdir(path.join(publicDir, 'audio'), { recursive: true });
   await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nHome.', 'utf8');
   await fs.writeFile(path.join(sourceDir, 'guide.md'), '# Guide\n\nGuide.', 'utf8');
   await fs.writeFile(path.join(sourceDir, 'markdown', 'features', 'index.md'), [
@@ -510,6 +511,8 @@ test('rewrites source-relative public asset links when the target exists in publ
     '[Guide](../../guide.md#part)',
     '<img src="../../../public/favicon.svg#icon" alt="Icon">',
     '<video poster="../../../public/images/poster.png" src="../../../public/videos/demo.mp4"></video>',
+    '<audio><source src="../../../public/audio/demo.mp3" type="audio/mpeg"></audio>',
+    '<track src="../../../public/files/captions.vtt" kind="captions">',
     '<source srcset="../../../public/images/small.png 1x, ../../../public/images/large.png 2x">',
     '',
     '```md',
@@ -519,10 +522,12 @@ test('rewrites source-relative public asset links when the target exists in publ
   await fs.writeFile(path.join(publicDir, 'favicon.png'), 'png', 'utf8');
   await fs.writeFile(path.join(publicDir, 'favicon.svg'), '<svg></svg>', 'utf8');
   await fs.writeFile(path.join(publicDir, 'files', 'doc.pdf'), 'pdf', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'files', 'captions.vtt'), 'WEBVTT', 'utf8');
   await fs.writeFile(path.join(publicDir, 'images', 'poster.png'), 'poster', 'utf8');
   await fs.writeFile(path.join(publicDir, 'images', 'small.png'), 'small', 'utf8');
   await fs.writeFile(path.join(publicDir, 'images', 'large.png'), 'large', 'utf8');
   await fs.writeFile(path.join(publicDir, 'videos', 'demo.mp4'), 'video', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'audio', 'demo.mp3'), 'audio', 'utf8');
 
   await runBuildPages({
     cwd: tempDir,
@@ -547,8 +552,15 @@ test('rewrites source-relative public asset links when the target exists in publ
   assert.match(featuresPage.content, /\[Guide\]\(\/guide#part\)/);
   assert.match(featuresPage.content, /<img src="\/favicon\.svg#icon" alt="Icon">/);
   assert.match(featuresPage.content, /<video poster="\/images\/poster\.png" src="\/videos\/demo\.mp4"><\/video>/);
+  assert.match(featuresPage.content, /<audio><source src="\/audio\/demo\.mp3" type="audio\/mpeg"><\/audio>/);
+  assert.match(featuresPage.content, /<track src="\/files\/captions\.vtt" kind="captions">/);
   assert.match(featuresPage.content, /<source srcset="\/images\/small\.png 1x, \/images\/large\.png 2x">/);
   assert.match(featuresPage.content, /!\[Code\]\(\.\.\/\.\.\/\.\.\/public\/code-only\.png\)/);
+
+  const featuresHtml = await fs.readFile(path.join(tempDir, '_site', 'markdown', 'features', 'index.html'), 'utf8');
+  assert.match(featuresHtml, /<video poster="\/images\/poster\.png" src="\/videos\/demo\.mp4"><\/video>/);
+  assert.match(featuresHtml, /<audio><source src="\/audio\/demo\.mp3" type="audio\/mpeg" \/><\/audio>/);
+  assert.match(featuresHtml, /<track src="\/files\/captions\.vtt" kind="captions" \/>/);
 });
 
 test('builds with a separated public directory', async () => {
