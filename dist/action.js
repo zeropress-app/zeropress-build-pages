@@ -8,7 +8,11 @@ var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
-  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  try {
+    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  } catch (e) {
+    throw mod = 0, e;
+  }
 };
 var __export = (target, all) => {
   for (var name in all)
@@ -60174,6 +60178,9 @@ function sanitizeHtml(html) {
     "figcaption",
     "picture",
     "source",
+    "video",
+    "audio",
+    "track",
     "table",
     "thead",
     "tbody",
@@ -60190,9 +60197,12 @@ function sanitizeHtml(html) {
     a: /* @__PURE__ */ new Set(["href", "title", "class", "id"]),
     aside: /* @__PURE__ */ new Set(["role", "class", "id"]),
     img: /* @__PURE__ */ new Set(["src", "srcset", "sizes", "alt", "title", "class", "id", "width", "height", "loading", "decoding"]),
-    iframe: /* @__PURE__ */ new Set(["src", "width", "height", "frameborder", "allowfullscreen", "class"]),
+    iframe: /* @__PURE__ */ new Set(["src", "width", "height", "frameborder", "allowfullscreen", "class", "title"]),
     input: /* @__PURE__ */ new Set(["type", "checked", "disabled", "class", "id", "aria-label"]),
     source: /* @__PURE__ */ new Set(["src", "srcset", "sizes", "type", "media", "width", "height", "class", "id"]),
+    video: /* @__PURE__ */ new Set(["src", "controls", "autoplay", "loop", "muted", "playsinline", "poster", "preload", "width", "height", "class", "id", "title"]),
+    audio: /* @__PURE__ */ new Set(["src", "controls", "autoplay", "loop", "muted", "preload", "class", "id", "title"]),
+    track: /* @__PURE__ */ new Set(["src", "kind", "srclang", "label", "default", "class", "id"]),
     "*": /* @__PURE__ */ new Set(["class", "id"])
   };
   const safeUriPattern = /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
@@ -60217,7 +60227,7 @@ function sanitizeHtml(html) {
         if (!tagAllowedAttributes.has(attributeName) && !globalAllowedAttributes.has(attributeName)) {
           continue;
         }
-        if ((attributeName === "href" || attributeName === "src") && !safeUriPattern.test(attributeValue)) {
+        if ((attributeName === "href" || attributeName === "src" || attributeName === "poster") && !safeUriPattern.test(attributeValue)) {
           continue;
         }
         if (attributeName === "srcset" && !isSafeSrcset(attributeValue, safeUriPattern)) {
@@ -60229,7 +60239,7 @@ function sanitizeHtml(html) {
         filteredAttributes.push(`${attributeName}="${attributeValue}"`);
       }
     }
-    const isSelfClosing = match2.endsWith("/>") || normalizedTag === "br" || normalizedTag === "hr" || normalizedTag === "img" || normalizedTag === "input" || normalizedTag === "source";
+    const isSelfClosing = match2.endsWith("/>") || normalizedTag === "br" || normalizedTag === "hr" || normalizedTag === "img" || normalizedTag === "input" || normalizedTag === "source" || normalizedTag === "track";
     const attributeSuffix = filteredAttributes.length > 0 ? ` ${filteredAttributes.join(" ")}` : "";
     return isSelfClosing ? `<${normalizedTag}${attributeSuffix} />` : `<${normalizedTag}${attributeSuffix}>`;
   });
