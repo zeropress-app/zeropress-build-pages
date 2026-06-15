@@ -519,6 +519,8 @@ If `public-dir` is `./public` and `public/logo.svg` exists, Build Pages rewrites
 
 Markdown raw HTML may use safe native media elements such as `video`, `audio`, `source`, and `track`. Use source-relative public asset paths for site-owned media files.
 
+Raw HTML links may use `target="_blank"`. Build Pages preserves `_blank`, removes other `target` values, and adds missing `noopener` / `noreferrer` tokens to `_blank` links. Safe `rel` tokens such as `nofollow`, `ugc`, `sponsored`, and `external` are preserved.
+
 Themes can render the generated value with normal escaped interpolation:
 
 ```html

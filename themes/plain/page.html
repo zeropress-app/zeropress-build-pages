@@ -8,7 +8,9 @@
     {{#if page.meta.source_markdown_url}}
     <a href="{{page.meta.source_markdown_url}}">View as Markdown</a>
     {{#if site.meta.edit_base_url}}
+    {{#if_neq page.meta.edit_link false}}
     <a href="{{site.meta.edit_base_url}}{{page.meta.source_markdown_url}}" target="_blank" rel="noopener noreferrer">Improve this page</a>
+    {{/if}}
     {{/if}}
     {{/if}}
   </footer>
@@ -16,7 +18,9 @@
   <footer class="page-actions" aria-label="Page source links">
     <a href="{{page.meta.source_markdown_url}}">View as Markdown</a>
     {{#if site.meta.edit_base_url}}
+    {{#if_neq page.meta.edit_link false}}
     <a href="{{site.meta.edit_base_url}}{{page.meta.source_markdown_url}}" target="_blank" rel="noopener noreferrer">Improve this page</a>
+    {{/if}}
     {{/if}}
   </footer>
   {{/if}}

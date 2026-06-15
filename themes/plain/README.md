@@ -19,7 +19,7 @@ This theme is not intended for multi-page documentation navigation. Use `zeropre
 - No header, footer, menu, hero, or search UI is rendered.
 - `Updated` appears when Build Pages provides `page.updated_at_iso` or `post.updated_at_iso`.
 - `View as Markdown` appears when Build Pages provides `page.meta.source_markdown_url`.
-- `Improve this page` appears when `site.meta.edit_base_url` is configured.
+- `Improve this page` appears when `site.meta.edit_base_url` is configured, unless the page or post sets `meta.edit_link: false`.
 - Heading anchors are added with progressive enhancement.
 - Code blocks receive copy buttons with progressive enhancement.
 - Tables remain readable without JavaScript and use table-level horizontal scrolling on small screens.
@@ -40,6 +40,15 @@ Set `site.meta.edit_base_url` in Build Pages config to enable the edit link:
 ```
 
 The value should point to the source directory in the repository and should not include a trailing slash. The theme appends `page.meta.source_markdown_url`, such as `/index.md`.
+
+To hide the edit link on a specific page, set a scalar front matter meta flag:
+
+```md
+---
+meta:
+  edit_link: false
+---
+```
 
 ## Mermaid
 

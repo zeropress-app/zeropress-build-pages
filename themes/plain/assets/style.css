@@ -21,6 +21,7 @@
   --alert-important: #7c3aed;
   --alert-warning: #b45309;
   --alert-caution: #dc2626;
+  --icon-external-link: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h6v6'/%3E%3Cpath d='M10 14 21 3'/%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3C/svg%3E");
   --radius: 8px;
   --measure: 61rem;
 }
@@ -76,6 +77,20 @@ a {
 
 a:hover {
   color: var(--link-hover);
+}
+
+.prose a[target="_blank"]::after,
+.page-actions a[target="_blank"]::after {
+  content: "";
+  display: inline-block;
+  width: 0.72em;
+  height: 0.72em;
+  margin-left: 0.25em;
+  vertical-align: 0.02em;
+  background: currentColor;
+  opacity: 0.72;
+  -webkit-mask: var(--icon-external-link) center / contain no-repeat;
+  mask: var(--icon-external-link) center / contain no-repeat;
 }
 
 ::selection {
@@ -231,6 +246,40 @@ a:hover {
 
 .prose th {
   background: var(--code-bg);
+}
+
+.prose iframe,
+.prose video,
+.prose audio {
+  display: block;
+  max-width: 100%;
+  margin: 1.5rem 0;
+}
+
+.prose iframe {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: var(--radius);
+}
+
+.prose video {
+  height: auto;
+  color-scheme: light;
+  border-radius: var(--radius);
+}
+
+.prose audio {
+  width: 100%;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  .prose video,
+  .prose audio {
+    color-scheme: dark;
+  }
 }
 
 .prose .zp-align-left {
