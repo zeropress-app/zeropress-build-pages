@@ -3,7 +3,6 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import matter from 'gray-matter';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const execFileAsync = promisify(execFile);
@@ -1067,7 +1066,7 @@ function formatFrontPageSummary(frontPageReport) {
 
 function parseMarkdownSource(rawMarkdown, sourcePath) {
   try {
-    const parsed = matter(rawMarkdown);
+    const parsed = parseYamlFrontMatter(rawMarkdown, sourcePath);
     if (!isPlainObject(parsed.data)) {
       throw new PrebuildMarkdownError(
         sourcePath,
@@ -1089,6 +1088,466 @@ function parseMarkdownSource(rawMarkdown, sourcePath) {
       `invalid YAML front matter: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
+}
+
+function parseYamlFrontMatter(rawMarkdown, sourcePath) {
+  const input = rawMarkdown.startsWith('\uFEFF') ? rawMarkdown.slice(1) : rawMarkdown;
+  const firstLine = readLine(input, 0);
+  const firstLineText = firstLine.text.trim();
+
+  if (firstLineText !== '---') {
+    if (firstLineText.startsWith('---')) {
+      throw new PrebuildMarkdownError(
+        sourcePath,
+        'front matter must use plain YAML delimiters. Language-specific front matter is not supported.',
+        '  ---\n  title: My Page\n  ---',
+      );
+    }
+
+    return {
+      content: rawMarkdown,
+      data: {},
+    };
+  }
+
+  let cursor = firstLine.nextOffset;
+  const matterStart = cursor;
+  while (cursor <= input.length) {
+    const line = readLine(input, cursor);
+    if (line.text.trim() === '---') {
+      return {
+        content: input.slice(line.nextOffset),
+        data: parseFrontMatterYamlBlock(input.slice(matterStart, line.startOffset), sourcePath),
+      };
+    }
+
+    if (line.nextOffset <= cursor) {
+      break;
+    }
+    cursor = line.nextOffset;
+  }
+
+  throw new PrebuildMarkdownError(
+    sourcePath,
+    'front matter opening delimiter is missing a closing delimiter.',
+    '  ---\n  title: My Page\n  ---',
+  );
+}
+
+function readLine(input, offset) {
+  if (offset >= input.length) {
+    return {
+      startOffset: offset,
+      text: '',
+      nextOffset: input.length + 1,
+    };
+  }
+
+  const newlineIndex = input.indexOf('\n', offset);
+  const lineEnd = newlineIndex === -1 ? input.length : newlineIndex;
+  const rawText = input.slice(offset, lineEnd);
+  return {
+    startOffset: offset,
+    text: rawText.endsWith('\r') ? rawText.slice(0, -1) : rawText,
+    nextOffset: newlineIndex === -1 ? input.length + 1 : newlineIndex + 1,
+  };
+}
+
+function parseFrontMatterYamlBlock(block, sourcePath) {
+  const lines = buildFrontMatterYamlLines(block, sourcePath);
+  if (lines.length === 0) {
+    return {};
+  }
+  if (lines[0].indent !== 0) {
+    throw frontMatterYamlError(sourcePath, lines[0], 'root front matter keys must not be indented.');
+  }
+
+  const result = parseFrontMatterYamlBlockAt(lines, 0, 0, sourcePath);
+  if (result.index < lines.length) {
+    throw frontMatterYamlError(sourcePath, lines[result.index], 'unexpected YAML indentation.');
+  }
+  if (!isPlainObject(result.value)) {
+    throw new PrebuildMarkdownError(
+      sourcePath,
+      'front matter must be a YAML object.',
+    );
+  }
+  return result.value;
+}
+
+function buildFrontMatterYamlLines(block, sourcePath) {
+  const rawLines = block.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const lines = [];
+
+  rawLines.forEach((rawLine, index) => {
+    if (/^\s*$/.test(rawLine) || /^\s*#/.test(rawLine)) {
+      return;
+    }
+    const leadingWhitespace = rawLine.match(/^[ \t]*/)[0];
+    if (leadingWhitespace.includes('\t')) {
+      throw frontMatterYamlError(sourcePath, { lineNumber: index + 1 }, 'tabs are not allowed for YAML indentation.');
+    }
+
+    const indent = leadingWhitespace.length;
+    const text = stripYamlInlineComment(rawLine.slice(indent)).trimEnd();
+    if (!text) {
+      return;
+    }
+    if (/^-\s+[A-Za-z_][A-Za-z0-9_-]*\s*:/.test(text)) {
+      lines.push({ indent, text: '-', lineNumber: index + 1 });
+      lines.push({ indent: indent + 2, text: text.slice(1).trimStart(), lineNumber: index + 1 });
+      return;
+    }
+
+    lines.push({ indent, text, lineNumber: index + 1 });
+  });
+
+  return lines;
+}
+
+function stripYamlInlineComment(text) {
+  let quote = '';
+  let escaped = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (quote === '"' && character === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) {
+        quote = '';
+      }
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === '#' && (index === 0 || /\s/.test(text[index - 1]))) {
+      return text.slice(0, index).trimEnd();
+    }
+  }
+  return text;
+}
+
+function parseFrontMatterYamlBlockAt(lines, index, indent, sourcePath) {
+  if (lines[index]?.text === '-' || lines[index]?.text.startsWith('- ')) {
+    return parseFrontMatterYamlArray(lines, index, indent, sourcePath);
+  }
+  return parseFrontMatterYamlObject(lines, index, indent, sourcePath);
+}
+
+function parseFrontMatterYamlObject(lines, index, indent, sourcePath) {
+  const object = {};
+  while (index < lines.length) {
+    const line = lines[index];
+    if (line.indent < indent) {
+      break;
+    }
+    if (line.indent > indent) {
+      throw frontMatterYamlError(sourcePath, line, 'unexpected YAML indentation.');
+    }
+    if (line.text === '-' || line.text.startsWith('- ')) {
+      break;
+    }
+
+    const pair = parseFrontMatterYamlPair(line.text, sourcePath, line);
+    if (Object.hasOwn(object, pair.key)) {
+      throw frontMatterYamlError(sourcePath, line, `duplicate YAML key "${pair.key}".`);
+    }
+
+    if (pair.valueText === '') {
+      if (index + 1 < lines.length && lines[index + 1].indent > indent) {
+        const child = parseFrontMatterYamlBlockAt(lines, index + 1, lines[index + 1].indent, sourcePath);
+        object[pair.key] = child.value;
+        index = child.index;
+      } else {
+        object[pair.key] = null;
+        index += 1;
+      }
+    } else {
+      object[pair.key] = parseFrontMatterYamlScalar(pair.valueText, sourcePath, line);
+      index += 1;
+    }
+  }
+
+  return { value: object, index };
+}
+
+function parseFrontMatterYamlArray(lines, index, indent, sourcePath) {
+  const array = [];
+  while (index < lines.length) {
+    const line = lines[index];
+    if (line.indent < indent) {
+      break;
+    }
+    if (line.indent > indent) {
+      throw frontMatterYamlError(sourcePath, line, 'unexpected YAML indentation.');
+    }
+    if (line.text !== '-' && !line.text.startsWith('- ')) {
+      break;
+    }
+
+    const itemText = line.text === '-' ? '' : line.text.slice(1).trimStart();
+    if (itemText === '') {
+      if (index + 1 < lines.length && lines[index + 1].indent > indent) {
+        const child = parseFrontMatterYamlBlockAt(lines, index + 1, lines[index + 1].indent, sourcePath);
+        array.push(child.value);
+        index = child.index;
+      } else {
+        array.push(null);
+        index += 1;
+      }
+    } else {
+      array.push(parseFrontMatterYamlScalar(itemText, sourcePath, line));
+      index += 1;
+      if (index < lines.length && lines[index].indent > indent) {
+        throw frontMatterYamlError(sourcePath, lines[index], 'nested YAML content after a scalar list item is not supported.');
+      }
+    }
+  }
+
+  return { value: array, index };
+}
+
+function parseFrontMatterYamlPair(text, sourcePath, line) {
+  const colonIndex = findYamlTopLevelColon(text);
+  if (colonIndex <= 0) {
+    throw frontMatterYamlError(sourcePath, line, 'expected a YAML key-value pair.');
+  }
+
+  const key = text.slice(0, colonIndex).trim();
+  if (!/^[A-Za-z0-9_.-]+$/.test(key)) {
+    throw frontMatterYamlError(sourcePath, line, `unsupported YAML key "${key}".`);
+  }
+
+  return {
+    key,
+    valueText: text.slice(colonIndex + 1).trim(),
+  };
+}
+
+function findYamlTopLevelColon(text) {
+  let quote = '';
+  let escaped = false;
+  let squareDepth = 0;
+  let braceDepth = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (quote === '"' && character === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) {
+        quote = '';
+      }
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === '[') {
+      squareDepth += 1;
+      continue;
+    }
+    if (character === ']') {
+      squareDepth -= 1;
+      continue;
+    }
+    if (character === '{') {
+      braceDepth += 1;
+      continue;
+    }
+    if (character === '}') {
+      braceDepth -= 1;
+      continue;
+    }
+    if (character === ':' && squareDepth === 0 && braceDepth === 0) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function parseFrontMatterYamlScalar(text, sourcePath, line) {
+  if (text === '|' || text === '>') {
+    throw frontMatterYamlError(sourcePath, line, 'block scalar front matter values are not supported.');
+  }
+  if (/^(?:!|&|\*)/.test(text)) {
+    throw frontMatterYamlError(sourcePath, line, 'YAML tags, anchors, and aliases are not supported.');
+  }
+  if (text.startsWith('[')) {
+    return parseFrontMatterYamlInlineArray(text, sourcePath, line);
+  }
+  if (text.startsWith('{')) {
+    return parseFrontMatterYamlInlineObject(text, sourcePath, line);
+  }
+  if (text.startsWith('"')) {
+    return parseYamlDoubleQuotedString(text, sourcePath, line);
+  }
+  if (text.startsWith("'")) {
+    return parseYamlSingleQuotedString(text, sourcePath, line);
+  }
+  if (text === 'true') {
+    return true;
+  }
+  if (text === 'false') {
+    return false;
+  }
+  if (text === 'null' || text === '~') {
+    return null;
+  }
+  if (/^[-+]?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?$/.test(text)) {
+    const numberValue = Number(text);
+    if (!Number.isFinite(numberValue)) {
+      throw frontMatterYamlError(sourcePath, line, 'YAML number must be finite.');
+    }
+    return numberValue;
+  }
+  return text;
+}
+
+function parseYamlDoubleQuotedString(text, sourcePath, line) {
+  if (!text.endsWith('"') || text.length === 1) {
+    throw frontMatterYamlError(sourcePath, line, 'unterminated double-quoted YAML string.');
+  }
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw frontMatterYamlError(
+      sourcePath,
+      line,
+      `invalid double-quoted YAML string: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+function parseYamlSingleQuotedString(text, sourcePath, line) {
+  if (!text.endsWith("'") || text.length === 1) {
+    throw frontMatterYamlError(sourcePath, line, 'unterminated single-quoted YAML string.');
+  }
+  return text.slice(1, -1).replace(/''/g, "'");
+}
+
+function parseFrontMatterYamlInlineArray(text, sourcePath, line) {
+  if (!text.endsWith(']')) {
+    throw frontMatterYamlError(sourcePath, line, 'unterminated inline YAML array.');
+  }
+  const content = text.slice(1, -1).trim();
+  if (!content) {
+    return [];
+  }
+  return splitYamlInlineItems(content, sourcePath, line).map((item) => (
+    parseFrontMatterYamlScalar(item, sourcePath, line)
+  ));
+}
+
+function parseFrontMatterYamlInlineObject(text, sourcePath, line) {
+  if (!text.endsWith('}')) {
+    throw frontMatterYamlError(sourcePath, line, 'unterminated inline YAML object.');
+  }
+  const content = text.slice(1, -1).trim();
+  if (!content) {
+    return {};
+  }
+
+  const object = {};
+  for (const item of splitYamlInlineItems(content, sourcePath, line)) {
+    const pair = parseFrontMatterYamlPair(item, sourcePath, line);
+    if (Object.hasOwn(object, pair.key)) {
+      throw frontMatterYamlError(sourcePath, line, `duplicate YAML key "${pair.key}".`);
+    }
+    if (pair.valueText === '') {
+      throw frontMatterYamlError(sourcePath, line, `inline YAML key "${pair.key}" must have a value.`);
+    }
+    object[pair.key] = parseFrontMatterYamlScalar(pair.valueText, sourcePath, line);
+  }
+  return object;
+}
+
+function splitYamlInlineItems(text, sourcePath, line) {
+  const items = [];
+  let quote = '';
+  let escaped = false;
+  let squareDepth = 0;
+  let braceDepth = 0;
+  let start = 0;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (quote === '"' && character === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) {
+        quote = '';
+      }
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === '[') {
+      squareDepth += 1;
+      continue;
+    }
+    if (character === ']') {
+      squareDepth -= 1;
+      continue;
+    }
+    if (character === '{') {
+      braceDepth += 1;
+      continue;
+    }
+    if (character === '}') {
+      braceDepth -= 1;
+      continue;
+    }
+    if (character === ',' && squareDepth === 0 && braceDepth === 0) {
+      const item = text.slice(start, index).trim();
+      if (!item) {
+        throw frontMatterYamlError(sourcePath, line, 'empty inline YAML item.');
+      }
+      items.push(item);
+      start = index + 1;
+    }
+  }
+
+  if (quote || squareDepth !== 0 || braceDepth !== 0) {
+    throw frontMatterYamlError(sourcePath, line, 'unterminated inline YAML value.');
+  }
+
+  const item = text.slice(start).trim();
+  if (!item) {
+    throw frontMatterYamlError(sourcePath, line, 'empty inline YAML item.');
+  }
+  items.push(item);
+  return items;
+}
+
+function frontMatterYamlError(sourcePath, line, reason) {
+  const location = line?.lineNumber ? ` at front matter line ${line.lineNumber}` : '';
+  return new PrebuildMarkdownError(
+    sourcePath,
+    `invalid YAML front matter${location}: ${reason}`,
+  );
 }
 
 function readFrontMatterStatus(value, sourcePath) {

@@ -254,6 +254,8 @@ const failureCases = [
   'invalid-front-matter-discoverability',
   'invalid-front-matter-meta',
   'invalid-front-matter-data',
+  'unsupported-front-matter-language',
+  'unsafe-yaml-tag',
   'missing-h1',
   'empty-markdown',
 ];

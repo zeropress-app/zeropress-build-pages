@@ -1,0 +1,2 @@
+[zeropress-prebuild] Invalid Markdown page: test/fixtures/prebuild-errors/unsafe-yaml-tag/documents/page.md
+Reason: invalid YAML front matter at front matter line 1: YAML tags, anchors, and aliases are not supported.

@@ -336,6 +336,8 @@ data:
 Body content...
 ```
 
+Build Pages supports plain YAML front matter delimited by `---`. JavaScript front matter, language-specific front matter delimiters, YAML custom tags, anchors, aliases, and block scalars are not supported.
+
 All supported front matter fields are optional. When `status` is omitted, the page is treated as `published`.
 
 Supported front matter fields:
