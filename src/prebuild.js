@@ -462,7 +462,7 @@ function normalizeFooter(value) {
 
 function validateUrlLikeString(value, pathLabel) {
   if (value.startsWith('//')) {
-    throw new PrebuildConfigError(`${pathLabel} must be an absolute URL or a safe relative path.`);
+    throw new PrebuildConfigError(`${pathLabel} must be an absolute URL or a URL path starting with /, ./, or ../. Config-relative file lookup is not performed.`);
   }
 
   if (value.startsWith('/') || value.startsWith('./') || value.startsWith('../')) {
@@ -475,7 +475,7 @@ function validateUrlLikeString(value, pathLabel) {
       throw new Error('missing host');
     }
   } catch {
-    throw new PrebuildConfigError(`${pathLabel} must be an absolute URL or a safe relative path.`);
+    throw new PrebuildConfigError(`${pathLabel} must be an absolute URL or a URL path starting with /, ./, or ../. Config-relative file lookup is not performed.`);
   }
 }
 

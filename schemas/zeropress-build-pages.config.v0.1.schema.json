@@ -101,8 +101,8 @@
         "src": {
           "type": "string",
           "minLength": 1,
-          "description": "Logo URL or safe relative path.",
-          "markdownDescription": "Logo URL or safe relative path."
+          "description": "Logo URL copied into preview-data. Use a root-relative public path such as /logo.svg, or an absolute URL. Config-relative file lookup is not performed.",
+          "markdownDescription": "Logo URL copied into preview-data. Use a root-relative public path such as `/logo.svg`, or an absolute URL. Config-relative file lookup is not performed."
         },
         "alt": {
           "type": "string",
