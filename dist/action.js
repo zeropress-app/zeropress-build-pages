@@ -60194,14 +60194,14 @@ function sanitizeHtml(html) {
     "input"
   ]);
   const allowedAttributes = {
-    a: /* @__PURE__ */ new Set(["href", "title", "class", "id"]),
+    a: /* @__PURE__ */ new Set(["href", "title", "class", "id", "target", "rel"]),
     aside: /* @__PURE__ */ new Set(["role", "class", "id"]),
     img: /* @__PURE__ */ new Set(["src", "srcset", "sizes", "alt", "title", "class", "id", "width", "height", "loading", "decoding"]),
     iframe: /* @__PURE__ */ new Set(["src", "width", "height", "frameborder", "allowfullscreen", "class", "title"]),
     input: /* @__PURE__ */ new Set(["type", "checked", "disabled", "class", "id", "aria-label"]),
     source: /* @__PURE__ */ new Set(["src", "srcset", "sizes", "type", "media", "width", "height", "class", "id"]),
-    video: /* @__PURE__ */ new Set(["src", "controls", "autoplay", "loop", "muted", "playsinline", "poster", "preload", "width", "height", "class", "id", "title"]),
-    audio: /* @__PURE__ */ new Set(["src", "controls", "autoplay", "loop", "muted", "preload", "class", "id", "title"]),
+    video: /* @__PURE__ */ new Set(["src", "controls", "controlslist", "autoplay", "loop", "muted", "playsinline", "poster", "preload", "width", "height", "class", "id", "title"]),
+    audio: /* @__PURE__ */ new Set(["src", "controls", "controlslist", "autoplay", "loop", "muted", "preload", "class", "id", "title"]),
     track: /* @__PURE__ */ new Set(["src", "kind", "srclang", "label", "default", "class", "id"]),
     "*": /* @__PURE__ */ new Set(["class", "id"])
   };
@@ -60218,6 +60218,8 @@ function sanitizeHtml(html) {
     const tagAllowedAttributes = allowedAttributes[normalizedTag] || /* @__PURE__ */ new Set();
     const globalAllowedAttributes = allowedAttributes["*"];
     const filteredAttributes = [];
+    let anchorTarget = "";
+    let anchorRel = "";
     if (attributeString) {
       const attributePattern = /([a-zA-Z][a-zA-Z0-9-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+)))?/g;
       let attributeMatch;
@@ -60230,13 +60232,48 @@ function sanitizeHtml(html) {
         if ((attributeName === "href" || attributeName === "src" || attributeName === "poster") && !safeUriPattern.test(attributeValue)) {
           continue;
         }
+        if (normalizedTag === "a" && attributeName === "target") {
+          const target = sanitizeAnchorTarget(attributeValue);
+          if (!target) {
+            continue;
+          }
+          anchorTarget = target;
+          continue;
+        }
+        if (normalizedTag === "a" && attributeName === "rel") {
+          const rel = sanitizeRelList(attributeValue);
+          if (!rel) {
+            continue;
+          }
+          anchorRel = rel;
+          continue;
+        }
         if (attributeName === "srcset" && !isSafeSrcset(attributeValue, safeUriPattern)) {
+          continue;
+        }
+        if (attributeName === "controlslist") {
+          const controlsList = sanitizeControlsList(attributeValue);
+          if (!controlsList) {
+            continue;
+          }
+          filteredAttributes.push(`${attributeName}="${controlsList}"`);
           continue;
         }
         if (normalizedTag === "input" && attributeName === "type" && attributeValue !== "checkbox") {
           continue;
         }
         filteredAttributes.push(`${attributeName}="${attributeValue}"`);
+      }
+    }
+    if (normalizedTag === "a") {
+      if (anchorTarget) {
+        filteredAttributes.push(`target="${anchorTarget}"`);
+      }
+      if (anchorTarget === "_blank") {
+        anchorRel = ensureBlankTargetRel(anchorRel);
+      }
+      if (anchorRel) {
+        filteredAttributes.push(`rel="${anchorRel}"`);
       }
     }
     const isSelfClosing = match2.endsWith("/>") || normalizedTag === "br" || normalizedTag === "hr" || normalizedTag === "img" || normalizedTag === "input" || normalizedTag === "source" || normalizedTag === "track";
@@ -60249,6 +60286,29 @@ function sanitizeHtml(html) {
     }
     return part.replace(/&(?!(?:[a-zA-Z]+|#\d+|#x[0-9a-fA-F]+);)/g, "&amp;");
   }).join("");
+}
+function sanitizeAnchorTarget(value) {
+  const normalized = String(value).trim().toLowerCase();
+  return normalized === "_blank" ? "_blank" : "";
+}
+function sanitizeRelList(value) {
+  const allowedTokens = /* @__PURE__ */ new Set(["noopener", "noreferrer", "nofollow", "ugc", "sponsored", "external"]);
+  const tokens = String(value).toLowerCase().split(/\s+/).filter((token, index, allTokens) => allowedTokens.has(token) && allTokens.indexOf(token) === index);
+  return tokens.join(" ");
+}
+function ensureBlankTargetRel(value) {
+  const tokens = String(value).toLowerCase().split(/\s+/).filter(Boolean);
+  for (const requiredToken of ["noopener", "noreferrer"]) {
+    if (!tokens.includes(requiredToken)) {
+      tokens.push(requiredToken);
+    }
+  }
+  return tokens.join(" ");
+}
+function sanitizeControlsList(value) {
+  const allowedTokens = /* @__PURE__ */ new Set(["nodownload", "nofullscreen", "noremoteplayback"]);
+  const tokens = String(value).toLowerCase().split(/\s+/).filter((token, index, allTokens) => allowedTokens.has(token) && allTokens.indexOf(token) === index);
+  return tokens.join(" ");
 }
 function isSafeSrcset(value, safeUriPattern) {
   const candidates = String(value).split(",").map((candidate) => candidate.trim()).filter(Boolean);
