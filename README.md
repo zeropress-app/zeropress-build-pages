@@ -2,6 +2,7 @@
 
 ![npm](https://img.shields.io/npm/v/%40zeropress%2Fbuild-pages)
 ![license](https://img.shields.io/npm/l/%40zeropress%2Fbuild-pages)
+![Socket Badge](https://badge.socket.dev/npm/package/@zeropress/build-pages)
 
 Build ZeroPress static output for modern hosting platforms.
 
