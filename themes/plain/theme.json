@@ -3,7 +3,7 @@
   "name": "ZeroPress Plain",
   "namespace": "zeropress",
   "slug": "plain",
-  "version": "0.6.11",
+  "version": "0.6.12",
   "license": "MIT",
   "runtime": "0.6",
   "description": "Minimal document theme for plain Markdown publishing. Renders each Markdown file as a standalone page with progressive heading anchors, Mermaid support, source Markdown links, and optional GitHub edit links.",
