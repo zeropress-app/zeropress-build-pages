@@ -395,7 +395,8 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.equal(buildReport.markdown.skipped_files.length, 1);
   assert.match(buildReport.markdown.skipped_files[0].file, /draft\.md$/);
   assert.equal(buildReport.markdown.skipped_files[0].reason, 'front matter status is "draft".');
-  assert.match(indexHtml, /Home from front matter\./);
+  assert.match(indexHtml, /<meta name="description" content="Home from front matter\.">/);
+  assert.match(indexHtml, /property="og:description" content="Home from front matter\."/);
   assert.match(indexHtml, /<meta name="generator" content="ZeroPress">/);
   assert.match(indexHtml, /<link rel="icon" href="\/favicon\.ico" sizes="any">/);
   assert.match(indexHtml, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
@@ -425,6 +426,95 @@ test('builds a source directory without config and preserves markdown passthroug
   );
   await assert.rejects(() => fs.access(path.join(tempDir, '_site', 'feed.xml')));
   await fs.access(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'));
+});
+
+test('uses front page markdown excerpt for front page metadata', async () => {
+  const cases = [
+    {
+      name: 'generated excerpt',
+      site: { description: 'Site description stays in the title only.' },
+      frontMatter: [],
+      body: 'Generated page excerpt.',
+      expectedTitle: 'Documentation - Site description stays in the title only.',
+      expectedSiteDescription: 'Site description stays in the title only.',
+      expectedPageExcerpt: 'Generated page excerpt.',
+      expectedMetaDescription: 'Generated page excerpt.',
+    },
+    {
+      name: 'front matter description override',
+      site: { title: 'foo' },
+      frontMatter: ['description: Front matter description.'],
+      body: 'Generated page excerpt should not be used.',
+      expectedTitle: 'foo',
+      expectedSiteDescription: '',
+      expectedPageExcerpt: 'Front matter description.',
+      expectedMetaDescription: 'Front matter description.',
+    },
+    {
+      name: 'empty front matter description',
+      site: { description: 'bar' },
+      frontMatter: ['description: ""'],
+      body: 'Generated page excerpt should be suppressed.',
+      expectedTitle: 'Documentation - bar',
+      expectedSiteDescription: 'bar',
+      expectedPageExcerpt: '',
+      expectedMetaDescription: '',
+    },
+  ];
+
+  for (const testCase of cases) {
+    const tempDir = await makeTempDir();
+    const sourceDir = path.join(tempDir, 'docs');
+    await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
+    const markdownLines = testCase.frontMatter.length > 0
+      ? [
+          '---',
+          ...testCase.frontMatter,
+          '---',
+          '',
+          '# Page Heading',
+          '',
+          testCase.body,
+        ]
+      : [
+          '# Page Heading',
+          '',
+          testCase.body,
+        ];
+    await fs.writeFile(path.join(sourceDir, 'index.md'), markdownLines.join('\n'), 'utf8');
+
+    if (testCase.site !== undefined) {
+      await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
+        version: '0.1',
+        site: testCase.site,
+      }, null, 2), 'utf8');
+    }
+
+    await runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      destination: '_site',
+      theme: 'docs',
+      themePath: path.join(packageDir, 'themes', 'docs1'),
+      skipLinkCheck: true,
+    });
+
+    const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
+    const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
+    const frontPage = previewData.content.pages.find((page) => page.slug === 'index');
+
+    assert.equal(previewData.site.description, testCase.expectedSiteDescription);
+    assert.equal(frontPage.excerpt, testCase.expectedPageExcerpt);
+    assert.match(indexHtml, new RegExp(`<title>${escapeRegExp(testCase.expectedTitle)}</title>`));
+    assert.match(indexHtml, new RegExp(`property="og:title" content="${escapeRegExp(testCase.expectedTitle)}"`));
+    if (testCase.expectedMetaDescription) {
+      assert.match(indexHtml, new RegExp(`<meta name="description" content="${escapeRegExp(testCase.expectedMetaDescription)}">`));
+      assert.match(indexHtml, new RegExp(`property="og:description" content="${escapeRegExp(testCase.expectedMetaDescription)}"`));
+    } else {
+      assert.doesNotMatch(indexHtml, /<meta name="description"/);
+      assert.doesNotMatch(indexHtml, /property="og:description"/);
+    }
+  }
 });
 
 test('rewrites source-relative markdown links with explicit html output when configured', async () => {

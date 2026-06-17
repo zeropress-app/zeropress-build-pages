@@ -138,7 +138,9 @@ async function main() {
       ...(frontMatter.discoverability !== 'default' ? { discoverability: frontMatter.discoverability } : {}),
       content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath, markdownConfig.link_output, publicAssetUrls),
       document_type: 'markdown',
-      excerpt: frontMatter.description || extractExcerpt(bodyMarkdown, title),
+      excerpt: frontMatter.description !== undefined
+        ? frontMatter.description
+        : extractExcerpt(bodyMarkdown, title),
       status: 'published',
     });
   }
@@ -354,7 +356,7 @@ function normalizeSiteConfig(value) {
   assertKnownConfigKeys(configuredSite, ['title', 'description', 'url', 'logo', 'locale', 'expose_generator', 'search', 'indexing', 'footer', 'meta'], 'site');
   const site = {
     title: readConfigString(configuredSite.title, 'Documentation'),
-    description: readConfigString(configuredSite.description, 'A documentation site.'),
+    description: readConfigString(configuredSite.description, ''),
     url: readEnv('ZEROPRESS_SITE_URL', readConfigString(configuredSite.url, '')),
     locale: normalizeSiteLocale(configuredSite.locale),
     expose_generator: readConfigBoolean(configuredSite.expose_generator, true, 'site.expose_generator'),
@@ -1666,7 +1668,7 @@ function normalizeFrontMatterTitle(value, sourcePath) {
 
 function normalizeFrontMatterDescription(value, sourcePath) {
   if (value === undefined) {
-    return '';
+    return undefined;
   }
   if (typeof value !== 'string') {
     throw new PrebuildMarkdownError(
