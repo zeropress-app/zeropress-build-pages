@@ -323,6 +323,7 @@ path: guides/install
 status: published
 discoverability: default
 updated_at: none
+featured_image: /images/share.png
 meta:
   source: docs
 data:
@@ -351,10 +352,13 @@ Supported front matter fields:
 | `status` | `published` includes the page. `draft` skips the page. Other values warn and skip. |
 | `discoverability` | `default`, `noindex`, or `delist`. Missing is `default`. |
 | `updated_at` | `none`, `git`, or an ISO datetime string. Overrides config `markdown.updated_at` for this page. Invalid strings warn and are ignored for that page. |
+| `featured_image` | Optional share image for generated Open Graph metadata. |
 | `meta` | Optional scalar/null metadata copied to the generated page. |
 | `data` | Optional structured JSON-style data for theme-facing lists, facts, galleries, timelines, or swatches. |
 
 Unknown front matter fields are ignored to make migration from existing Markdown sites easier.
+
+`featured_image` accepts an absolute `https://` or `http://` URL, a root-relative public URL such as `/images/share.png`, or a source-relative path to an existing file inside `public-dir`. Root-relative and source-relative values are converted to an absolute URL with `site.url`. If Build Pages cannot safely resolve the value, it prints a warning and omits `featured_image` for that page.
 
 `status` controls route generation. `status: draft` removes the Markdown file from generated preview-data and no HTML route is created.
 

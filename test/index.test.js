@@ -315,6 +315,7 @@ test('builds a source directory without config and preserves markdown passthroug
     'path: guides/custom-page',
     'status: published',
     'discoverability: delist',
+    'featured_image: /images/custom-share.png',
     'unknown_key: ignored',
     'meta:',
     '  source: docs',
@@ -374,6 +375,7 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.equal(customPage.title, 'Custom Front Matter Title');
   assert.equal(customPage.excerpt, 'Custom front matter excerpt.');
   assert.equal(customPage.path, 'guides/custom-page');
+  assert.equal(customPage.featured_image, 'https://example.com/images/custom-share.png');
   assert.equal(customPage.discoverability, 'delist');
   assert.deepEqual(customPage.meta, {
     source: 'docs',
@@ -403,6 +405,7 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.match(guideHtml, /href="\/guides\/custom-page"/);
   assert.match(guideHtml, /contains-task-list/);
   assert.match(customHtml, /Body Heading/);
+  assert.match(customHtml, /<meta property="og:image" content="https:\/\/example\.com\/images\/custom-share\.png">/);
   assert.match(customHtml, /<meta name="robots" content="noindex">/);
   assert.match(customHtml, /View as Markdown/);
   assert.doesNotMatch(customHtml, /title: Custom Front Matter Title|---/);
@@ -501,6 +504,10 @@ test('rewrites source-relative public asset links when the target exists in publ
   await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nHome.', 'utf8');
   await fs.writeFile(path.join(sourceDir, 'guide.md'), '# Guide\n\nGuide.', 'utf8');
   await fs.writeFile(path.join(sourceDir, 'markdown', 'features', 'index.md'), [
+    '---',
+    'featured_image: ../../../public/images/poster.png?card=1#share',
+    '---',
+    '',
     '# Features',
     '',
     '![Logo](../../../public/favicon.png)',
@@ -538,12 +545,14 @@ test('rewrites source-relative public asset links when the target exists in publ
     destination: '_site',
     theme: 'docs',
     themePath: path.join(packageDir, 'themes', 'docs1'),
+    siteUrl: 'https://example.com',
     skipLinkCheck: true,
   });
 
   const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
   const featuresPage = previewData.content.pages.find((page) => page.slug === 'markdown-features');
 
+  assert.equal(featuresPage.featured_image, 'https://example.com/images/poster.png?card=1#share');
   assert.match(featuresPage.content, /!\[Logo\]\(\/favicon\.png\)/);
   assert.match(featuresPage.content, /\[PDF\]\(\/files\/doc\.pdf\?download=1#page\)/);
   assert.match(featuresPage.content, /\[Missing\]\(\.\.\/\.\.\/\.\.\/public\/missing\.png\)/);
@@ -560,6 +569,7 @@ test('rewrites source-relative public asset links when the target exists in publ
   assert.match(featuresPage.content, /!\[Code\]\(\.\.\/\.\.\/\.\.\/public\/code-only\.png\)/);
 
   const featuresHtml = await fs.readFile(path.join(tempDir, '_site', 'markdown', 'features', 'index.html'), 'utf8');
+  assert.match(featuresHtml, /<meta property="og:image" content="https:\/\/example\.com\/images\/poster\.png\?card=1#share">/);
   assert.match(featuresHtml, /<video poster="\/images\/poster\.png" src="\/videos\/demo\.mp4"><\/video>/);
   assert.match(featuresHtml, /<audio><source src="\/audio\/demo\.mp3" type="audio\/mpeg" \/><\/audio>/);
   assert.match(featuresHtml, /<track src="\/files\/captions\.vtt" kind="captions" \/>/);
@@ -1329,6 +1339,76 @@ test('warns and ignores invalid front matter updated_at values', () => {
     const previewData = JSON.parse(fsSync.readFileSync(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
     const home = previewData.content.pages.find((page) => page.slug === 'index');
     assert.equal(Object.hasOwn(home, 'updated_at_iso'), false);
+  }
+});
+
+test('warns and omits invalid front matter featured_image values', () => {
+  const tempDir = fsSync.mkdtempSync(path.join(os.tmpdir(), 'zeropress-build-pages-invalid-featured-image-'));
+  const sourceDir = path.join(tempDir, 'docs');
+  const publicDir = path.join(tempDir, 'public');
+  fsSync.mkdirSync(sourceDir, { recursive: true });
+  fsSync.mkdirSync(publicDir, { recursive: true });
+
+  const pages = new Map([
+    ['index.md', [
+      '---',
+      'featured_image: /images/share.png',
+      '---',
+      '',
+      '# Home',
+    ]],
+    ['unsafe.md', [
+      '---',
+      'featured_image: javascript:alert(1)',
+      '---',
+      '',
+      '# Unsafe',
+    ]],
+    ['missing.md', [
+      '---',
+      'featured_image: ../public/missing.png',
+      '---',
+      '',
+      '# Missing',
+    ]],
+    ['typed.md', [
+      '---',
+      'featured_image: 123',
+      '---',
+      '',
+      '# Typed',
+    ]],
+  ]);
+
+  for (const [fileName, lines] of pages) {
+    fsSync.writeFileSync(path.join(sourceDir, fileName), lines.join('\n'), 'utf8');
+  }
+
+  const result = spawnSync(process.execPath, [prebuildScript], {
+    cwd: tempDir,
+    env: {
+      ...process.env,
+      ZEROPRESS_BUILD_PAGES_SOURCE: sourceDir,
+      ZEROPRESS_BUILD_PAGES_PUBLIC_DIR: publicDir,
+      ZEROPRESS_SITE_URL: '',
+      ZEROPRESS_SKIP_UNTITLED_MARKDOWN: 'false',
+    },
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    (result.stderr.match(/Warning: ignored invalid front matter featured_image/g) || []).length,
+    4,
+  );
+  assert.match(result.stderr, /site\.url is required/);
+  assert.match(result.stderr, /featured_image must use http: or https:/);
+  assert.match(result.stderr, /source-relative featured_image must point to an existing file inside public-dir/);
+  assert.match(result.stderr, /featured_image must be a non-empty string/);
+
+  const previewData = JSON.parse(fsSync.readFileSync(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
+  for (const page of previewData.content.pages) {
+    assert.equal(Object.hasOwn(page, 'featured_image'), false);
   }
 });
 

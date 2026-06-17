@@ -29,6 +29,7 @@ const FRONT_MATTER_DATA_MAX_ARRAY_LENGTH = 256;
 const FRONT_MATTER_DISCOVERABILITY_VALUES = new Set(['default', 'noindex', 'delist']);
 const MARKDOWN_UPDATED_AT_VALUES = new Set(['none', 'git']);
 const MARKDOWN_LINK_OUTPUT_VALUES = new Set(['clean', 'html']);
+const FEATURED_IMAGE_PROTOCOLS = new Set(['http:', 'https:']);
 const CONFIG_REFERENCE_URL = 'https://build-pages.zeropress.dev/reference/config/';
 const markdownDiscoverExcludeRoots = buildMarkdownDiscoverExcludeRoots();
 let configFound = false;
@@ -117,11 +118,18 @@ async function main() {
   const pages = [];
   for (const { sourcePath, bodyMarkdown, frontMatter, title, route } of pageInputs) {
     const updatedAtIso = await buildPageUpdatedAtIso(sourcePath, frontMatter, markdownConfig);
+    const featuredImage = buildPageFeaturedImageUrl(
+      frontMatter.featured_image,
+      sourcePath,
+      resolvedConfig.site.url,
+      publicAssetUrls,
+    );
     pages.push({
       title,
       slug: route.slug,
       path: route.path,
       ...(updatedAtIso ? { updated_at_iso: updatedAtIso } : {}),
+      ...(featuredImage ? { featured_image: featuredImage } : {}),
       meta: {
         ...frontMatter.meta,
         ...(copyMarkdownSource ? { source_markdown_url: buildSourceMarkdownUrl(sourcePath) } : {}),
@@ -1573,6 +1581,7 @@ function normalizePublishedFrontMatter(frontMatter, sourcePath) {
     description: normalizeFrontMatterDescription(frontMatter.description, sourcePath),
     path: normalizeFrontMatterRoutePath(frontMatter.path, sourcePath),
     updated_at: normalizeFrontMatterUpdatedAt(frontMatter.updated_at, sourcePath),
+    featured_image: normalizeFrontMatterFeaturedImage(frontMatter.featured_image, sourcePath),
     discoverability: normalizeFrontMatterDiscoverability(frontMatter.discoverability, sourcePath),
     meta: normalizeFrontMatterMeta(frontMatter.meta, sourcePath),
     data: normalizeFrontMatterData(frontMatter.data, sourcePath),
@@ -1623,6 +1632,22 @@ function normalizeFrontMatterUpdatedAt(value, sourcePath) {
 
   warnInvalidFrontMatterUpdatedAt(sourcePath, value);
   return null;
+}
+
+function normalizeFrontMatterFeaturedImage(value, sourcePath) {
+  if (value === undefined) {
+    return '';
+  }
+  if (typeof value !== 'string' || !value.trim()) {
+    warnInvalidFrontMatterFeaturedImage(
+      sourcePath,
+      value,
+      'featured_image must be a non-empty string.',
+    );
+    return '';
+  }
+
+  return value.trim();
 }
 
 function normalizeFrontMatterTitle(value, sourcePath) {
@@ -1802,6 +1827,14 @@ function warnInvalidFrontMatterUpdatedAt(sourcePath, value) {
   ].join('\n'));
 }
 
+function warnInvalidFrontMatterFeaturedImage(sourcePath, value, reason) {
+  console.warn([
+    `[zeropress-build-pages] Warning: ignored invalid front matter featured_image in ${formatSourcePath(sourcePath)}.`,
+    `Reason: ${reason}`,
+    `Received: ${JSON.stringify(value)}.`,
+  ].join('\n'));
+}
+
 function isValidDateTimeString(value) {
   if (typeof value !== 'string' || value.trim() === '') {
     return false;
@@ -1907,6 +1940,93 @@ function validateFrontMatterDataArray(array, sourcePath, pathLabel, depth) {
   array.forEach((dataValue, index) => {
     validateFrontMatterDataValue(dataValue, sourcePath, `${pathLabel}[${index}]`, depth + 1);
   });
+}
+
+function buildPageFeaturedImageUrl(value, sourcePath, siteUrl, publicAssetUrls) {
+  if (!value) {
+    return '';
+  }
+
+  if (value.startsWith('//')) {
+    warnInvalidFrontMatterFeaturedImage(
+      sourcePath,
+      value,
+      'protocol-relative URLs are not supported.',
+    );
+    return '';
+  }
+
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value)) {
+    const absoluteUrl = normalizeAbsoluteFeaturedImageUrl(value);
+    if (absoluteUrl) {
+      return absoluteUrl;
+    }
+    warnInvalidFrontMatterFeaturedImage(
+      sourcePath,
+      value,
+      'featured_image must use http: or https: when an absolute URL is provided.',
+    );
+    return '';
+  }
+
+  let publicUrl = value;
+  if (!value.startsWith('/')) {
+    const rewrittenUrl = rewritePublicAssetTarget(value, sourcePath, publicAssetUrls);
+    if (rewrittenUrl === value) {
+      warnInvalidFrontMatterFeaturedImage(
+        sourcePath,
+        value,
+        'source-relative featured_image must point to an existing file inside public-dir.',
+      );
+      return '';
+    }
+    publicUrl = rewrittenUrl;
+  }
+
+  if (!siteUrl) {
+    warnInvalidFrontMatterFeaturedImage(
+      sourcePath,
+      value,
+      'site.url is required to convert a public featured_image path into an absolute URL.',
+    );
+    return '';
+  }
+
+  const absoluteUrl = resolveSiteAbsoluteUrl(siteUrl, publicUrl);
+  if (!absoluteUrl) {
+    warnInvalidFrontMatterFeaturedImage(
+      sourcePath,
+      value,
+      'featured_image could not be resolved against site.url.',
+    );
+    return '';
+  }
+
+  return absoluteUrl;
+}
+
+function normalizeAbsoluteFeaturedImageUrl(value) {
+  try {
+    const url = new URL(value);
+    if (!FEATURED_IMAGE_PROTOCOLS.has(url.protocol) || !url.hostname) {
+      return '';
+    }
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
+function resolveSiteAbsoluteUrl(siteUrl, publicUrl) {
+  try {
+    const url = new URL(publicUrl, siteUrl);
+    if (!FEATURED_IMAGE_PROTOCOLS.has(url.protocol) || !url.hostname) {
+      return '';
+    }
+    return url.toString();
+  } catch {
+    return '';
+  }
 }
 
 function formatFrontMatterValue(value) {
