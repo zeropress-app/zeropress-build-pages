@@ -552,7 +552,6 @@ a { color: inherit; }
   padding: 0.65rem 0.75rem;
   border-bottom: 1px solid var(--border);
   text-align: left;
-  vertical-align: top;
   white-space: normal;
 }
 .prose th {
