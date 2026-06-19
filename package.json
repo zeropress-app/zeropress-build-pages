@@ -8,9 +8,7 @@
     "zeropress-build-pages": "bin/zeropress-build-pages.js"
   },
   "files": [
-    "action.yml",
     "bin",
-    "dist",
     "schemas",
     "src",
     "themes"
