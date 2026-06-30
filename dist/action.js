@@ -52322,6 +52322,7 @@ function validateSite(site, path4, errors) {
     "media_delivery_mode",
     "favicon",
     "logo",
+    "newsletter",
     "expose_generator",
     "search",
     "locale",
@@ -52353,6 +52354,9 @@ function validateSite(site, path4, errors) {
   }
   if (site.logo !== void 0) {
     validateSiteLogo(site.logo, `${path4}.logo`, errors);
+  }
+  if (site.newsletter !== void 0) {
+    validateSiteNewsletter(site.newsletter, `${path4}.newsletter`, errors);
   }
   if (site.expose_generator !== void 0) {
     validateBoolean(site.expose_generator, `${path4}.expose_generator`, "INVALID_SITE_EXPOSE_GENERATOR", errors);
@@ -52451,7 +52455,9 @@ function validatePreviewMenuItem(item, path4, errors) {
   }
   validateNonEmptyString(item.title, `${path4}.title`, "INVALID_MENU_ITEM_TITLE", errors);
   validateUrlLike(item.url, `${path4}.url`, "INVALID_MENU_ITEM_URL", errors);
-  validateEnum(item.type, `${path4}.type`, "INVALID_MENU_ITEM_TYPE", errors, PREVIEW_MENU_ITEM_TYPES);
+  if (item.type !== void 0) {
+    validateEnum(item.type, `${path4}.type`, "INVALID_MENU_ITEM_TYPE", errors, PREVIEW_MENU_ITEM_TYPES);
+  }
   validateEnum(item.target, `${path4}.target`, "INVALID_MENU_ITEM_TARGET", errors, PREVIEW_MENU_TARGETS);
   validatePreviewMeta(item.meta, `${path4}.meta`, errors);
   validateArray(item.children, `${path4}.children`, "INVALID_MENU_ITEM_CHILDREN", errors, (entry, index) => {
@@ -52641,6 +52647,38 @@ function validateSiteLogo(logo, path4, errors) {
   validateUrlLike(logo.src, `${path4}.src`, "INVALID_SITE_LOGO_URL", errors);
   if (logo.alt !== void 0) {
     validateString(logo.alt, `${path4}.alt`, "INVALID_SITE_LOGO_ALT", errors);
+  }
+}
+function validateSiteNewsletter(newsletter, path4, errors) {
+  validateClosedObject(newsletter, path4, errors, [
+    "enabled",
+    "title",
+    "description",
+    "button_label",
+    "signup_url",
+    "embed_url"
+  ]);
+  if (!isObject(newsletter)) {
+    return;
+  }
+  validateBoolean(newsletter.enabled, `${path4}.enabled`, "INVALID_SITE_NEWSLETTER_ENABLED", errors);
+  if (newsletter.title !== void 0) {
+    validateString(newsletter.title, `${path4}.title`, "INVALID_SITE_NEWSLETTER_TITLE", errors);
+  }
+  if (newsletter.description !== void 0) {
+    validateString(newsletter.description, `${path4}.description`, "INVALID_SITE_NEWSLETTER_DESCRIPTION", errors);
+  }
+  if (newsletter.button_label !== void 0) {
+    validateString(newsletter.button_label, `${path4}.button_label`, "INVALID_SITE_NEWSLETTER_BUTTON_LABEL", errors);
+  }
+  if (newsletter.signup_url !== void 0) {
+    validateNewsletterUrl(newsletter.signup_url, `${path4}.signup_url`, "INVALID_SITE_NEWSLETTER_SIGNUP_URL", errors);
+  }
+  if (newsletter.embed_url !== void 0) {
+    validateNewsletterUrl(newsletter.embed_url, `${path4}.embed_url`, "INVALID_SITE_NEWSLETTER_EMBED_URL", errors);
+  }
+  if (newsletter.enabled === true && newsletter.signup_url === void 0 && newsletter.embed_url === void 0) {
+    errors.push(issue("INVALID_SITE_NEWSLETTER_URL", path4, "site.newsletter requires signup_url or embed_url when enabled is true"));
   }
 }
 function validatePreviewMedia(media, path4, errors) {
@@ -53035,13 +53073,16 @@ function isOptionalKey(path4, key) {
     return key === "head_end" || key === "body_end";
   }
   if (path4 === "site") {
-    return key === "media_delivery_mode" || key === "favicon" || key === "logo" || key === "expose_generator" || key === "search" || key === "indexing" || key === "permalinks" || key === "front_page" || key === "post_index" || key === "footer" || key === "meta";
+    return key === "media_delivery_mode" || key === "favicon" || key === "logo" || key === "newsletter" || key === "expose_generator" || key === "search" || key === "indexing" || key === "permalinks" || key === "front_page" || key === "post_index" || key === "footer" || key === "meta";
   }
   if (path4 === "site.favicon") {
     return key === "icon" || key === "svg" || key === "png" || key === "apple_touch_icon";
   }
   if (path4 === "site.logo") {
     return key === "alt";
+  }
+  if (path4 === "site.newsletter") {
+    return key === "title" || key === "description" || key === "button_label" || key === "signup_url" || key === "embed_url";
   }
   if (path4 === "site.footer") {
     return key === "copyright_text" || key === "attribution";
@@ -53065,7 +53106,7 @@ function isOptionalKey(path4, key) {
     return key === "alt";
   }
   if (path4.startsWith("menus.") && (path4.includes(".items[") || path4.includes(".children["))) {
-    return key === "meta";
+    return key === "type" || key === "meta";
   }
   if (path4.startsWith("widgets.") && path4.includes(".items[")) {
     return key === "settings";
@@ -53209,6 +53250,34 @@ function validateUrlLike(value, path4, code2, errors) {
     return;
   }
   validateUri(trimmed, path4, code2, errors);
+}
+function validateNewsletterUrl(value, path4, code2, errors) {
+  if (typeof value !== "string" || value.trim() === "") {
+    errors.push(issue(code2, path4, "Expected a root-relative or http(s) URL string"));
+    return;
+  }
+  const trimmed = value.trim();
+  if (/[\s\\\u0000-\u001F\u007F]/u.test(trimmed)) {
+    errors.push(issue(code2, path4, "Newsletter URLs must not contain whitespace, backslashes, or control characters"));
+    return;
+  }
+  if (trimmed.startsWith("//")) {
+    errors.push(issue(code2, path4, "Protocol-relative URLs are not allowed"));
+    return;
+  }
+  if (trimmed.startsWith("/") && trimmed.length > 1) {
+    return;
+  }
+  let url;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    errors.push(issue(code2, path4, "Expected a root-relative or http(s) URL string"));
+    return;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    errors.push(issue(code2, path4, "Expected http or https URL"));
+  }
 }
 function issue(code2, path4, message) {
   return {
@@ -59908,6 +59977,15 @@ var ALERT_TYPES = /* @__PURE__ */ new Map([
   ["WARNING", { className: "warning", title: "Warning" }],
   ["CAUTION", { className: "caution", title: "Caution" }]
 ]);
+var ADMONITION_CONTAINER_TYPES = /* @__PURE__ */ new Map([
+  ["NOTE", { className: "note", title: "Note" }],
+  ["INFO", { className: "note", title: "Info" }],
+  ["TIP", { className: "tip", title: "Tip" }],
+  ["IMPORTANT", { className: "important", title: "Important" }],
+  ["WARNING", { className: "warning", title: "Warning" }],
+  ["CAUTION", { className: "caution", title: "Caution" }],
+  ["DANGER", { className: "caution", title: "Danger" }]
+]);
 function renderDocumentContent(content, documentType = "markdown") {
   return renderDocument(content, documentType).html;
 }
@@ -59941,7 +60019,7 @@ function createMarkdownRenderer(toc) {
     html: true,
     linkify: false,
     typographer: true,
-    breaks: true,
+    breaks: false,
     highlight(value, language) {
       if (language && es_default.getLanguage(language)) {
         try {
@@ -59957,6 +60035,7 @@ function createMarkdownRenderer(toc) {
       }
     }
   });
+  markdown.use(markdownAdmonitionContainers);
   markdown.use(markdownTaskLists);
   markdown.use(markdownAlerts);
   markdown.use(markdownTableAlignmentClasses);
@@ -59976,6 +60055,88 @@ function createMarkdownRenderer(toc) {
     }
   });
   return markdown;
+}
+function markdownAdmonitionContainers(markdown) {
+  markdown.block.ruler.before("fence", "zeropress_admonition_containers", (state, startLine, endLine, silent) => {
+    if (state.sCount[startLine] - state.blkIndent >= 4) {
+      return false;
+    }
+    const opener = parseAdmonitionContainerOpener(getLineText(state, startLine));
+    if (!opener) {
+      return false;
+    }
+    const alert = ADMONITION_CONTAINER_TYPES.get(opener.type.toUpperCase());
+    if (!alert) {
+      return false;
+    }
+    const closeLine = findAdmonitionContainerClose(state, startLine + 1, endLine, opener.markerLength);
+    if (closeLine === -1) {
+      return false;
+    }
+    if (silent) {
+      return true;
+    }
+    const openToken = state.push("admonition_container_open", "aside", 1);
+    openToken.block = true;
+    openToken.markup = opener.markup;
+    openToken.map = [startLine, closeLine + 1];
+    openToken.attrSet("class", `zp-alert zp-alert--${alert.className}`);
+    openToken.attrSet("role", "note");
+    state.tokens.push(...createAlertTitleTokens(state, alert.title));
+    state.md.block.tokenize(state, startLine + 1, closeLine);
+    const closeToken = state.push("admonition_container_close", "aside", -1);
+    closeToken.block = true;
+    closeToken.markup = opener.markup;
+    state.line = closeLine + 1;
+    return true;
+  }, {
+    alt: ["paragraph", "reference", "blockquote", "list"]
+  });
+}
+function getLineText(state, line) {
+  const start = state.bMarks[line] + state.tShift[line];
+  const end = state.eMarks[line];
+  return state.src.slice(start, end);
+}
+function parseAdmonitionContainerOpener(lineText) {
+  const match2 = /^(:{3,})[ \t]*([A-Za-z][A-Za-z0-9_-]*)(?=$|[ \t[\{])/.exec(lineText);
+  if (!match2) {
+    return null;
+  }
+  return {
+    markup: match2[1],
+    markerLength: match2[1].length,
+    type: match2[2]
+  };
+}
+function findAdmonitionContainerClose(state, startLine, endLine, markerLength) {
+  let fenceMarker = "";
+  let fenceLength = 0;
+  for (let line = startLine; line < endLine; line += 1) {
+    const lineText = getLineText(state, line);
+    if (fenceMarker) {
+      const fenceClose = new RegExp(`^${escapeRegExp(fenceMarker)}{${fenceLength},}[ \\t]*$`).exec(lineText);
+      if (fenceClose) {
+        fenceMarker = "";
+        fenceLength = 0;
+      }
+      continue;
+    }
+    const fenceOpen = /^(`{3,}|~{3,})/.exec(lineText);
+    if (fenceOpen) {
+      fenceMarker = fenceOpen[1][0];
+      fenceLength = fenceOpen[1].length;
+      continue;
+    }
+    const closeMatch = /^(:{3,})[ \t]*$/.exec(lineText);
+    if (closeMatch && closeMatch[1].length >= markerLength) {
+      return line;
+    }
+  }
+  return -1;
+}
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 function markdownTableAlignmentClasses(markdown) {
   for (const tokenName of ["th_open", "td_open"]) {
@@ -60074,8 +60235,9 @@ function markdownAlerts(markdown) {
       if (inlineToken.content.trim() === "") {
         state.tokens.splice(firstParagraph.openIndex, 3);
       }
-      state.tokens.splice(index + 1, 0, ...createAlertTitleTokens(state, alert.title));
-      index += 3;
+      const titleTokens = createAlertTitleTokens(state, alert.title);
+      state.tokens.splice(index + 1, 0, ...titleTokens);
+      index += titleTokens.length;
     }
   });
 }
@@ -60121,15 +60283,10 @@ function stripAlertMarker(inlineToken, state) {
   return alertType;
 }
 function createAlertTitleTokens(state, title) {
-  const openToken = new state.Token("paragraph_open", "p", 1);
-  openToken.attrSet("class", "zp-alert__title");
-  const inlineToken = new state.Token("inline", "", 0);
-  inlineToken.content = title;
-  const textToken = new state.Token("text", "", 0);
-  textToken.content = title;
-  inlineToken.children = [textToken];
-  const closeToken = new state.Token("paragraph_close", "p", -1);
-  return [openToken, inlineToken, closeToken];
+  const token = new state.Token("html_block", "", 0);
+  token.block = true;
+  token.content = `<p class="zp-alert__title">${escapeHtml2(title)}</p>`;
+  return [token];
 }
 function addTokenClass(token, className) {
   const existingValue = token.attrGet("class") || "";
@@ -60143,12 +60300,15 @@ function normalizeDocumentType(value) {
   return value === "plaintext" || value === "html" ? value : "markdown";
 }
 function transformPlaintext(content) {
-  const escaped = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  const escaped = escapeHtml2(content);
   const paragraphs = escaped.split(/\n\s*\n/).map((entry) => entry.trim()).filter(Boolean);
   if (paragraphs.length === 0) {
     return "";
   }
   return paragraphs.map((entry) => `<p>${entry}</p>`).join("\n");
+}
+function escapeHtml2(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function sanitizeHtml(html) {
   const allowedTags = /* @__PURE__ */ new Set([
@@ -60162,9 +60322,12 @@ function sanitizeHtml(html) {
     "br",
     "hr",
     "strong",
+    "b",
     "em",
     "u",
     "s",
+    "sup",
+    "sub",
     "code",
     "pre",
     "a",
@@ -60200,6 +60363,8 @@ function sanitizeHtml(html) {
     iframe: /* @__PURE__ */ new Set(["src", "width", "height", "frameborder", "allowfullscreen", "class", "title"]),
     input: /* @__PURE__ */ new Set(["type", "checked", "disabled", "class", "id", "aria-label"]),
     source: /* @__PURE__ */ new Set(["src", "srcset", "sizes", "type", "media", "width", "height", "class", "id"]),
+    th: /* @__PURE__ */ new Set(["rowspan", "colspan", "align", "class", "id"]),
+    td: /* @__PURE__ */ new Set(["rowspan", "colspan", "align", "class", "id"]),
     video: /* @__PURE__ */ new Set(["src", "controls", "controlslist", "autoplay", "loop", "muted", "playsinline", "poster", "preload", "width", "height", "class", "id", "title"]),
     audio: /* @__PURE__ */ new Set(["src", "controls", "controlslist", "autoplay", "loop", "muted", "preload", "class", "id", "title"]),
     track: /* @__PURE__ */ new Set(["src", "kind", "srclang", "label", "default", "class", "id"]),
@@ -60220,6 +60385,7 @@ function sanitizeHtml(html) {
     const filteredAttributes = [];
     let anchorTarget = "";
     let anchorRel = "";
+    let tableCellAlignClass = "";
     if (attributeString) {
       const attributePattern = /([a-zA-Z][a-zA-Z0-9-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+)))?/g;
       let attributeMatch;
@@ -60259,11 +60425,30 @@ function sanitizeHtml(html) {
           filteredAttributes.push(`${attributeName}="${controlsList}"`);
           continue;
         }
+        if ((normalizedTag === "th" || normalizedTag === "td") && (attributeName === "rowspan" || attributeName === "colspan")) {
+          const span = sanitizePositiveIntegerAttribute(attributeValue);
+          if (!span) {
+            continue;
+          }
+          filteredAttributes.push(`${attributeName}="${span}"`);
+          continue;
+        }
+        if ((normalizedTag === "th" || normalizedTag === "td") && attributeName === "align") {
+          const alignment = sanitizeTableAlignment(attributeValue);
+          if (!alignment) {
+            continue;
+          }
+          tableCellAlignClass = `zp-align-${alignment}`;
+          continue;
+        }
         if (normalizedTag === "input" && attributeName === "type" && attributeValue !== "checkbox") {
           continue;
         }
         filteredAttributes.push(`${attributeName}="${attributeValue}"`);
       }
+    }
+    if (tableCellAlignClass) {
+      appendClassAttribute(filteredAttributes, tableCellAlignClass);
     }
     if (normalizedTag === "a") {
       if (anchorTarget) {
@@ -60286,6 +60471,34 @@ function sanitizeHtml(html) {
     }
     return part.replace(/&(?!(?:[a-zA-Z]+|#\d+|#x[0-9a-fA-F]+);)/g, "&amp;");
   }).join("");
+}
+function appendClassAttribute(attributes, className) {
+  const classIndex = attributes.findIndex((attribute2) => attribute2.startsWith('class="'));
+  if (classIndex === -1) {
+    attributes.push(`class="${className}"`);
+    return;
+  }
+  const existingValue = attributes[classIndex].slice('class="'.length, -1);
+  const classes = existingValue.split(/\s+/).filter(Boolean);
+  if (!classes.includes(className)) {
+    classes.push(className);
+  }
+  attributes[classIndex] = `class="${classes.join(" ")}"`;
+}
+function sanitizePositiveIntegerAttribute(value) {
+  const normalized = String(value).trim();
+  if (!/^\d+$/.test(normalized)) {
+    return "";
+  }
+  const numericValue = Number(normalized);
+  if (!Number.isSafeInteger(numericValue) || numericValue < 1) {
+    return "";
+  }
+  return String(numericValue);
+}
+function sanitizeTableAlignment(value) {
+  const normalized = String(value).trim().toLowerCase();
+  return ["left", "center", "right"].includes(normalized) ? normalized : "";
 }
 function sanitizeAnchorTarget(value) {
   const normalized = String(value).trim().toLowerCase();
@@ -61507,6 +61720,7 @@ function normalizePreviewData(previewData, options2 = {}) {
     media_delivery_mode: MEDIA_DELIVERY_MODES.has(previewData.site.media_delivery_mode) ? previewData.site.media_delivery_mode : "none",
     favicon: previewData.site.favicon ? normalizeSiteFavicon(previewData.site.favicon, media_base_url) : normalizeSiteFavicon(options2.favicon, ""),
     logo: normalizeSiteLogo(previewData.site.logo, media_base_url),
+    newsletter: normalizeSiteNewsletter(previewData.site.newsletter),
     posts_per_page: Number.isInteger(previewData.site.posts_per_page) && previewData.site.posts_per_page > 0 ? previewData.site.posts_per_page : DEFAULT_POSTS_PER_PAGE,
     datetime_display: DATETIME_DISPLAY_MODES.has(previewData.site.datetime_display) ? previewData.site.datetime_display : DEFAULT_DATETIME_DISPLAY,
     date_style: DATETIME_STYLES.has(previewData.site.date_style) ? previewData.site.date_style : DEFAULT_DATE_STYLE,
@@ -61775,6 +61989,24 @@ function normalizeSiteLogo(logo, media_base_url) {
   return {
     src,
     ...alt ? { alt } : {}
+  };
+}
+function normalizeSiteNewsletter(newsletter) {
+  if (!newsletter || typeof newsletter !== "object" || Array.isArray(newsletter)) {
+    return void 0;
+  }
+  const title = normalizeOptionalString(newsletter.title);
+  const description = normalizeOptionalString(newsletter.description);
+  const buttonLabel = normalizeOptionalString(newsletter.button_label);
+  const signupUrl = normalizeOptionalString(newsletter.signup_url);
+  const embedUrl = normalizeOptionalString(newsletter.embed_url);
+  return {
+    enabled: newsletter.enabled === true,
+    ...title ? { title } : {},
+    ...description ? { description } : {},
+    ...buttonLabel ? { button_label: buttonLabel } : {},
+    ...signupUrl ? { signup_url: signupUrl } : {},
+    ...embedUrl ? { embed_url: embedUrl } : {}
   };
 }
 function normalizePermalinks(permalinks) {
@@ -62167,9 +62399,9 @@ function resolveWidgetItem(item, previewData, renderData, widgetAreaId, index) {
 }
 function resolveRecentPostsWidget(baseWidget, settings, renderData) {
   const limit = clampInteger(settings?.limit, 5, 1, 20);
-  const items = renderData.posts.filter((post) => !isDelistedDocument(post)).slice(0, limit).map((post) => ({
+  const items = renderData.posts.filter((post) => post.status === "published" && !isDelistedDocument(post)).slice(0, limit).map((post) => ({
     title: post.title,
-    url: `/posts/${encodeSlugSegment(post.slug)}/`,
+    url: post.url,
     published_at: post.published_at,
     published_at_iso: post.published_at_iso
   }));
@@ -62884,17 +63116,17 @@ function buildPageMeta(site, options2 = {}) {
   const modifiedTime = normalizeOptionalString(options2.modifiedTime);
   const robotsNoindex = options2.robotsNoindex === true;
   const meta = {
-    title: escapeHtml2(resolvedTitle),
-    description: resolvedDescription ? escapeHtml2(resolvedDescription) : "",
-    canonical_url: canonicalUrl ? escapeHtml2(canonicalUrl) : "",
-    og_title: escapeHtml2(resolvedTitle),
-    og_description: resolvedDescription ? escapeHtml2(resolvedDescription) : "",
-    og_type: escapeHtml2(ogType),
-    og_url: canonicalUrl ? escapeHtml2(canonicalUrl) : "",
-    og_site_name: escapeHtml2(site.title),
-    og_image: ogImage ? escapeHtml2(ogImage) : "",
-    article_published_time: publishedTime ? escapeHtml2(publishedTime) : "",
-    article_modified_time: modifiedTime ? escapeHtml2(modifiedTime) : "",
+    title: escapeHtml3(resolvedTitle),
+    description: resolvedDescription ? escapeHtml3(resolvedDescription) : "",
+    canonical_url: canonicalUrl ? escapeHtml3(canonicalUrl) : "",
+    og_title: escapeHtml3(resolvedTitle),
+    og_description: resolvedDescription ? escapeHtml3(resolvedDescription) : "",
+    og_type: escapeHtml3(ogType),
+    og_url: canonicalUrl ? escapeHtml3(canonicalUrl) : "",
+    og_site_name: escapeHtml3(site.title),
+    og_image: ogImage ? escapeHtml3(ogImage) : "",
+    article_published_time: publishedTime ? escapeHtml3(publishedTime) : "",
+    article_modified_time: modifiedTime ? escapeHtml3(modifiedTime) : "",
     robots_noindex: robotsNoindex
   };
   return {
@@ -63280,16 +63512,16 @@ function buildFaviconLinks(favicon) {
   }
   const lines = [];
   if (normalizeOptionalString(favicon.icon)) {
-    lines.push(`  <link rel="icon" href="${escapeHtml2(favicon.icon)}" sizes="any">`);
+    lines.push(`  <link rel="icon" href="${escapeHtml3(favicon.icon)}" sizes="any">`);
   }
   if (normalizeOptionalString(favicon.svg)) {
-    lines.push(`  <link rel="icon" href="${escapeHtml2(favicon.svg)}" type="image/svg+xml">`);
+    lines.push(`  <link rel="icon" href="${escapeHtml3(favicon.svg)}" type="image/svg+xml">`);
   }
   if (normalizeOptionalString(favicon.png)) {
-    lines.push(`  <link rel="icon" href="${escapeHtml2(favicon.png)}" type="image/png">`);
+    lines.push(`  <link rel="icon" href="${escapeHtml3(favicon.png)}" type="image/png">`);
   }
   if (normalizeOptionalString(favicon.apple_touch_icon)) {
-    lines.push(`  <link rel="apple-touch-icon" href="${escapeHtml2(favicon.apple_touch_icon)}">`);
+    lines.push(`  <link rel="apple-touch-icon" href="${escapeHtml3(favicon.apple_touch_icon)}">`);
   }
   return lines.join("\n");
 }
@@ -63303,7 +63535,7 @@ function injectCustomCssAssetLink(html, href) {
   if (!normalizeOptionalString(href)) {
     return html;
   }
-  return html.replace("</head>", `  <link rel="stylesheet" href="${escapeHtml2(href)}">
+  return html.replace("</head>", `  <link rel="stylesheet" href="${escapeHtml3(href)}">
 </head>`);
 }
 function injectCustomHtml(html, customHtml) {
@@ -63923,7 +64155,7 @@ function normalizeIsoTimestamp(value) {
 function escapeXml(str) {
   return String(str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
-function escapeHtml2(value) {
+function escapeHtml3(value) {
   return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
 function clampInteger(value, fallback, min, max) {
