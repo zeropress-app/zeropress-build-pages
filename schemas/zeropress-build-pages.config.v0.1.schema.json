@@ -329,7 +329,8 @@
         "type": {
           "type": "string",
           "enum": ["custom", "page", "post", "category"],
-          "default": "custom"
+          "description": "Optional legacy origin metadata accepted for compatibility. Build Pages ignores this value and does not copy it to resolved config or preview-data. Planned for removal in v0.7.",
+          "markdownDescription": "Optional legacy origin metadata accepted for compatibility. Build Pages ignores this value and does not copy it to resolved config or preview-data. Planned for removal in `v0.7`."
         },
         "target": {
           "type": "string",

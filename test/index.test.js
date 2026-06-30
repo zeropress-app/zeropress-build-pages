@@ -1101,6 +1101,12 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
               featured: true,
             },
           },
+          {
+            title: 'Legacy Typed Item',
+            url: '/legacy',
+            type: 'page',
+            target: '_blank',
+          },
         ],
       },
     },
@@ -1234,7 +1240,6 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.deepEqual(resolvedConfig.menus.primary.items[1], {
     title: 'Topic',
     url: '/topic',
-    type: 'custom',
     target: '_self',
     meta: {
       icon: 'book-open',
@@ -1243,11 +1248,20 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     },
     children: [],
   });
+  assert.equal(Object.hasOwn(previewData.menus.primary.items[1], 'type'), false);
   assert.deepEqual(previewData.menus.primary.items[1].meta, {
     icon: 'book-open',
     badge: 'New',
     featured: true,
   });
+  assert.deepEqual(resolvedConfig.menus.primary.items[2], {
+    title: 'Legacy Typed Item',
+    url: '/legacy',
+    target: '_blank',
+    children: [],
+  });
+  assert.equal(Object.hasOwn(previewData.menus.primary.items[2], 'type'), false);
+  assert.deepEqual(previewData.menus.primary.items[2], resolvedConfig.menus.primary.items[2]);
   await fs.access(path.join(tempDir, '_site', 'topic.html'));
   await fs.access(path.join(tempDir, '_site', 'topic.md'));
 });

@@ -881,7 +881,6 @@ function normalizeMenuItem(item, pathLabel) {
   return {
     title,
     url,
-    type: readConfigString(item.type, 'custom'),
     target: readConfigString(item.target, '_self'),
     ...(item.meta !== undefined ? { meta: normalizeMenuItemMeta(item.meta, `${pathLabel}.meta`) } : {}),
     children: Array.isArray(item.children)
@@ -2564,7 +2563,6 @@ function menuItem(title, url) {
   return {
     title,
     url,
-    type: 'custom',
     target: '_self',
     children: [],
   };
