@@ -1197,12 +1197,20 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     docs: {
       title: 'Docs Order',
       items: [
+        'index.md',
+        'topic.md',
+      ],
+    },
+  });
+  assert.deepEqual(previewData.collections, {
+    docs: {
+      title: 'Docs Order',
+      items: [
         { type: 'page', slug: 'index' },
         { type: 'page', slug: 'topic' },
       ],
     },
   });
-  assert.deepEqual(previewData.collections, resolvedConfig.collections);
   assert.deepEqual(resolvedConfig.site, {
     title: 'Configured Docs',
     description: 'A configured docs site.',

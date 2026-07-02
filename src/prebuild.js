@@ -111,8 +111,8 @@ async function main() {
   );
   const publicAssetUrls = await buildPublicAssetUrlMap(publicDir);
   const collections = normalizeCollections(config.collections, pageInputs, skippedMarkdown);
-  if (Object.keys(collections).length > 0) {
-    resolvedConfig.collections = collections;
+  if (Object.keys(collections.resolved).length > 0) {
+    resolvedConfig.collections = collections.resolved;
   }
 
   const pages = [];
@@ -170,8 +170,8 @@ async function main() {
     widgets: {},
   };
 
-  if (Object.keys(collections).length > 0) {
-    previewData.collections = collections;
+  if (Object.keys(collections.preview).length > 0) {
+    previewData.collections = collections.preview;
   }
   if (customHtml) {
     previewData.custom_html = customHtml;
@@ -918,7 +918,10 @@ function defaultMenus() {
 
 function normalizeCollections(value, pageInputs, skippedMarkdown) {
   if (value === undefined) {
-    return {};
+    return {
+      resolved: {},
+      preview: {},
+    };
   }
   if (!isPlainObject(value)) {
     throw new PrebuildConfigError('collections must be an object keyed by collection id.');
@@ -928,7 +931,8 @@ function normalizeCollections(value, pageInputs, skippedMarkdown) {
   const skippedByFile = new Map(
     skippedMarkdown.map((entry) => [path.resolve(rootDir, entry.file), entry.reason]),
   );
-  const collections = {};
+  const resolvedCollections = {};
+  const previewCollections = {};
 
   for (const [collectionId, collection] of Object.entries(value)) {
     validateConfigId(collectionId, `collections.${collectionId}`);
@@ -941,7 +945,8 @@ function normalizeCollections(value, pageInputs, skippedMarkdown) {
     }
 
     const seenSourcePaths = new Set();
-    const items = collection.items.map((item, index) => {
+    const resolvedItems = [];
+    const previewItems = collection.items.map((item, index) => {
       const pathLabel = `collections.${collectionId}.items[${index}]`;
       const normalizedPath = resolveCollectionSourcePath(item, pathLabel);
       const sourcePath = path.resolve(sourceDir, normalizedPath);
@@ -959,20 +964,30 @@ function normalizeCollections(value, pageInputs, skippedMarkdown) {
         throw new PrebuildConfigError(`${pathLabel} was not discovered as a Markdown page: ${normalizedPath}`);
       }
 
+      resolvedItems.push(normalizedPath);
       return {
         type: 'page',
         slug: pageInput.route.slug,
       };
     });
 
-    collections[collectionId] = {
+    const resolvedCollection = {
       title: readConfigString(collection.title, collectionId),
       ...(collection.description !== undefined ? { description: readConfigString(collection.description, '') } : {}),
-      items,
+      items: resolvedItems,
+    };
+
+    resolvedCollections[collectionId] = resolvedCollection;
+    previewCollections[collectionId] = {
+      ...resolvedCollection,
+      items: previewItems,
     };
   }
 
-  return collections;
+  return {
+    resolved: resolvedCollections,
+    preview: previewCollections,
+  };
 }
 
 function resolveCollectionSourcePath(value, pathLabel) {
