@@ -598,3 +598,9 @@ The `destination` directory contains the deployable static site. It includes gen
 
 - [zeropress.dev](https://github.com/zeropress-app/zeropress.dev) is built with `@zeropress/build-pages`.
 - [build-pages.zeropress.dev](https://github.com/zeropress-app/build-pages.zeropress.dev) is built with `@zeropress/build-pages` and the bundled `docs2` theme.
+
+## Privacy Policy
+
+`@zeropress/build-pages` runs entirely within the build environment. It does not make network requests or transmit source files, generated output, usage data, analytics, or telemetry.
+
+The package reads static files from the input paths you provide and generates static files in the destination directory you choose. Any package manager, CI system, hosting provider, or other external service you use with the generated files may have its own network behavior and privacy policy.
