@@ -546,7 +546,7 @@ Client-side progressive enhancement may replace the fallback text with a localiz
 
 Bundled documentation themes show `Published with ZeroPress` by default. Set `site.footer.attribution` to `false` to hide it.
 
-`site.logo` is optional theme-facing brand data. Use a root-relative public path for public logo files, or an absolute URL for media-hosted logos. Build Pages emits `media_base_url: ""`, so root-relative logo paths remain same-host public paths.
+`site.logo` is optional theme-facing brand data. Use a root-relative public path such as `/logo.svg` for public logo files, or an absolute `https://` or `http://` URL for media-hosted logos. Document-relative paths such as `./logo.svg` and `../logo.svg` are rejected because browsers resolve them relative to each generated page. Build Pages emits `media_base_url: ""`, so root-relative logo paths remain same-host public paths.
 
 `site.locale` is optional language metadata copied into generated preview-data. It affects theme-facing `site.locale`, the common `language` render context value, generated HTML language metadata, and feed language. Missing `site.locale` defaults to `en-US`.
 

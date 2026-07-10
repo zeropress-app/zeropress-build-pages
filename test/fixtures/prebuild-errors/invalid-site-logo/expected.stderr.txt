@@ -1,2 +1,2 @@
 [zeropress-build-pages] Invalid site config: test/fixtures/prebuild-errors/invalid-site-logo/documents/.zeropress/config.json
-Reason: site.logo.src must be an absolute URL or a URL path starting with /, ./, or ../. Config-relative file lookup is not performed.
+Reason: site.logo.src must be a root-relative URL path starting with / or an absolute HTTP(S) URL. Relative paths such as ./logo.svg and ../logo.svg are not supported.

@@ -1639,6 +1639,18 @@ test('rejects invalid site logo and site meta config', async () => {
       site: { logo: { src: '//cdn.example.com/logo.svg' } },
     },
     {
+      site: { logo: { src: './logo.svg' } },
+    },
+    {
+      site: { logo: { src: '../logo.svg' } },
+    },
+    {
+      site: { logo: { src: 'logo.svg' } },
+    },
+    {
+      site: { logo: { src: 'ftp://cdn.example.com/logo.svg' } },
+    },
+    {
       site: { logo: { src: '/logo.svg', alt: 1 } },
     },
     {

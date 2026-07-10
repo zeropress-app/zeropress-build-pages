@@ -476,7 +476,7 @@ function normalizeSiteLogo(value) {
       '  "logo": { "src": "/logo.svg", "alt": "My Site" }',
     );
   }
-  validateUrlLikeString(src, 'site.logo.src');
+  validateSiteLogoSrc(src);
 
   const logo = { src };
   if (value.alt !== undefined) {
@@ -533,22 +533,20 @@ function normalizeFooter(value) {
   return Object.keys(footer).length ? footer : undefined;
 }
 
-function validateUrlLikeString(value, pathLabel) {
-  if (value.startsWith('//')) {
-    throw new PrebuildConfigError(`${pathLabel} must be an absolute URL or a URL path starting with /, ./, or ../. Config-relative file lookup is not performed.`);
-  }
-
-  if (value.startsWith('/') || value.startsWith('./') || value.startsWith('../')) {
+function validateSiteLogoSrc(value) {
+  if (value.startsWith('/') && !value.startsWith('//')) {
     return;
   }
 
   try {
     const url = new URL(value);
-    if (!url.protocol || !url.hostname) {
-      throw new Error('missing host');
+    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
+      throw new Error('unsupported URL');
     }
   } catch {
-    throw new PrebuildConfigError(`${pathLabel} must be an absolute URL or a URL path starting with /, ./, or ../. Config-relative file lookup is not performed.`);
+    throw new PrebuildConfigError(
+      'site.logo.src must be a root-relative URL path starting with / or an absolute HTTP(S) URL. Relative paths such as ./logo.svg and ../logo.svg are not supported.',
+    );
   }
 }
 
