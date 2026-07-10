@@ -111,7 +111,7 @@ async function linkExists(siteDir, htmlFilePath, link) {
         return true;
       }
     } catch (error) {
-      if (error?.code !== 'ENOENT') {
+      if (!isMissingLinkTargetError(error)) {
         throw error;
       }
     }
@@ -127,6 +127,9 @@ function resolveLinkTarget(siteDir, htmlFilePath, link) {
   } catch {
     return '';
   }
+  if (decodedLink.includes('\0')) {
+    return '';
+  }
 
   if (decodedLink.startsWith('/')) {
     return path.resolve(siteDir, decodedLink.replace(/^\/+/, ''));
@@ -138,4 +141,8 @@ function resolveLinkTarget(siteDir, htmlFilePath, link) {
 function isPathInside(parent, child) {
   const relativePath = path.relative(path.resolve(parent), path.resolve(child));
   return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+}
+
+function isMissingLinkTargetError(error) {
+  return ['ENOENT', 'ENOTDIR', 'EINVAL', 'ENAMETOOLONG'].includes(error?.code);
 }

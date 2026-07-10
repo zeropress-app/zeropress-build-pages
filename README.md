@@ -168,6 +168,8 @@ In the action inputs:
 - `skip-link-check` skips internal link checking after build. The default is `false`; broken internal links are reported as warnings and do not fail the build.
 - `copy-markdown-source` copies original Markdown files to the generated output and enables bundled theme source links such as `View as Markdown`. The default is `true`; when set to `false`, public `.md` passthrough files are also skipped.
 
+Boolean Action inputs accept only the exact values `true` and `false`. Other strings fail the build instead of falling back to a default.
+
 For a supported origin-root GitHub Pages site, the generated `destination` directory can be passed to `actions/upload-pages-artifact`. For Cloudflare Pages, Netlify, Vercel, or another static host, pass the same `destination` directory to that provider's deploy step and configure the deployment at the origin root.
 
 Build Pages intentionally uses root-relative page, asset, search, and public-file URLs. It does not support a base path or mount path. Deployments such as `https://example.com/docs/` or GitHub Project Pages at `https://<owner>.github.io/<repository>/` require a custom domain or another origin-root hosting arrangement.
@@ -280,7 +282,7 @@ Root-level public files named `favicon.ico`, `favicon.svg`, `favicon.png`, and `
 
 A root-level public `sitemap.xsl` is copied to the destination. When ZeroPress generates `sitemap.xml`, it auto-discovers that file and adds an XML stylesheet processing instruction for `/sitemap.xsl`.
 
-The source directory must not overlap the destination directory, the selected theme directory, or the internal `.zeropress-build-page/` working directory. An explicit public directory must be an existing dedicated directory and must not be a file, symlink, repository root, destination directory, selected theme directory, or internal `.zeropress-build-page/` working directory.
+The source directory must be an existing dedicated directory, must not be a symlink, and must not overlap the destination directory, the selected theme directory, or the internal `.zeropress-build-page/` working directory. The destination and selected theme directories must not overlap. An explicit public directory must be an existing dedicated directory and must not be a file, symlink, repository root, destination directory, selected theme directory, or internal `.zeropress-build-page/` working directory.
 
 If `public-dir` is inside `source`, Build Pages excludes that public subtree from Markdown page discovery.
 
@@ -431,7 +433,7 @@ progressive enhancement owned by the theme or site.
 
 ## Config
 
-Build Pages reads `<source>/.zeropress/config.json` when present. Missing config falls back to defaults.
+Build Pages reads `<source>/.zeropress/config.json` when present. A missing implicit default config falls back to defaults. A config path supplied explicitly through `--config` or the Action `config` input must exist.
 
 `site.url` is optional. Omit it or use an empty string while the deployment URL is unknown. When present, it must be an absolute HTTP(S) origin-root URL such as `https://example.com`, without a path, query, or fragment. Build Pages does not support sites mounted below an origin path.
 
@@ -508,7 +510,7 @@ See the public config reference at [build-pages.zeropress.dev/reference/config/]
 - `{ "type": "html" }`: render `.zeropress/index.html` through `page.html`.
 - `{ "type": "html", "layout": false }`: write trusted standalone HTML directly.
 
-HTML front page and `custom_html` files must stay inside `.zeropress/`.
+HTML front page and `custom_html` files, including the final targets of symlinks, must resolve inside the source `.zeropress/` directory.
 
 Menu item `meta` is optional scalar display metadata copied into generated preview-data for themes that manually iterate menus. Use it for small values such as `icon`, `badge`, or `accent`; arrays and objects are not accepted.
 

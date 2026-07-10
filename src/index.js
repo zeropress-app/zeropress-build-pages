@@ -63,7 +63,7 @@ export async function runBuildPages(options) {
   const previewDataPath = path.join(cwd, PREVIEW_DATA_PATH);
   const themeDir = resolveThemeDir(cwd, options);
 
-  assertBuildPagesPathLayout({
+  await assertBuildPagesPathLayout({
     cwd,
     sourceDir,
     publicDir,
@@ -72,7 +72,7 @@ export async function runBuildPages(options) {
     themeDir,
     generatedDir,
   });
-  await assertDirectory(sourceDir, 'Source directory');
+  await assertSourceDirectory(sourceDir);
   await assertDirectory(themeDir, 'Theme directory');
   await assertPublicDirectory(publicDir, publicDirExplicit);
   await assertDestinationPath(destinationDir);
@@ -351,6 +351,26 @@ async function assertDirectory(dir, label) {
   }
 }
 
+async function assertSourceDirectory(sourceDir) {
+  let stat;
+  try {
+    stat = await fs.lstat(sourceDir);
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      throw new Error(`Source directory not found: ${sourceDir}`);
+    }
+    throw error;
+  }
+
+  if (stat.isSymbolicLink()) {
+    throw new Error(`Source directory must not be a symbolic link: ${sourceDir}`);
+  }
+
+  if (!stat.isDirectory()) {
+    throw new Error(`Source directory is not a directory: ${sourceDir}`);
+  }
+}
+
 async function assertPublicDirectory(publicDir, explicit) {
   if (!explicit) {
     return;
@@ -391,7 +411,7 @@ async function assertDestinationPath(destinationDir) {
   }
 }
 
-function assertBuildPagesPathLayout({
+async function assertBuildPagesPathLayout({
   cwd,
   sourceDir,
   publicDir,
@@ -400,35 +420,139 @@ function assertBuildPagesPathLayout({
   themeDir,
   generatedDir,
 }) {
-  if (samePath(sourceDir, cwd)) {
+  const [
+    canonicalCwd,
+    canonicalSourceDir,
+    canonicalPublicDir,
+    canonicalDestinationDir,
+    canonicalThemeDir,
+    canonicalGeneratedDir,
+  ] = await Promise.all([
+    resolveCanonicalPath(cwd),
+    resolveCanonicalPath(sourceDir),
+    resolveCanonicalPath(publicDir),
+    resolveCanonicalPath(destinationDir),
+    resolveCanonicalPath(themeDir),
+    resolveCanonicalPath(generatedDir),
+  ]);
+
+  if (samePath(canonicalSourceDir, canonicalCwd)) {
     throw new Error(
       'Source directory must be a dedicated content directory, not the current working directory. '
       + `Received: ${formatPath(cwd, sourceDir)}`,
     );
   }
 
-  if (publicDirExplicit && samePath(publicDir, cwd)) {
+  if (publicDirExplicit && samePath(canonicalPublicDir, canonicalCwd)) {
     throw new Error(
       'Public directory must be a dedicated asset directory, not the current working directory. '
       + `Received: ${formatPath(cwd, publicDir)}`,
     );
   }
 
-  assertNoPathOverlap(cwd, 'Source directory', sourceDir, `internal ${INTERNAL_WORK_DIR} working directory`, generatedDir);
-  assertNoPathOverlap(cwd, 'Destination directory', destinationDir, `internal ${INTERNAL_WORK_DIR} working directory`, generatedDir);
-  assertNoPathOverlap(cwd, 'Theme directory', themeDir, `internal ${INTERNAL_WORK_DIR} working directory`, generatedDir);
-  if (!samePath(publicDir, sourceDir)) {
-    assertNoPathOverlap(cwd, 'Public directory', publicDir, `internal ${INTERNAL_WORK_DIR} working directory`, generatedDir);
-    assertNoPathOverlap(cwd, 'Public directory', publicDir, 'destination directory', destinationDir);
-    assertNoPathOverlap(cwd, 'Public directory', publicDir, 'theme directory', themeDir);
+  assertNoPathOverlap(
+    cwd,
+    'Source directory',
+    sourceDir,
+    `internal ${INTERNAL_WORK_DIR} working directory`,
+    generatedDir,
+    canonicalSourceDir,
+    canonicalGeneratedDir,
+  );
+  assertNoPathOverlap(
+    cwd,
+    'Destination directory',
+    destinationDir,
+    `internal ${INTERNAL_WORK_DIR} working directory`,
+    generatedDir,
+    canonicalDestinationDir,
+    canonicalGeneratedDir,
+  );
+  assertNoPathOverlap(
+    cwd,
+    'Theme directory',
+    themeDir,
+    `internal ${INTERNAL_WORK_DIR} working directory`,
+    generatedDir,
+    canonicalThemeDir,
+    canonicalGeneratedDir,
+  );
+  assertNoPathOverlap(
+    cwd,
+    'Theme directory',
+    themeDir,
+    'destination directory',
+    destinationDir,
+    canonicalThemeDir,
+    canonicalDestinationDir,
+  );
+  if (!samePath(canonicalPublicDir, canonicalSourceDir)) {
+    assertNoPathOverlap(
+      cwd,
+      'Public directory',
+      publicDir,
+      `internal ${INTERNAL_WORK_DIR} working directory`,
+      generatedDir,
+      canonicalPublicDir,
+      canonicalGeneratedDir,
+    );
+    assertNoPathOverlap(
+      cwd,
+      'Public directory',
+      publicDir,
+      'destination directory',
+      destinationDir,
+      canonicalPublicDir,
+      canonicalDestinationDir,
+    );
+    assertNoPathOverlap(
+      cwd,
+      'Public directory',
+      publicDir,
+      'theme directory',
+      themeDir,
+      canonicalPublicDir,
+      canonicalThemeDir,
+    );
   }
-  assertNoPathOverlap(cwd, 'Source directory', sourceDir, 'destination directory', destinationDir);
-  assertNoPathOverlap(cwd, 'Source directory', sourceDir, 'theme directory', themeDir);
-  assertSourceIsNotInsidePublicDirectory(cwd, sourceDir, publicDir);
+  assertNoPathOverlap(
+    cwd,
+    'Source directory',
+    sourceDir,
+    'destination directory',
+    destinationDir,
+    canonicalSourceDir,
+    canonicalDestinationDir,
+  );
+  assertNoPathOverlap(
+    cwd,
+    'Source directory',
+    sourceDir,
+    'theme directory',
+    themeDir,
+    canonicalSourceDir,
+    canonicalThemeDir,
+  );
+  assertSourceIsNotInsidePublicDirectory(
+    cwd,
+    sourceDir,
+    publicDir,
+    canonicalSourceDir,
+    canonicalPublicDir,
+  );
 }
 
-function assertSourceIsNotInsidePublicDirectory(cwd, sourceDir, publicDir) {
-  if (samePath(sourceDir, publicDir) || !isPathInside(publicDir, sourceDir)) {
+function assertSourceIsNotInsidePublicDirectory(
+  cwd,
+  sourceDir,
+  publicDir,
+  comparisonSourceDir = sourceDir,
+  comparisonPublicDir = publicDir,
+) {
+  if (
+    samePath(comparisonSourceDir, comparisonPublicDir)
+    || !isPathInside(comparisonPublicDir, comparisonSourceDir)
+  ) {
     return;
   }
 
@@ -439,8 +563,16 @@ function assertSourceIsNotInsidePublicDirectory(cwd, sourceDir, publicDir) {
   );
 }
 
-function assertNoPathOverlap(cwd, firstLabel, firstPath, secondLabel, secondPath) {
-  if (!pathsOverlap(firstPath, secondPath)) {
+function assertNoPathOverlap(
+  cwd,
+  firstLabel,
+  firstPath,
+  secondLabel,
+  secondPath,
+  comparisonFirstPath = firstPath,
+  comparisonSecondPath = secondPath,
+) {
+  if (!pathsOverlap(comparisonFirstPath, comparisonSecondPath)) {
     return;
   }
   throw new Error(
@@ -573,6 +705,30 @@ function samePath(firstPath, secondPath) {
 function isPathInside(parentPath, childPath) {
   const relativePath = path.relative(parentPath, childPath);
   return Boolean(relativePath) && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
+}
+
+async function resolveCanonicalPath(targetPath) {
+  let existingPath = path.resolve(targetPath);
+  const unresolvedSegments = [];
+
+  while (true) {
+    try {
+      const realPath = await fs.realpath(existingPath);
+      return path.resolve(realPath, ...unresolvedSegments);
+    } catch (error) {
+      if (error?.code !== 'ENOENT' && error?.code !== 'ENOTDIR') {
+        throw error;
+      }
+
+      const parentPath = path.dirname(existingPath);
+      if (parentPath === existingPath) {
+        throw error;
+      }
+
+      unresolvedSegments.unshift(path.basename(existingPath));
+      existingPath = parentPath;
+    }
+  }
 }
 
 function formatPath(cwd, targetPath) {

@@ -11,6 +11,7 @@ const packageDir = path.resolve(__dirname, '..');
 const sourceDir = resolveEnvPath(['ZEROPRESS_BUILD_PAGES_SOURCE'], 'docs');
 const publicDir = resolveEnvPath(['ZEROPRESS_BUILD_PAGES_PUBLIC_DIR'], sourceDir);
 const defaultConfigPath = path.join(sourceDir, '.zeropress', 'config.json');
+const configPathExplicit = Boolean(process.env.ZEROPRESS_BUILD_PAGES_CONFIG?.trim());
 const configPath = resolveOptionalEnvPath(['ZEROPRESS_BUILD_PAGES_CONFIG'], defaultConfigPath);
 const outDir = path.join(rootDir, '.zeropress-build-page');
 const buildPagesConfigPath = path.join(outDir, 'build-pages-config.json');
@@ -109,6 +110,16 @@ async function main() {
   const routeBySourcePath = new Map(
     pageInputs.map(({ sourcePath, route }) => [sourcePath, route]),
   );
+  if (frontPageConfig.type === 'markdown') {
+    const frontPageSourcePath = path.resolve(sourceDir, frontPageConfig.file);
+    const frontPageRoute = routeBySourcePath.get(frontPageSourcePath);
+    if (frontPageRoute) {
+      routeBySourcePath.set(frontPageSourcePath, {
+        ...frontPageRoute,
+        url: '/',
+      });
+    }
+  }
   const publicAssetUrls = await buildPublicAssetUrlMap(publicDir);
   const collections = normalizeCollections(config.collections, pageInputs, skippedMarkdown);
   if (Object.keys(collections.resolved).length > 0) {
@@ -252,6 +263,11 @@ async function loadPrebuildConfig() {
     return parsed;
   } catch (error) {
     if (error?.code === 'ENOENT') {
+      if (configPathExplicit) {
+        throw new PrebuildConfigError(
+          `configured config file does not exist: ${formatSourcePath(configPath)}`,
+        );
+      }
       configFound = false;
       return {};
     }
@@ -836,9 +852,10 @@ function normalizeSourceFilePath(value, pathLabel) {
 }
 
 async function readRequiredSourceFile(sourcePath, pathLabel) {
+  const resolvedSourcePath = await resolveRequiredHtmlSourceFile(sourcePath, pathLabel);
   let content = '';
   try {
-    content = await fs.readFile(sourcePath, 'utf8');
+    content = await fs.readFile(resolvedSourcePath, 'utf8');
   } catch (error) {
     if (error?.code === 'ENOENT') {
       throw new PrebuildConfigError(`${pathLabel} does not exist: ${formatSourcePath(sourcePath)}`);
@@ -851,6 +868,56 @@ async function readRequiredSourceFile(sourcePath, pathLabel) {
   }
 
   return content;
+}
+
+async function resolveRequiredHtmlSourceFile(sourcePath, pathLabel) {
+  let sourceEntry;
+  try {
+    sourceEntry = await fs.lstat(sourcePath);
+  } catch (error) {
+    if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
+      throw new PrebuildConfigError(`${pathLabel} does not exist: ${formatSourcePath(sourcePath)}`);
+    }
+    throw error;
+  }
+
+  if (!sourceEntry.isFile() && !sourceEntry.isSymbolicLink()) {
+    throw new PrebuildConfigError(`${pathLabel} must be a regular HTML file: ${formatSourcePath(sourcePath)}`);
+  }
+
+  let realSourceDir;
+  let realHtmlRoot;
+  let realSourcePath;
+  try {
+    [realSourceDir, realHtmlRoot, realSourcePath] = await Promise.all([
+      fs.realpath(sourceDir),
+      fs.realpath(path.join(sourceDir, '.zeropress')),
+      fs.realpath(sourcePath),
+    ]);
+  } catch (error) {
+    if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
+      throw new PrebuildConfigError(`${pathLabel} does not exist: ${formatSourcePath(sourcePath)}`);
+    }
+    throw error;
+  }
+
+  if (
+    samePath(realSourceDir, realHtmlRoot)
+    || !isPathInside(realSourceDir, realHtmlRoot)
+    || samePath(realHtmlRoot, realSourcePath)
+    || !isPathInside(realHtmlRoot, realSourcePath)
+  ) {
+    throw new PrebuildConfigError(
+      `${pathLabel} must resolve to an HTML file inside the source .zeropress directory: ${formatSourcePath(sourcePath)}`,
+    );
+  }
+
+  const resolvedStat = await fs.stat(realSourcePath);
+  if (!resolvedStat.isFile()) {
+    throw new PrebuildConfigError(`${pathLabel} must be a regular HTML file: ${formatSourcePath(sourcePath)}`);
+  }
+
+  return realSourcePath;
 }
 
 function assertUniquePageSlug(pageInputs, slug, sourcePath) {
@@ -2368,7 +2435,7 @@ function extractTitle(markdown, sourcePath) {
     );
   }
 
-  const lines = markdown.split(/\r?\n/);
+  const lines = maskFencedCodeLines(markdown.split(/\r?\n/));
   const atxTitle = extractAtxH1(lines);
   if (atxTitle) {
     return atxTitle;
@@ -2385,6 +2452,40 @@ function extractTitle(markdown, sourcePath) {
     expectedHeadingSyntax(),
     'untitled_markdown',
   );
+}
+
+function maskFencedCodeLines(lines) {
+  let fence = null;
+
+  return lines.map((line) => {
+    if (fence) {
+      const closingMatch = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
+      if (
+        closingMatch
+        && closingMatch[1][0] === fence.char
+        && closingMatch[1].length >= fence.length
+      ) {
+        fence = null;
+      }
+      return '';
+    }
+
+    const openingMatch = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (!openingMatch) {
+      return line;
+    }
+
+    const marker = openingMatch[1];
+    if (marker[0] === '`' && openingMatch[2].includes('`')) {
+      return line;
+    }
+
+    fence = {
+      char: marker[0],
+      length: marker.length,
+    };
+    return '';
+  });
 }
 
 function extractAtxH1(lines) {

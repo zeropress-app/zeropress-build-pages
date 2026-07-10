@@ -1,19 +1,19 @@
 import { runBuildPages } from './index.js';
 
-const options = {
-  source: input('source') || './docs',
-  publicDir: input('public-dir'),
-  destination: input('destination') || './_site',
-  theme: input('theme') || 'docs',
-  themePath: input('theme-path'),
-  config: input('config'),
-  siteUrl: input('site-url'),
-  skipUntitledMarkdown: booleanInput('skip-untitled-markdown', false),
-  skipLinkCheck: booleanInput('skip-link-check', false),
-  copyMarkdownSource: falseOnlyInput('copy-markdown-source'),
-};
-
 try {
+  const options = {
+    source: input('source') || './docs',
+    publicDir: input('public-dir'),
+    destination: input('destination') || './_site',
+    theme: input('theme') || 'docs',
+    themePath: input('theme-path'),
+    config: input('config'),
+    siteUrl: input('site-url'),
+    skipUntitledMarkdown: booleanInput('skip-untitled-markdown', false),
+    skipLinkCheck: booleanInput('skip-link-check', false),
+    copyMarkdownSource: booleanInput('copy-markdown-source', true),
+  };
+
   await runBuildPages(options);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
@@ -30,9 +30,13 @@ function booleanInput(name, fallback) {
   if (!value) {
     return fallback;
   }
-  return value.toLowerCase() === 'true';
-}
 
-function falseOnlyInput(name) {
-  return input(name).toLowerCase() !== 'false';
+  if (value === 'true') {
+    return true;
+  }
+  if (value === 'false') {
+    return false;
+  }
+
+  throw new Error(`Invalid boolean input "${name}": expected "true" or "false", received ${JSON.stringify(value)}.`);
 }
