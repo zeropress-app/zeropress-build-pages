@@ -8,7 +8,7 @@ Build ZeroPress static output for modern hosting platforms.
 
 `@zeropress/build-pages` turns Markdown files and public assets into a static ZeroPress site. It discovers Markdown pages, prepares the site data, stages public files, and runs [`@zeropress/build`](https://github.com/zeropress-app/zeropress-build).
 
-The generated output is plain static files that can be deployed to GitHub Pages, Cloudflare Pages, Netlify, Vercel, or any static hosting provider.
+The generated output is plain static files that can be deployed to GitHub Pages, Cloudflare Pages, Netlify, Vercel, or another static hosting provider at the origin root. Subdirectory mount paths are not supported.
 
 Build Pages is the Markdown-source document publishing entry point for ZeroPress.
 Other ZeroPress workflows can build directly from `preview-data.json` and a
@@ -64,7 +64,7 @@ flowchart TD
 
 ### GitHub Action
 
-A basic Pages deployment workflow with the `zeropress-build-pages` action looks like this.
+A basic Pages deployment workflow with the `zeropress-build-pages` action looks like this. The Pages site must be served at the origin root, such as a user or organization Pages site or a site with a custom domain. GitHub Project Pages served from `https://<owner>.github.io/<repository>/` are not supported.
 
 ```yaml
 name: Build and Deploy Docs to GitHub Pages
@@ -140,7 +140,7 @@ Custom input example:
     destination: ./_site
     theme-path: ./theme-docs
     config: ./docs/.zeropress/config.json
-    site-url: https://example.com/docs
+    site-url: https://example.com
     copy-markdown-source: false
 ```
 
@@ -163,12 +163,14 @@ In the action inputs:
 - `theme` is the bundled theme name. The default is `docs`, which aliases `docs1`. Available bundled names are `docs`, `docs1`, `docs2`, and `plain`.
 - `theme-path` is a custom local ZeroPress theme directory. It takes precedence over `theme`.
 - `config` is the config file path. The default is `<source>/.zeropress/config.json`.
-- `site-url` overrides the canonical site URL from config.
+- `site-url` overrides the canonical site URL from config. It must be an absolute HTTP(S) origin-root URL such as `https://example.com`, without a path, query, or fragment. Omit it when the deployment URL is not known.
 - `skip-untitled-markdown` skips Markdown files without a page title instead of failing. The default is `false`.
 - `skip-link-check` skips internal link checking after build. The default is `false`; broken internal links are reported as warnings and do not fail the build.
 - `copy-markdown-source` copies original Markdown files to the generated output and enables bundled theme source links such as `View as Markdown`. The default is `true`; when set to `false`, public `.md` passthrough files are also skipped.
 
-For GitHub Pages, the generated `destination` directory can be passed to `actions/upload-pages-artifact`. For Cloudflare Pages, Netlify, Vercel, or another static host, pass the same `destination` directory to that provider's deploy step.
+For a supported origin-root GitHub Pages site, the generated `destination` directory can be passed to `actions/upload-pages-artifact`. For Cloudflare Pages, Netlify, Vercel, or another static host, pass the same `destination` directory to that provider's deploy step and configure the deployment at the origin root.
+
+Build Pages intentionally uses root-relative page, asset, search, and public-file URLs. It does not support a base path or mount path. Deployments such as `https://example.com/docs/` or GitHub Project Pages at `https://<owner>.github.io/<repository>/` require a custom domain or another origin-root hosting arrangement.
 
 Need a custom theme? Start with [`@zeropress/create-theme`](https://www.npmjs.com/package/@zeropress/create-theme), then point `theme-path` to the generated `theme/` directory:
 
@@ -246,7 +248,7 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | `--theme <name>` | `docs` | Bundled theme name. `docs` aliases `docs1`; available names are `docs`, `docs1`, `docs2`, and `plain`. |
 | `--theme-path <dir>` | none | Custom ZeroPress theme directory |
 | `--config <path>` | `<source>/.zeropress/config.json` | Build Pages config |
-| `--site-url <url>` | config `site.url` | Canonical URL override |
+| `--site-url <url>` | config `site.url` | Origin-root canonical URL override; subdirectory URLs are rejected |
 | `--skip-untitled-markdown` | `false` | Skip Markdown without a page title |
 | `--skip-link-check` | `false` | Skip warning-only internal link checking |
 | `--no-copy-markdown-source` | `false` | Do not copy source Markdown or public `.md` files to output |
@@ -431,6 +433,8 @@ progressive enhancement owned by the theme or site.
 
 Build Pages reads `<source>/.zeropress/config.json` when present. Missing config falls back to defaults.
 
+`site.url` is optional. Omit it or use an empty string while the deployment URL is unknown. When present, it must be an absolute HTTP(S) origin-root URL such as `https://example.com`, without a path, query, or fragment. Build Pages does not support sites mounted below an origin path.
+
 See the public config reference at [build-pages.zeropress.dev/reference/config/](https://build-pages.zeropress.dev/reference/config/).
 
 ```json
@@ -440,7 +444,7 @@ See the public config reference at [build-pages.zeropress.dev/reference/config/]
   "site": {
     "title": "My Docs",
     "description": "Project documentation",
-    "url": "https://example.github.io/project",
+    "url": "https://example.com",
     "logo": {
       "src": "/logo.svg",
       "alt": "My Docs"

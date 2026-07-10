@@ -265,7 +265,7 @@ Options:
   --theme docs                  Bundled theme name (default: docs; available: docs, docs1, docs2, plain)
   --theme-path <dir>            Custom ZeroPress theme directory
   --config <path>               Config file (default: <source>/.zeropress/config.json)
-  --site-url <url>              Canonical site URL override
+  --site-url <url>              Origin-root canonical URL override (no subdirectory path)
   --skip-untitled-markdown      Skip Markdown files without a page title
   --skip-link-check             Skip internal link checking
   --no-copy-markdown-source     Do not copy original Markdown files to output

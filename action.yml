@@ -1,5 +1,5 @@
 name: Build ZeroPress Pages
-description: Build ZeroPress static output for GitHub Pages, Cloudflare Pages, Netlify, Vercel, and other static hosts.
+description: Build ZeroPress static output for origin-root GitHub Pages, Cloudflare Pages, Netlify, Vercel, and other static hosts.
 author: ZeroPress
 branding:
   icon: book-open
@@ -27,7 +27,7 @@ inputs:
     description: Config file path. Defaults to <source>/.zeropress/config.json.
     required: false
   site-url:
-    description: Canonical site URL override.
+    description: Origin-root canonical HTTP(S) URL override. Paths, queries, fragments, and subdirectory hosting are not supported.
     required: false
   skip-untitled-markdown:
     description: Skip Markdown files without a page title instead of failing.

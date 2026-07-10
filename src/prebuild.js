@@ -354,10 +354,11 @@ function normalizeSiteConfig(value) {
 
   const configuredSite = isPlainObject(value) ? value : {};
   assertKnownConfigKeys(configuredSite, ['title', 'description', 'url', 'logo', 'locale', 'expose_generator', 'search', 'indexing', 'footer', 'meta'], 'site');
+  const configuredSiteUrl = configuredSite.url === undefined ? '' : configuredSite.url;
   const site = {
     title: readConfigString(configuredSite.title, 'Documentation'),
     description: readConfigString(configuredSite.description, ''),
-    url: readEnv('ZEROPRESS_SITE_URL', readConfigString(configuredSite.url, '')),
+    url: normalizeSiteUrl(readEnv('ZEROPRESS_SITE_URL', configuredSiteUrl)),
     locale: normalizeSiteLocale(configuredSite.locale),
     expose_generator: readConfigBoolean(configuredSite.expose_generator, true, 'site.expose_generator'),
     search: readConfigBoolean(configuredSite.search, true, 'site.search'),
@@ -379,6 +380,50 @@ function normalizeSiteConfig(value) {
   }
 
   return site;
+}
+
+function normalizeSiteUrl(value) {
+  if (value === undefined || value === '') {
+    return '';
+  }
+  if (typeof value !== 'string') {
+    throw new PrebuildConfigError('site.url must be a string when provided.');
+  }
+
+  const normalized = value.trim();
+  if (!normalized) {
+    return '';
+  }
+
+  let url;
+  try {
+    url = new URL(normalized);
+  } catch {
+    throw new PrebuildConfigError(
+      'site.url must be an absolute http: or https: URL when provided.',
+      '  "site": { "url": "https://example.com" }',
+    );
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new PrebuildConfigError(
+      'site.url must be an absolute http: or https: URL when provided.',
+      '  "site": { "url": "https://example.com" }',
+    );
+  }
+
+  if (
+    url.pathname !== '/'
+    || normalized.includes('?')
+    || normalized.includes('#')
+  ) {
+    throw new PrebuildConfigError(
+      'site.url must use the origin root without a path, query, or fragment. Subdirectory hosting is not supported.',
+      '  "site": { "url": "https://example.com" }\nOmit site.url or use an empty string when the deployment URL is not known.',
+    );
+  }
+
+  return normalized;
 }
 
 function normalizeSiteLocale(value) {

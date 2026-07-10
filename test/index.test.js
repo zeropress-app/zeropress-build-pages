@@ -247,6 +247,7 @@ const failureCases = [
   'invalid-site-logo',
   'invalid-site-locale',
   'invalid-site-meta',
+  'invalid-site-url',
   'invalid-menu-meta',
   'removed-site-field',
   'malformed-front-matter',
@@ -270,6 +271,56 @@ for (const caseName of failureCases) {
     assert.doesNotMatch(result.stderr, /at async|at main|Error:/);
   });
 }
+
+test('prebuild rejects non-origin-root site URL overrides', () => {
+  for (const siteUrl of [
+    'https://example.com/docs',
+    'https://example.com?preview=true',
+    'https://example.com?',
+    'https://example.com#docs',
+    'https://example.com#',
+    'ftp://example.com',
+  ]) {
+    const result = runPrebuild('skip-untitled', {
+      ZEROPRESS_SITE_URL: siteUrl,
+    });
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /site\.url must (?:use the origin root|be an absolute http: or https: URL)/);
+    assert.equal(normalizeOutput(result.stdout), '');
+  }
+});
+
+test('build allows an explicitly empty site URL', async () => {
+  const tempDir = await makeTempDir();
+  const sourceDir = path.join(tempDir, 'docs');
+  await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
+  await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nContent.', 'utf8');
+  await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
+    version: '0.1',
+    site: {
+      url: '',
+    },
+    front_page: {
+      type: 'markdown',
+    },
+  }, null, 2), 'utf8');
+
+  await runBuildPages({
+    cwd: tempDir,
+    source: 'docs',
+    destination: '_site',
+    theme: 'plain',
+    skipLinkCheck: true,
+  });
+
+  const previewData = JSON.parse(await fs.readFile(
+    path.join(tempDir, '.zeropress-build-page', 'preview-data.json'),
+    'utf8',
+  ));
+  assert.equal(previewData.site.url, '');
+  assert.equal(await pathExists(path.join(tempDir, '_site', 'sitemap.xml')), false);
+});
 
 test('prebuild warning output: skip untitled markdown', () => {
   const result = runPrebuild('skip-untitled', {
@@ -1766,6 +1817,25 @@ test('action metadata and entrypoint use supported inputs', async () => {
   assert.equal(privateResult.status, 0, privateResult.stderr);
   await fs.access(path.join(privateTempDir, '_site', 'index.html'));
   assert.equal(await pathExists(path.join(privateTempDir, '_site', 'index.md')), false);
+
+  const subdirectoryTempDir = await makeTempDir();
+  await fs.mkdir(path.join(subdirectoryTempDir, 'docs'), { recursive: true });
+  await fs.writeFile(path.join(subdirectoryTempDir, 'docs', 'index.md'), '# Subdirectory Home\n\nAction build.', 'utf8');
+  const subdirectoryResult = spawnSync(process.execPath, [actionPath], {
+    cwd: subdirectoryTempDir,
+    env: {
+      ...process.env,
+      INPUT_DESTINATION: '_site',
+      INPUT_THEME: 'docs',
+      'INPUT_SITE-URL': 'https://example.com/docs',
+      'INPUT_SKIP-LINK-CHECK': 'true',
+    },
+    encoding: 'utf8',
+  });
+
+  assert.notEqual(subdirectoryResult.status, 0);
+  assert.match(subdirectoryResult.stderr, /site\.url must use the origin root/);
+  assert.equal(await pathExists(path.join(subdirectoryTempDir, '_site')), false);
 });
 
 function runPrebuild(caseName, env = {}) {
