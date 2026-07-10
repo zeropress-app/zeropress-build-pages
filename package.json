@@ -35,7 +35,8 @@
     "node": ">=18.18.0"
   },
   "dependencies": {
-    "@zeropress/build": "0.6.13"
+    "@zeropress/build": "0.6.13",
+    "markdown-it": "14.2.0"
   },
   "devDependencies": {
     "esbuild": "0.28.1"

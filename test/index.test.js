@@ -577,10 +577,20 @@ test('rewrites source-relative markdown links with explicit html output when con
     '# Home',
     '',
     '[Guide](guide.md)',
+    '[Guide title](guide.md "Guide title")',
+    '[Guide angle](<guide.md> \'Angle title\')',
     '[Nested](section/index.md)',
     '[Home](index.md)',
     '[Guide hash](guide.md#part)',
     '[Guide query](guide.md?view=full)',
+    '`[Code](guide.md)`',
+    '\\[Escaped](guide.md)',
+    '',
+    '    [Indented code](guide.md)',
+    '',
+    '> ```md',
+    '> [Quoted code](guide.md)',
+    '> ```',
     '[External](https://example.com/guide.md)',
     '[Root relative](/guide.md)',
     '[Asset](file.pdf)',
@@ -617,12 +627,16 @@ test('rewrites source-relative markdown links with explicit html output when con
 
   const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
   const resolvedConfig = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'build-pages-config.json'), 'utf8'));
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
+  const indexPage = previewData.content.pages.find((page) => page.slug === 'index');
 
   assert.deepEqual(resolvedConfig.markdown, {
     updated_at: 'none',
     link_output: 'html',
   });
   assert.match(indexHtml, /href="\/guide\.html"/);
+  assert.match(indexHtml, /href="\/guide\.html" title="Guide title">Guide title<\/a>/);
+  assert.match(indexHtml, /href="\/guide\.html" title="Angle title">Guide angle<\/a>/);
   assert.match(indexHtml, /href="\/section\/index\.html"/);
   assert.match(indexHtml, /href="\/index\.html"/);
   assert.match(indexHtml, /href="\/guide\.html#part"/);
@@ -631,6 +645,13 @@ test('rewrites source-relative markdown links with explicit html output when con
   assert.match(indexHtml, /href="\/guide\.md"/);
   assert.match(indexHtml, /href="file\.pdf"/);
   assert.match(indexHtml, /href="#local"/);
+  assert.match(indexHtml, /<code>\[Code\]\(guide\.md\)<\/code>/);
+  assert.match(indexPage.content, /\[Guide title\]\(\/guide\.html "Guide title"\)/);
+  assert.match(indexPage.content, /\[Guide angle\]\(<\/guide\.html> 'Angle title'\)/);
+  assert.match(indexPage.content, /`\[Code\]\(guide\.md\)`/);
+  assert.match(indexPage.content, /\\\[Escaped\]\(guide\.md\)/);
+  assert.match(indexPage.content, /^ {4}\[Indented code\]\(guide\.md\)$/m);
+  assert.match(indexPage.content, /^> \[Quoted code\]\(guide\.md\)$/m);
 });
 
 test('rewrites source-relative public asset links when the target exists in public-dir', async () => {
@@ -664,6 +685,8 @@ test('rewrites source-relative public asset links when the target exists in publ
     '<audio><source src="../../../public/audio/demo.mp3" type="audio/mpeg"></audio>',
     '<track src="../../../public/files/captions.vtt" kind="captions">',
     '<source srcset="../../../public/images/small.png 1x, ../../../public/images/large.png 2x">',
+    '`<img src="../../../public/favicon.svg">`',
+    '!\\[Escaped logo](../../../public/favicon.png)',
     '',
     '```md',
     '![Code](../../../public/code-only.png)',
@@ -707,6 +730,8 @@ test('rewrites source-relative public asset links when the target exists in publ
   assert.match(featuresPage.content, /<audio><source src="\/audio\/demo\.mp3" type="audio\/mpeg"><\/audio>/);
   assert.match(featuresPage.content, /<track src="\/files\/captions\.vtt" kind="captions">/);
   assert.match(featuresPage.content, /<source srcset="\/images\/small\.png 1x, \/images\/large\.png 2x">/);
+  assert.match(featuresPage.content, /`<img src="\.\.\/\.\.\/\.\.\/public\/favicon\.svg">`/);
+  assert.match(featuresPage.content, /!\\\[Escaped logo\]\(\.\.\/\.\.\/\.\.\/public\/favicon\.png\)/);
   assert.match(featuresPage.content, /!\[Code\]\(\.\.\/\.\.\/\.\.\/public\/code-only\.png\)/);
 
   const featuresHtml = await fs.readFile(path.join(tempDir, '_site', 'markdown', 'features', 'index.html'), 'utf8');

@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import MarkdownIt from 'markdown-it';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const execFileAsync = promisify(execFile);
@@ -33,6 +34,7 @@ const MARKDOWN_LINK_OUTPUT_VALUES = new Set(['clean', 'html']);
 const FEATURED_IMAGE_PROTOCOLS = new Set(['http:', 'https:']);
 const CONFIG_REFERENCE_URL = 'https://build-pages.zeropress.dev/reference/config/';
 const markdownDiscoverExcludeRoots = buildMarkdownDiscoverExcludeRoots();
+const markdownLinkParser = createMarkdownLinkParser();
 let configFound = false;
 
 class PrebuildMarkdownError extends Error {
@@ -2569,26 +2571,191 @@ function isMarkdownHeadingBlock(block) {
 }
 
 function rewriteMarkdownLinks(markdown, sourcePath, routes, linkOutput = 'clean', publicAssetUrls = new Map()) {
-  return rewriteMarkdownOutsideFences(markdown, (chunk) => {
-    const withMarkdownLinks = chunk.replace(/(!?\[[^\]]+\]\()([^)]+)(\))/g, (full, prefix, rawTarget, suffix) => {
-      const trimmedTarget = rawTarget.trim();
-      const rewritten = rewriteLinkTarget(trimmedTarget, sourcePath, routes, linkOutput, publicAssetUrls);
-      return rewritten === trimmedTarget ? full : `${prefix}${rewritten}${suffix}`;
-    });
+  return rewriteMarkdownOutsideCodeBlocks(markdown, (chunk) => {
+    const withMarkdownLinks = rewriteInlineMarkdownLinks(chunk, (target) => (
+      rewriteLinkTarget(target, sourcePath, routes, linkOutput, publicAssetUrls)
+    ));
 
-    return rewriteRawHtmlAssetLinks(withMarkdownLinks, sourcePath, publicAssetUrls);
+    return rewriteMarkdownOutsideInlineCode(withMarkdownLinks, (text) => (
+      rewriteRawHtmlAssetLinks(text, sourcePath, publicAssetUrls)
+    ));
   });
 }
 
-function rewriteMarkdownOutsideFences(markdown, rewriteChunk) {
+function createMarkdownLinkParser() {
+  const markdown = new MarkdownIt({
+    html: true,
+    linkify: false,
+  });
+
+  markdown.inline.ruler.before('link', 'zeropress_link_destination', (state, silent) => (
+    recordInlineMarkdownLinkDestination(state, silent, false)
+  ));
+  markdown.inline.ruler.before('image', 'zeropress_image_destination', (state, silent) => (
+    recordInlineMarkdownLinkDestination(state, silent, true)
+  ));
+
+  return markdown;
+}
+
+function rewriteInlineMarkdownLinks(markdown, rewriteTarget) {
+  const destinations = [];
+  markdownLinkParser.inline.parse(markdown, markdownLinkParser, {
+    zeropressLinkDestinations: destinations,
+  }, []);
+
+  let rewrittenMarkdown = markdown;
+  for (const destination of destinations.sort((left, right) => right.start - left.start)) {
+    const rewrittenTarget = rewriteTarget(destination.target);
+    if (rewrittenTarget === destination.target) {
+      continue;
+    }
+    rewrittenMarkdown = `${rewrittenMarkdown.slice(0, destination.start)}${rewrittenTarget}${rewrittenMarkdown.slice(destination.end)}`;
+  }
+  return rewrittenMarkdown;
+}
+
+function recordInlineMarkdownLinkDestination(state, silent, isImage) {
+  const destinations = state.env?.zeropressLinkDestinations;
+  const labelMarker = isImage ? state.pos + 1 : state.pos;
+  if (
+    silent
+    || !Array.isArray(destinations)
+    || state.src[labelMarker] !== '['
+    || (isImage && state.src[state.pos] !== '!')
+  ) {
+    return false;
+  }
+
+  const labelEnd = state.md.helpers.parseLinkLabel(state, labelMarker, !isImage);
+  if (labelEnd < 0 || state.src[labelEnd + 1] !== '(') {
+    return false;
+  }
+
+  const max = state.posMax;
+  let position = skipMarkdownLinkWhitespace(state.src, labelEnd + 2, max);
+  const destinationStart = position;
+  const destination = state.md.helpers.parseLinkDestination(state.src, position, max);
+  if (!destination.ok) {
+    return false;
+  }
+  position = destination.pos;
+
+  const titleWhitespaceStart = position;
+  position = skipMarkdownLinkWhitespace(state.src, position, max);
+  const title = state.md.helpers.parseLinkTitle(state.src, position, max);
+  if (titleWhitespaceStart !== position && title.ok) {
+    position = skipMarkdownLinkWhitespace(state.src, title.pos, max);
+  }
+
+  if (state.src[position] !== ')') {
+    return false;
+  }
+
+  const normalizedTarget = state.md.normalizeLink(destination.str);
+  if (!state.md.validateLink(normalizedTarget)) {
+    return false;
+  }
+
+  const angleDestination = state.src[destinationStart] === '<';
+  destinations.push({
+    start: angleDestination ? destinationStart + 1 : destinationStart,
+    end: angleDestination ? destination.pos - 1 : destination.pos,
+    target: destination.str,
+  });
+  return false;
+}
+
+function skipMarkdownLinkWhitespace(markdown, start, max) {
+  let position = start;
+  while (position < max) {
+    const code = markdown.charCodeAt(position);
+    if (code !== 0x09 && code !== 0x0A && code !== 0x20) {
+      break;
+    }
+    position++;
+  }
+  return position;
+}
+
+function rewriteMarkdownOutsideInlineCode(markdown, rewriteChunk) {
+  let output = '';
+  let chunkStart = 0;
+  let position = 0;
+
+  while (position < markdown.length) {
+    if (markdown[position] === '\\') {
+      position = Math.min(position + 2, markdown.length);
+      continue;
+    }
+    if (markdown[position] !== '`') {
+      position++;
+      continue;
+    }
+
+    const codeSpanEnd = findInlineCodeSpanEnd(markdown, position);
+    if (!codeSpanEnd) {
+      position = findMarkerRunEnd(markdown, position, '`');
+      continue;
+    }
+
+    output += rewriteChunk(markdown.slice(chunkStart, position));
+    output += markdown.slice(position, codeSpanEnd);
+    chunkStart = codeSpanEnd;
+    position = codeSpanEnd;
+  }
+
+  return `${output}${rewriteChunk(markdown.slice(chunkStart))}`;
+}
+
+function findInlineCodeSpanEnd(markdown, start) {
+  const openerEnd = findMarkerRunEnd(markdown, start, '`');
+  const openerLength = openerEnd - start;
+  let position = openerEnd;
+
+  while (position < markdown.length) {
+    const markerStart = markdown.indexOf('`', position);
+    if (markerStart < 0) {
+      return null;
+    }
+    const markerEnd = findMarkerRunEnd(markdown, markerStart, '`');
+    if (markerEnd - markerStart === openerLength) {
+      return markerEnd;
+    }
+    position = markerEnd;
+  }
+
+  return null;
+}
+
+function findMarkerRunEnd(markdown, start, marker) {
+  let position = start;
+  while (markdown[position] === marker) {
+    position++;
+  }
+  return position;
+}
+
+function rewriteMarkdownOutsideCodeBlocks(markdown, rewriteChunk) {
   const lines = markdown.match(/.*(?:\r\n|\n|$)/g) || [];
   if (lines.at(-1) === '') {
     lines.pop();
   }
 
+  const blockTokens = [];
+  markdownLinkParser.block.parse(markdown, markdownLinkParser, {}, blockTokens);
+  const codeBlockLines = new Set();
+  for (const token of blockTokens) {
+    if (!['code_block', 'fence'].includes(token.type) || !token.map) {
+      continue;
+    }
+    for (let lineNumber = token.map[0]; lineNumber < token.map[1]; lineNumber++) {
+      codeBlockLines.add(lineNumber);
+    }
+  }
+
   const output = [];
   let buffer = '';
-  let fence = null;
 
   const flushBuffer = () => {
     if (buffer) {
@@ -2597,28 +2764,9 @@ function rewriteMarkdownOutsideFences(markdown, rewriteChunk) {
     }
   };
 
-  for (const line of lines) {
-    const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})/);
-    if (fenceMatch) {
-      const marker = fenceMatch[1];
-      if (!fence) {
-        flushBuffer();
-        fence = {
-          char: marker[0],
-          length: marker.length,
-        };
-        output.push(line);
-        continue;
-      }
-
-      if (marker[0] === fence.char && marker.length >= fence.length) {
-        fence = null;
-      }
-      output.push(line);
-      continue;
-    }
-
-    if (fence) {
+  for (const [lineNumber, line] of lines.entries()) {
+    if (codeBlockLines.has(lineNumber)) {
+      flushBuffer();
       output.push(line);
     } else {
       buffer += line;
