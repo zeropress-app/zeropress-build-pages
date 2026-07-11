@@ -94,7 +94,7 @@ test('configured HTML symlinks cannot escape the source .zeropress directory', {
   await fs.writeFile(path.join(cwd, 'secret.html'), '<p>secret</p>', 'utf8');
   await fs.symlink('../../secret.html', path.join(sourceDir, '.zeropress', 'leak.html'));
   await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-    version: '0.1',
+    version: '1.0',
     front_page: {
       type: 'html',
       file: '.zeropress/leak.html',
@@ -116,7 +116,7 @@ test('a non-index Markdown front page is the link-rewrite target for its source 
   await fs.writeFile(path.join(sourceDir, 'home.md'), '# Home\n', 'utf8');
   await fs.writeFile(path.join(sourceDir, 'guide.md'), '# Guide\n\n[Home](home.md)\n', 'utf8');
   await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-    version: '0.1',
+    version: '1.0',
     front_page: {
       type: 'markdown',
       file: 'home.md',
@@ -172,8 +172,78 @@ test('an explicitly configured missing config path is an error', async () => {
   await assert.rejects(fs.access(path.join(cwd, '.zeropress-build-page', 'preview-data.json')), { code: 'ENOENT' });
 });
 
-function runPrebuild(cwd, sourceDir, extraEnv = {}) {
-  return spawnSync(process.execPath, [prebuildScript], {
+test('front matter mappings keep prototype-named keys as own data properties', async () => {
+  for (const scriptPath of [
+    prebuildScript,
+    path.join(packageDir, 'dist', 'prebuild.js'),
+  ]) {
+    const cwd = await makeTempDir('zeropress-yaml-prototype-');
+    const sourceDir = path.join(cwd, 'docs');
+    await fs.mkdir(sourceDir);
+    await fs.writeFile(path.join(sourceDir, 'index.md'), [
+      '---',
+      '__proto__:',
+      '  status: draft',
+      '  title: Poisoned title',
+      '  path: poisoned',
+      'constructor: ignored-root-value',
+      'prototype: ignored-root-value',
+      'data:',
+      '  block:',
+      '    __proto__: block-value',
+      '  inline: {__proto__: inline-value, constructor: constructor-value, prototype: prototype-value}',
+      '---',
+      '',
+      '# Safe title',
+    ].join('\n'), 'utf8');
+
+    const result = runPrebuild(cwd, sourceDir, {}, scriptPath);
+    assert.equal(result.status, 0, `${scriptPath}\n${result.stderr}`);
+
+    const previewData = JSON.parse(await fs.readFile(
+      path.join(cwd, '.zeropress-build-page', 'preview-data.json'),
+      'utf8',
+    ));
+    const page = previewData.content.pages[0];
+    assert.equal(page.title, 'Safe title');
+    assert.equal(page.slug, 'index');
+    assert.notEqual(page.path, 'poisoned');
+    assert.equal(Object.hasOwn(page.data.block, '__proto__'), true);
+    assert.equal(page.data.block.__proto__, 'block-value');
+    assert.equal(Object.hasOwn(page.data.inline, '__proto__'), true);
+    assert.equal(page.data.inline.__proto__, 'inline-value');
+    assert.equal(page.data.inline.constructor, 'constructor-value');
+    assert.equal(page.data.inline.prototype, 'prototype-value');
+  }
+});
+
+test('prebuild diagnostics escape controls in source paths and config keys', async () => {
+  const cwd = await makeTempDir('zeropress-terminal-');
+  const sourceDir = path.join(cwd, 'docs');
+  await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
+  const unsafeName = `bad\n\u001b\u0085\u202E.md`;
+  await fs.writeFile(path.join(sourceDir, unsafeName), 'No heading\n', 'utf8');
+
+  const pathResult = runPrebuild(cwd, sourceDir);
+  assert.notEqual(pathResult.status, 0);
+  assert.doesNotMatch(pathResult.stderr, /[\u001b\u0085\u202E]/u);
+  assert.match(pathResult.stderr, /bad\\u000A\\u001B\\u0085\\u202E\.md/);
+
+  await fs.rm(path.join(sourceDir, unsafeName));
+  await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n', 'utf8');
+  await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
+    version: '1.0',
+    [`unsafe\u001b\u0085\u202Ekey`]: true,
+  }), 'utf8');
+
+  const configResult = runPrebuild(cwd, sourceDir);
+  assert.notEqual(configResult.status, 0);
+  assert.doesNotMatch(configResult.stderr, /[\u001b\u0085\u202E]/u);
+  assert.match(configResult.stderr, /unsafe\\u001B\\u0085\\u202Ekey/);
+});
+
+function runPrebuild(cwd, sourceDir, extraEnv = {}, scriptPath = prebuildScript) {
+  return spawnSync(process.execPath, [scriptPath], {
     cwd,
     env: {
       ...process.env,

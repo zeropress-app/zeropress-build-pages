@@ -88,7 +88,7 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v6
       - name: Build ZeroPress Pages
-        uses: zeropress-app/zeropress-build-pages@v0
+        uses: zeropress-app/zeropress-build-pages@v1
         with:
           source: ./docs
           destination: ./_site
@@ -108,18 +108,20 @@ jobs:
 
 The action `zeropress-build-pages` builds the static files only. Uploading and deploying are handled by your hosting provider's deployment action or CLI.
 
+`@v1` is the moving compatibility tag for the latest Build Pages 1.x release. Pin `@v1.0.0` for the exact initial release or use a full commit SHA when an immutable workflow dependency is required.
+
 Minimal action usage:
 
 ```yaml
 - name: Build ZeroPress Pages
-  uses: zeropress-app/zeropress-build-pages@v0
+  uses: zeropress-app/zeropress-build-pages@v1
 ```
 
 That is equivalent to:
 
 ```yaml
 - name: Build ZeroPress Pages
-  uses: zeropress-app/zeropress-build-pages@v0
+  uses: zeropress-app/zeropress-build-pages@v1
   with:
     source: ./docs
     destination: ./_site
@@ -133,7 +135,7 @@ Custom input example:
 
 ```yaml
 - name: Build ZeroPress Pages
-  uses: zeropress-app/zeropress-build-pages@v0
+  uses: zeropress-app/zeropress-build-pages@v1
   with:
     source: ./docs
     public-dir: ./public
@@ -148,7 +150,7 @@ Separate public asset directory example:
 
 ```yaml
 - name: Build ZeroPress Pages
-  uses: zeropress-app/zeropress-build-pages@v0
+  uses: zeropress-app/zeropress-build-pages@v1
   with:
     source: ./docs
     public-dir: ./public
@@ -163,7 +165,7 @@ In the action inputs:
 - `theme` is the bundled theme name. The default is `docs`, which aliases `docs1`. Available bundled names are `docs`, `docs1`, `docs2`, and `plain`.
 - `theme-path` is a custom local ZeroPress theme directory. It takes precedence over `theme`.
 - `config` is the config file path. The default is `<source>/.zeropress/config.json`.
-- `site-url` overrides the canonical site URL from config. It must be an absolute HTTP(S) origin-root URL such as `https://example.com`, without a path, query, or fragment. Omit it when the deployment URL is not known.
+- `site-url` overrides the canonical site URL from config. It must be a credential-free absolute HTTP(S) origin-root URL such as `https://example.com`, without a path, query, or fragment. Omit it when the deployment URL is not known.
 - `skip-untitled-markdown` skips Markdown files without a page title instead of failing. The default is `false`.
 - `skip-link-check` skips internal link checking after build. The default is `false`; broken internal links are reported as warnings and do not fail the build.
 - `copy-markdown-source` copies original Markdown files to the generated output and enables bundled theme source links such as `View as Markdown`. The default is `true`; when set to `false`, public `.md` passthrough files are also skipped.
@@ -255,6 +257,10 @@ The CLI requires explicit input and output paths. The GitHub Action keeps safe d
 | `--skip-link-check` | `false` | Skip warning-only internal link checking |
 | `--no-copy-markdown-source` | `false` | Do not copy source Markdown or public `.md` files to output |
 
+Only the documented CLI options and GitHub Action inputs configure a public Build Pages run. Internal `ZEROPRESS_BUILD_PAGES_CONFIG` and `ZEROPRESS_SITE_URL` environment variables used between the runner and its bundled prebuild process are not ambient override interfaces; inherited values are ignored unless the corresponding CLI option or Action input is provided.
+
+Human-readable diagnostics escape terminal control and directional characters as visible `\uXXXX` sequences. Generated Preview Data, reports, Markdown, and HTML content are not rewritten by this terminal-only formatting.
+
 ## Source Tree
 
 The source directory is the folder that Build Pages reads for Markdown pages and optional `.zeropress/config.json`. By default, the source directory is also the public passthrough root. Use `public-dir` when you want to keep Markdown source and public assets separate.
@@ -276,7 +282,7 @@ my-site/
   _site/                # destination, generated
 ```
 
-Build Pages stages the public directory before calling [`@zeropress/build`](https://github.com/zeropress-app/zeropress-build). Generated ZeroPress output wins over staged public files.
+Build Pages stages the public directory before calling [`@zeropress/build`](https://github.com/zeropress-app/zeropress-build). Build reserves those final public paths during output planning and rejects collisions with generated routes, assets, search artifacts, and special files before writing.
 
 Root-level public files named `favicon.ico`, `favicon.svg`, `favicon.png`, and `apple-touch-icon.png` are copied to the destination and auto-injected into generated HTML `<head>` output.
 
@@ -362,7 +368,15 @@ Supported front matter fields:
 
 Unknown front matter fields are ignored to make migration from existing Markdown sites easier.
 
-Each explicit `path` segment follows the shared ZeroPress slug policy: Unicode letters, combining marks, decimal digits, hyphens, and underscores are supported, at least one letter or digit is required, and each NFC-normalized segment is limited to 200 Unicode code points. Characters such as `!`, whitespace, percent escapes, path separators, and control characters are rejected. Filename-derived routes use the same policy and normalize unsupported filename characters into hyphens.
+Each explicit `path` segment follows the shared ZeroPress slug policy: Unicode letters, combining marks, decimal digits, periods, hyphens, and underscores are supported, at least one letter or digit is required, and each NFC-normalized segment is limited to 200 Unicode code points. A period may appear only as an isolated internal character, so values such as `v0.6` are valid while `.hidden`, `version.`, and `a..b` are rejected. Characters such as `!`, whitespace, percent escapes, path separators, and control characters are also rejected. Filename-derived routes preserve isolated internal periods, collapse period runs with other unsupported filename characters into hyphens, and remove leading or trailing periods.
+
+No page-path segment may end with the literal lowercase suffix `.html`; the configured permalink output style owns generated filenames. This matches the Preview Data page-path contract for both a final `.html` suffix and `.html/` inside a path. The check is case-sensitive, so an explicit segment ending in `.HTML` remains valid.
+
+Generated preview-data omits `page.path` when the explicit route and the effective `site.permalinks.pages` fallback for `page.slug` produce both the same public URL and the same output file. Top-level routes normally use this compact form. Nested or custom routes remain explicit whenever their effective destination differs, and terminal `index` paths are preserved whenever removing `path` would change clean-URL or `html-extension` behavior.
+
+`page.slug` is the leaf route slug (a terminal `index` route uses its parent segment), while `page.path` is the effective route identity. Pages under different paths may therefore share a slug. Build Pages detects collisions by NFC-normalized effective path, and front-page and collection references always use that path.
+
+Route URLs and generated output paths must not collide with public passthrough files. Clean-host aliases participate in the check: `page.html` owns `/page`, while `page/index.html` owns `/page/`. For example, a page route `/favicon.ico` conflicts with public `favicon.ico`, and `/guide` conflicts with either public `guide.html` or `guide/index.html`. Rename the route or public file instead of relying on host-specific precedence.
 
 `featured_image` accepts an absolute `https://` or `http://` URL, a root-relative public URL such as `/images/share.png`, or a source-relative path to an existing file inside `public-dir`. Root-relative and source-relative values are converted to an absolute URL with `site.url`. If Build Pages cannot safely resolve the value, it prints a warning and omits `featured_image` for that page.
 
@@ -437,16 +451,20 @@ progressive enhancement owned by the theme or site.
 
 Build Pages reads `<source>/.zeropress/config.json` when present. A missing implicit default config falls back to defaults. A config path supplied explicitly through `--config` or the Action `config` input must exist.
 
-Config objects are closed contracts: unknown root or nested fields are rejected. Optional `$schema` must be a string, and optional `version` must be exactly `"0.1"`. Defaults apply only when a field is omitted; an explicitly provided value with the wrong type, an invalid enum value, or a blank value for a non-blank field is an error.
+Config objects are closed contracts: unknown root or nested fields are rejected. Optional `$schema` must be a string, and every authored config file must declare `version: "1.0"`. Earlier config versions are not accepted. When the default config file does not exist, Build Pages still uses its built-in defaults. Defaults apply only when a field is omitted; an explicitly provided value with the wrong type, an invalid enum value, or a blank value for a non-blank field is an error.
 
-`site.url` is optional. Omit it or use an empty string while the deployment URL is unknown. When present, it must be an absolute HTTP(S) origin-root URL such as `https://example.com`, without a path, query, or fragment. Build Pages does not support sites mounted below an origin path. Runtime WHATWG URL parsing additionally validates hostname, port range, and IP-address syntax.
+Generated `.zeropress-build-page/build-pages-config.json` always uses the canonical v1.0 schema URL and `"version": "1.0"`.
+
+Build Pages 1.x and Build Pages Config 1.0 are the user-facing tool contracts. The generated build input remains Preview Data 0.7 and bundled themes remain Theme Runtime 0.7; those contracts are versioned independently.
+
+`site.url` is optional. Omit it or use an empty string while the deployment URL is unknown. When present, it must be a credential-free absolute HTTP(S) origin-root URL such as `https://example.com`, without a path, query, or fragment. Build Pages canonicalizes it to `URL.origin` and does not support sites mounted below an origin path. Runtime WHATWG URL parsing additionally validates hostname, port range, and IP-address syntax.
 
 See the public config reference at [build-pages.zeropress.dev/reference/config/](https://build-pages.zeropress.dev/reference/config/).
 
 ```json
 {
-  "$schema": "https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json",
-  "version": "0.1",
+  "$schema": "https://schemas.zeropress.dev/build-pages-config/v1.0/schema.json",
+  "version": "1.0",
   "site": {
     "title": "My Docs",
     "description": "Project documentation",
@@ -458,7 +476,7 @@ See the public config reference at [build-pages.zeropress.dev/reference/config/]
     "locale": "en-US",
     "expose_generator": true,
     "search": true,
-    "indexing": true,
+    "robots": { "allow_indexing": true },
     "footer": {
       "copyright_text": "Copyright 2026 Example Corp.",
       "attribution": true
@@ -516,15 +534,19 @@ See the public config reference at [build-pages.zeropress.dev/reference/config/]
 
 HTML front page and `custom_html` files, including the final targets of symlinks, must resolve inside the source `.zeropress/` directory.
 
+The authoring config keeps each custom HTML slot as a `{ "file": "..." }` reference. Build Pages reads the selected file as UTF-8, requires non-whitespace content, limits each slot to 65,536 Unicode code points, and preserves the raw whitespace. Generated Preview Data uses flat trusted strings such as `{ "custom_html": { "head_end": "<meta ...>" } }`; the generated resolved Build Pages config continues to record the original `{ file }` reference.
+
 Configured source file paths are exact source-root relative paths. Build Pages does not trim surrounding whitespace, convert backslashes to slashes, or change extension case. Use `/` separators and lowercase `.md` or `.html` extensions as shown above.
 
 Menu item `meta` is optional scalar display metadata copied into generated preview-data for themes that manually iterate menus. Use it for small values such as `icon`, `badge`, or `accent`; arrays and objects are not accepted.
 
-Menu URLs may be absolute HTTP(S) URLs or bare, root-relative, or dot-relative Web paths with a real path component. Query strings and fragments are preserved. Protocol-relative URLs, non-Web schemes, query-only or fragment-only values, raw whitespace or backslashes, control characters, and malformed percent escapes are rejected. Runtime WHATWG URL parsing additionally validates absolute-URL hostname, port range, and IP-address syntax.
+When `menus` is omitted, Build Pages materializes the built-in `primary` menu with a Home item. An explicit `"menus": {}` opts out and materializes no menus. If a menu omits `name`, its menu id becomes the resolved name. `collections` omission and `{}` both materialize no collections; an omitted collection `title` materializes its collection id. These fallbacks are written explicitly to the resolved config and generated Preview Data.
 
-`collections` defines group-level reading order from Markdown source paths. Build Pages converts each source-relative `.md` path into preview-data collection items such as `{ "type": "page", "slug": "deployment" }`. Collection prev/next cursors stop at collection boundaries, so the last item in `collections.guides` does not continue into another collection.
+Menu URLs may be credential-free absolute HTTP(S) URLs or single-slash root-relative paths. Query strings and fragments are preserved. Bare, dot-relative, protocol-relative, dot-segment, non-Web scheme, query-only or fragment-only values, raw whitespace or backslashes, control characters, and malformed percent escapes are rejected. Runtime WHATWG URL parsing additionally validates absolute-URL hostname, port range, and IP-address syntax.
 
-`markdown.updated_at` is optional and accepts `none` or `git`. Missing or `none` keeps current behavior and generates no update date. `git` reads each Markdown file's latest Git commit date and adds `page.updated_at_iso` to generated preview-data. For accurate history in GitHub Actions, configure checkout with `fetch-depth: 0`.
+`collections` defines group-level reading order from Markdown source paths. Build Pages converts each source-relative `.md` path into preview-data collection items such as `{ "type": "page", "path": "guides/deployment" }`. The path is the Page's effective route path, so equal leaf slugs under different paths remain unambiguous. Collection prev/next cursors stop at collection boundaries, so the last item in `collections.guides` does not continue into another collection.
+
+`markdown.updated_at` is optional and accepts `none` or `git`. Missing or `none` keeps current behavior and generates no update date. `git` reads each Markdown file's latest commit date from the nearest Git worktree containing that file and adds `page.updated_at_iso` to generated preview-data. This remains correct when the CLI is invoked outside the source repository. For accurate history in GitHub Actions, configure checkout with `fetch-depth: 0`.
 
 `markdown.link_output` is optional and accepts `clean` or `html`. Missing or `clean` keeps the default clean URL rewrite, such as `../guide/index.md` -> `/guide/` and `../spec/foo.md` -> `/spec/foo`. Use `html` when a host requires explicit HTML links, such as `../guide/index.md` -> `/guide/index.html` and `../spec/foo.md` -> `/spec/foo.html`. Query strings, hash fragments, and optional Markdown link titles are preserved. This setting only controls source-relative `.md` page links; external URLs, root-relative URLs, anchors, non-Markdown links, escaped link syntax, inline code, and fenced or indented code blocks are not changed by `markdown.link_output`.
 
@@ -554,23 +576,24 @@ Client-side progressive enhancement may replace the fallback text with a localiz
 
 Bundled documentation themes show `Published with ZeroPress` by default. Set `site.footer.attribution` to `false` to hide it.
 
-`site.logo` is optional theme-facing brand data. Use a root-relative public path such as `/logo.svg` for public logo files, or an absolute `https://` or `http://` URL for media-hosted logos. Document-relative paths such as `./logo.svg` and `../logo.svg` are rejected because browsers resolve them relative to each generated page. Runtime WHATWG URL parsing validates absolute-URL hostname, port range, and IP-address syntax. Build Pages emits `media_base_url: ""`, so root-relative logo paths remain same-host public paths.
+`site.logo` is optional theme-facing brand data. Use a root-relative public path such as `/logo.svg` for public logo files, or an absolute `https://` or `http://` URL for media-hosted logos. Document-relative paths such as `./logo.svg` and `../logo.svg` are rejected because browsers resolve them relative to each generated page. Runtime WHATWG URL parsing validates absolute-URL hostname, port range, and IP-address syntax. Build Pages emits `media_origin: ""`, so root-relative logo paths remain same-host public paths.
 
-`site.locale` is optional language metadata copied into generated preview-data. It affects theme-facing `site.locale`, the common `language` render context value, generated HTML language metadata, and feed language. Missing `site.locale` defaults to `en-US`.
+`site.locale` is optional language metadata copied into generated preview-data. Valid non-canonical BCP 47 input is canonicalized before it is written. It affects theme-facing `site.locale`, the common `language` render context value, generated HTML language metadata, and feed language. Missing `site.locale` defaults to `en-US`.
 
 `site.meta` is an optional scalar extension map copied into generated preview-data. Use it for site-level theme conventions such as labels, feature flags, or issue names. Values must be strings, finite numbers, booleans, or null. Use first-class fields such as `site.logo.src` instead of ad hoc keys like `site.meta.logo_url`.
 
 `site.expose_generator` controls the HTML generator meta tag. Missing or `true` emits `<meta name="generator" content="ZeroPress">`; set it to `false` for white-label sites.
 
-`site.indexing` controls only the generated fallback `robots.txt`. Missing or `true` allows indexing; `false` writes `User-agent: *` / `Disallow: /`. If the public directory contains `robots.txt`, that file is copied as-is and takes priority over `site.indexing`. ZeroPress does not append a `Sitemap` directive to a public `robots.txt`; add `Sitemap: https://example.com/sitemap.xml` manually when needed.
+`site.robots.allow_indexing` controls only the generated fallback `robots.txt`. Missing `site.robots` or `true` allows indexing; `false` writes `User-agent: *` / `Disallow: /`. If the public directory contains `robots.txt`, that file is copied as-is and takes priority over this setting. ZeroPress does not append a `Sitemap` directive to a public `robots.txt`; add `Sitemap: https://example.com/sitemap.xml` manually when needed.
 
 Schemas:
 
-- [ZeroPress Build Pages Config v0.1](https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json)
+- [ZeroPress Build Pages Config v1.0](https://schemas.zeropress.dev/build-pages-config/v1.0/schema.json) (current)
+- [ZeroPress Build Pages Config v0.1](https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json) (historical)
 
 ## Search
 
-Bundled documentation themes support ZeroPress native search. `site.search` controls whether search artifacts and bundled search UI are enabled.
+Bundled documentation themes support ZeroPress native search. The Build Pages v1.0 config keeps `site.search` as a boolean; generated Preview Data converts it to `site.search: { "enabled": boolean }`, and themes read the effective `site.search.enabled` value.
 
 Missing or `true` enables native search for bundled documentation themes. Build Pages writes `/_zeropress/search.json`, `/_zeropress/search.js`, and `/_zeropress/search_pagefind.js`.
 
@@ -596,7 +619,7 @@ Build Pages reads optional user-authored site config from `<source>/.zeropress/c
   public-assets/
 ```
 
-`build-pages-config.json` is the resolved user-facing Build Pages config used for the current run. It combines source config, defaults, and CLI or Action input overrides where applicable.
+`build-pages-config.json` is the resolved user-facing Build Pages config used for the current run. It combines source config, defaults, and CLI or Action input overrides where applicable, and is always canonicalized to Build Pages Config v1.0.
 
 `preview-data.json` is an internal generated build input for the ZeroPress renderer. Most users do not need to edit or understand this file.
 
@@ -610,7 +633,7 @@ The `destination` directory contains the deployable static site. It includes gen
 
 ## Demo
 
-- [zeropress.dev](https://github.com/zeropress-app/zeropress.dev) is built with `@zeropress/build-pages`.
+- [zeropress.dev](https://github.com/zeropress-app/zeropress.dev) is built with `@zeropress/build-pages` and the bundled `docs2` theme.
 - [build-pages.zeropress.dev](https://github.com/zeropress-app/build-pages.zeropress.dev) is built with `@zeropress/build-pages` and the bundled `docs2` theme.
 
 ## Privacy Policy

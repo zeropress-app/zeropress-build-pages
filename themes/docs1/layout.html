@@ -60,7 +60,7 @@
               {{/for}}
             </ul>
           </nav>
-          {{#if site.search}}
+          {{#if site.search.enabled}}
             <button type="button" class="site-search-button" data-cmdk-open aria-label="Search docs" disabled>
               <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-search"/></svg>
               <span>Search docs</span>
@@ -128,7 +128,7 @@
         </span>
       </button>
     </div>
-    {{#if site.search}}
+    {{#if site.search.enabled}}
       <div class="cmdk" data-cmdk hidden>
         <div class="cmdk__backdrop" data-cmdk-close></div>
         <div class="cmdk__panel" role="dialog" aria-modal="true" aria-label="Search docs">

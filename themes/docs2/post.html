@@ -2,7 +2,7 @@
   <div class="article-grid">
     <div class="article-content">
       <p class="eyebrow">{{#if post.collection_cursor.collection_title}}{{post.collection_cursor.collection_title}}{{#else}}Post{{/if}}</p>
-      <div class="prose" {{#if site.search}}{{#if_neq post.discoverability "delist"}}data-pagefind-body{{/if}}{{/if}}>
+      <div class="prose" {{#if site.search.enabled}}{{#if_neq post.discoverability "delist"}}data-pagefind-body{{/if}}{{/if}}>
         {{post.html}}
       </div>
       <footer class="page-meta" aria-label="Post metadata">

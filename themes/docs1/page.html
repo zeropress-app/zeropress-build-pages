@@ -1,6 +1,6 @@
 <article class="shell doc-layout{{#if page.toc}} doc-layout--with-toc{{/if}}">
   <div class="doc-content">
-    <div class="prose" {{#if site.search}}{{#if_neq page.discoverability "delist"}}data-pagefind-body{{/if}}{{/if}}>
+    <div class="prose" {{#if site.search.enabled}}{{#if_neq page.discoverability "delist"}}data-pagefind-body{{/if}}{{/if}}>
       {{page.html}}
     </div>
     {{#if page.meta.source_markdown_url}}

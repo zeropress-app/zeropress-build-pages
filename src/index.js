@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runBuild } from '@zeropress/build/src/index.js';
 import { checkInternalLinks } from './check-links.js';
+import { toTerminalSafeText } from './terminal.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageDir = path.resolve(__dirname, '..');
@@ -42,7 +43,7 @@ export async function runCli(argv = process.argv.slice(2)) {
     await runBuildPages(options);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(colorizeError(prefixError(message)));
+    console.error(colorizeError(prefixError(toTerminalSafeText(message))));
     process.exitCode = 1;
   }
 }
@@ -88,6 +89,8 @@ export async function runBuildPages(options) {
     ZEROPRESS_COPY_MARKDOWN_SOURCE: String(copyMarkdownSource),
     ZEROPRESS_BUILD_PAGES_THEME_ID: themeId,
   };
+  delete env.ZEROPRESS_BUILD_PAGES_CONFIG;
+  delete env.ZEROPRESS_SITE_URL;
   if (options.config) {
     env.ZEROPRESS_BUILD_PAGES_CONFIG = path.resolve(cwd, options.config);
   }
@@ -138,7 +141,7 @@ export async function runBuildPages(options) {
     if (result.brokenLinks.length) {
       console.warn('Warning: broken internal links found:');
       for (const link of result.brokenLinks) {
-        console.warn(`- ${link}`);
+        console.warn(`- ${toTerminalSafeText(link)}`);
       }
     }
     console.log(`Checked ${result.htmlFiles.length} HTML files for internal links`);
@@ -732,7 +735,8 @@ async function resolveCanonicalPath(targetPath) {
 
 function formatPath(cwd, targetPath) {
   const relativePath = path.relative(cwd, targetPath);
-  return relativePath && !relativePath.startsWith('..') && !path.isAbsolute(relativePath)
+  const displayPath = relativePath && !relativePath.startsWith('..') && !path.isAbsolute(relativePath)
     ? relativePath.replace(/\\/g, '/')
     : targetPath.replace(/\\/g, '/');
+  return toTerminalSafeText(displayPath);
 }

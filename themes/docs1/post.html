@@ -7,7 +7,7 @@
       </p>
       <h1>{{post.title}}</h1>
     </header>
-    <div class="prose" {{#if site.search}}{{#if_neq post.discoverability "delist"}}data-pagefind-body{{/if}}{{/if}}>
+    <div class="prose" {{#if site.search.enabled}}{{#if_neq post.discoverability "delist"}}data-pagefind-body{{/if}}{{/if}}>
       {{post.html}}
     </div>
     {{#if post.meta.source_markdown_url}}

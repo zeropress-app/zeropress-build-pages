@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { generateContentSlug, validateSlugSegment } from '@zeropress/slug-policy';
 import MarkdownIt from 'markdown-it';
+import { toTerminalSafeMultilineText, toTerminalSafeText } from './terminal.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const execFileAsync = promisify(execFile);
@@ -24,20 +25,20 @@ const copyMarkdownSource = readBooleanEnv('ZEROPRESS_COPY_MARKDOWN_SOURCE', true
 const themeId = readEnv('ZEROPRESS_BUILD_PAGES_THEME_ID', '');
 const FRONT_PAGE_TYPES = new Set(['theme_index', 'markdown', 'html']);
 const CONFIG_ROOT_KEYS = ['$schema', 'version', 'site', 'markdown', 'front_page', 'custom_html', 'menus', 'collections'];
-const MENU_ITEM_TYPES = new Set(['custom', 'page', 'post', 'category']);
 const MENU_ITEM_TARGETS = new Set(['_self', '_blank']);
-const BUILD_PAGES_CONFIG_SCHEMA_URL = 'https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json';
-const PREVIEW_DATA_SCHEMA_URL = 'https://schemas.zeropress.dev/preview-data/v0.6/schema.json';
+const BUILD_PAGES_CONFIG_VERSION = '1.0';
+const BUILD_PAGES_CONFIG_SCHEMA_URL = 'https://schemas.zeropress.dev/build-pages-config/v1.0/schema.json';
+const PREVIEW_DATA_SCHEMA_URL = 'https://schemas.zeropress.dev/preview-data/v0.7/schema.json';
 const FRONT_MATTER_DATA_KEY_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*$/;
 const FRONT_MATTER_DATA_MAX_DEPTH = 4;
 const FRONT_MATTER_DATA_MAX_KEYS = 64;
 const FRONT_MATTER_DATA_MAX_ARRAY_LENGTH = 256;
+const CUSTOM_HTML_SLOT_MAX_CODE_POINTS = 65_536;
 const FRONT_MATTER_DISCOVERABILITY_VALUES = new Set(['default', 'noindex', 'delist']);
 const MARKDOWN_UPDATED_AT_VALUES = new Set(['none', 'git']);
 const MARKDOWN_LINK_OUTPUT_VALUES = new Set(['clean', 'html']);
 const FEATURED_IMAGE_PROTOCOLS = new Set(['http:', 'https:']);
 const WEB_URL_PROTOCOLS = new Set(['http:', 'https:']);
-const URL_SCHEME_PATTERN = /^[a-z][a-z0-9+.-]*:/i;
 const ABSOLUTE_WEB_URL_PATTERN = /^(?:[Hh][Tt][Tt][Pp][Ss]?):\/\/(?:[^/?#@]+@)?(?:\[[0-9A-Fa-f:.]+\]|[^/?#:@]+)(?::[0-9]+)?(?:[/?#].*)?$/u;
 const UNSAFE_WEB_URL_CHARACTER_PATTERN = /[\s\\\p{Cc}]/u;
 const MALFORMED_PERCENT_ENCODING_PATTERN = /%(?![0-9A-Fa-f]{2})/;
@@ -120,6 +121,7 @@ async function main() {
     });
   }
 
+  assertUniquePageRoutes(pageInputs);
   const routeBySourcePath = new Map(
     pageInputs.map(({ sourcePath, route }) => [sourcePath, route]),
   );
@@ -134,6 +136,7 @@ async function main() {
     }
   }
   const publicAssetUrls = await buildPublicAssetUrlMap(publicDir);
+  assertNoPageRoutePublicAssetConflicts(pageInputs, publicAssetUrls, copyMarkdownSource);
   const collections = normalizeCollections(config.collections, pageInputs, skippedMarkdown);
   if (Object.keys(collections.resolved).length > 0) {
     resolvedConfig.collections = collections.resolved;
@@ -175,18 +178,19 @@ async function main() {
   }
 
   const site = buildSiteData(resolvedConfig, frontPageResult.frontPage);
+  const previewPages = pages.map((page) => canonicalizePreviewPagePath(page, site.permalinks));
   const customHtml = await buildCustomHtmlData(customHtmlConfig);
 
   const previewData = {
     $schema: PREVIEW_DATA_SCHEMA_URL,
-    version: '0.6',
+    version: '0.7',
     generator: 'zeropress-build-pages',
     generated_at: new Date().toISOString(),
     site,
     content: {
       authors: [],
       posts: [],
-      pages,
+      pages: previewPages,
       categories: [],
       tags: [],
     },
@@ -209,7 +213,7 @@ async function main() {
     packageJson,
     sourceFiles,
     pageInputs,
-    pages,
+    pages: previewPages,
     skippedMarkdown,
     frontPageConfig,
     frontPage: frontPageResult.frontPage,
@@ -217,7 +221,7 @@ async function main() {
   });
   await fs.writeFile(buildReportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 
-  console.log(`Wrote ${path.relative(rootDir, previewDataPath)} with ${pages.length} pages`);
+  console.log(`Wrote ${toTerminalSafeText(path.relative(rootDir, previewDataPath))} with ${previewPages.length} pages`);
   printPrebuildSummary(report);
 }
 
@@ -235,18 +239,18 @@ function handlePrebuildError(error) {
   }
 
   const reason = error instanceof Error ? error.message : String(error);
-  console.error(`[zeropress-build-pages] Unexpected prebuild failure.\nReason: ${reason}`);
+  console.error(`[zeropress-build-pages] Unexpected prebuild failure.\nReason: ${toTerminalSafeText(reason)}`);
   process.exitCode = 1;
 }
 
 function formatMarkdownError(error) {
   const lines = [
-    `[zeropress-build-pages] Invalid Markdown page: ${formatSourcePath(error.sourcePath)}`,
-    `Reason: ${error.reason}`,
+    `[zeropress-build-pages] Invalid Markdown page: ${toTerminalSafeText(formatSourcePath(error.sourcePath))}`,
+    `Reason: ${toTerminalSafeText(error.reason)}`,
   ];
 
   if (error.expected) {
-    lines.push(`Expected one of:\n${error.expected}`);
+    lines.push(`Expected one of:\n${toTerminalSafeMultilineText(error.expected)}`);
   }
 
   return lines.join('\n');
@@ -254,12 +258,12 @@ function formatMarkdownError(error) {
 
 function formatConfigError(error) {
   const lines = [
-    `[zeropress-build-pages] Invalid site config: ${formatSourcePath(configPath)}`,
-    `Reason: ${error.reason}`,
+    `[zeropress-build-pages] Invalid site config: ${toTerminalSafeText(formatSourcePath(configPath))}`,
+    `Reason: ${toTerminalSafeText(error.reason)}`,
   ];
 
   if (error.expected) {
-    lines.push(`Expected:\n${error.expected}`);
+    lines.push(`Expected:\n${toTerminalSafeMultilineText(error.expected)}`);
   }
 
   return lines.join('\n');
@@ -298,8 +302,12 @@ function validateConfigEnvelope(config) {
     throw new PrebuildConfigError('$schema must be a string when provided.');
   }
 
-  if (config.version !== undefined && config.version !== '0.1') {
-    throw new PrebuildConfigError('version must be exactly "0.1" when provided.');
+  if (configFound && !Object.hasOwn(config, 'version')) {
+    throw new PrebuildConfigError('version is required in an authored Build Pages config and must be exactly "1.0".');
+  }
+
+  if (config.version !== undefined && config.version !== BUILD_PAGES_CONFIG_VERSION) {
+    throw new PrebuildConfigError('version must be exactly "1.0".');
   }
 }
 
@@ -314,10 +322,9 @@ function buildSiteData(config, frontPage) {
     title: configuredSite.title,
     description: configuredSite.description,
     url: configuredSite.url,
-    media_base_url: '',
+    media_origin: '',
     locale: configuredSite.locale,
     posts_per_page: 10,
-    datetime_display: 'static',
     date_style: 'medium',
     time_style: 'none',
     timezone: 'UTC',
@@ -326,11 +333,15 @@ function buildSiteData(config, frontPage) {
     post_index: {
       enabled: false,
     },
-    disallow_comments: true,
     expose_generator: configuredSite.expose_generator !== false,
-    search: configuredSite.search !== false,
-    indexing: configuredSite.indexing !== false,
+    search: {
+      enabled: configuredSite.search !== false,
+    },
   };
+
+  if (configuredSite.robots.allow_indexing === false) {
+    site.robots = { allow_indexing: false };
+  }
 
   if (configuredSite.logo) {
     site.logo = configuredSite.logo;
@@ -350,7 +361,7 @@ function buildSiteData(config, frontPage) {
 function buildResolvedConfig(config, { frontPageConfig, menus, customHtmlConfig, markdownConfig }) {
   const resolvedConfig = {
     $schema: BUILD_PAGES_CONFIG_SCHEMA_URL,
-    version: '0.1',
+    version: BUILD_PAGES_CONFIG_VERSION,
     site: normalizeSiteConfig(config.site),
     markdown: markdownConfig,
     front_page: frontPageConfig,
@@ -394,7 +405,7 @@ function normalizeSiteConfig(value) {
   }
 
   const configuredSite = isPlainObject(value) ? value : {};
-  assertKnownConfigKeys(configuredSite, ['title', 'description', 'url', 'logo', 'locale', 'expose_generator', 'search', 'indexing', 'footer', 'meta'], 'site');
+  assertKnownConfigKeys(configuredSite, ['title', 'description', 'url', 'logo', 'locale', 'expose_generator', 'search', 'robots', 'footer', 'meta'], 'site');
   const configuredSiteUrl = normalizeSiteUrl(configuredSite.url);
   const site = {
     title: readConfigNonBlankString(configuredSite.title, 'Documentation', 'site.title'),
@@ -403,7 +414,7 @@ function normalizeSiteConfig(value) {
     locale: normalizeSiteLocale(configuredSite.locale),
     expose_generator: readConfigBoolean(configuredSite.expose_generator, true, 'site.expose_generator'),
     search: readConfigBoolean(configuredSite.search, true, 'site.search'),
-    indexing: readConfigBoolean(configuredSite.indexing, true, 'site.indexing'),
+    robots: normalizeSiteRobots(configuredSite.robots),
   };
 
   const logo = normalizeSiteLogo(configuredSite.logo);
@@ -421,6 +432,22 @@ function normalizeSiteConfig(value) {
   }
 
   return site;
+}
+
+function normalizeSiteRobots(value) {
+  if (value === undefined) {
+    return { allow_indexing: true };
+  }
+  if (!isPlainObject(value)) {
+    throw new PrebuildConfigError('site.robots must be an object when provided.');
+  }
+  assertKnownConfigKeys(value, ['allow_indexing'], 'site.robots');
+  if (!Object.hasOwn(value, 'allow_indexing')) {
+    throw new PrebuildConfigError('site.robots.allow_indexing is required when site.robots is provided.');
+  }
+  return {
+    allow_indexing: readConfigBoolean(value.allow_indexing, true, 'site.robots.allow_indexing'),
+  };
 }
 
 function normalizeSiteUrl(value) {
@@ -456,7 +483,9 @@ function normalizeSiteUrl(value) {
   }
 
   if (
-    url.pathname !== '/'
+    url.username
+    || url.password
+    || url.pathname !== '/'
     || value.includes('?')
     || value.includes('#')
   ) {
@@ -466,7 +495,7 @@ function normalizeSiteUrl(value) {
     );
   }
 
-  return value;
+  return url.origin;
 }
 
 function normalizeSiteLocale(value) {
@@ -477,11 +506,14 @@ function normalizeSiteLocale(value) {
     throw new PrebuildConfigError('site.locale must be a string when provided.');
   }
 
-  if (value.trim() !== value || /\s/u.test(value) || Array.from(value).length < 2) {
+  if (value.trim() !== value || /\s/u.test(value) || value.length === 0) {
     throw new PrebuildConfigError('site.locale must be a non-empty locale string such as "en-US" or "ko-KR".');
   }
-
-  return value;
+  try {
+    return Intl.getCanonicalLocales(value)[0];
+  } catch {
+    throw new PrebuildConfigError('site.locale must be a valid BCP 47 language tag such as "en-US" or "ko-KR".');
+  }
 }
 
 function normalizeSiteLogo(value) {
@@ -560,7 +592,7 @@ function validateSiteLogoSrc(value) {
     throw new PrebuildConfigError('site.logo.src contains an unsafe or malformed URL character.');
   }
 
-  if (value.startsWith('/') && !value.startsWith('//')) {
+  if (value.startsWith('/') && !value.startsWith('//') && value !== '/' && !hasDotUrlPathSegment(value.split(/[?#]/u, 1)[0])) {
     return;
   }
 
@@ -572,7 +604,12 @@ function validateSiteLogoSrc(value) {
 
   try {
     const url = new URL(value);
-    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
+    if (!['http:', 'https:'].includes(url.protocol)
+      || !url.hostname
+      || url.username
+      || url.password
+      || url.pathname === '/'
+      || hasDotUrlPathSegment(extractRawAbsolutePath(value))) {
       throw new Error('unsupported URL');
     }
   } catch {
@@ -610,12 +647,10 @@ async function buildFrontPageData(frontPageConfig, pageInputs, config) {
         '  "front_page": { "type": "markdown", "file": "index.md" }',
       );
     }
-    assertUniquePageSlug(pageInputs, matchedPage.route.slug, sourcePath);
-
     return {
       frontPage: {
         type: 'page',
-        page_slug: matchedPage.route.slug,
+        page_path: matchedPage.route.path,
       },
     };
   }
@@ -633,12 +668,12 @@ async function buildFrontPageData(frontPageConfig, pageInputs, config) {
   }
 
   const route = buildHtmlPageRoute(sourcePath, { allowRootIndex: true });
-  assertNoPageSlugConflict(pageInputs, route.slug, sourcePath);
+  assertNoPagePathConflict(pageInputs, route.path, sourcePath);
 
   return {
-    frontPage: {
-      type: 'page',
-      page_slug: route.slug,
+      frontPage: {
+        type: 'page',
+        page_path: route.path,
     },
     page: {
       title: config.site?.title || 'Home',
@@ -817,9 +852,24 @@ async function buildCustomHtmlData(config) {
 
 async function buildCustomHtmlSlotData(slotConfig, pathLabel) {
   const sourcePath = resolveConfiguredSourceFile(slotConfig.file, '.html', `${pathLabel}.file`);
-  return {
-    content: await readRequiredSourceFile(sourcePath, `${pathLabel}.file`),
-  };
+  const content = await readRequiredSourceFile(sourcePath, `${pathLabel}.file`);
+  if (exceedsUnicodeCodePointLimit(content, CUSTOM_HTML_SLOT_MAX_CODE_POINTS)) {
+    throw new PrebuildConfigError(
+      `${pathLabel}.file exceeds the ${CUSTOM_HTML_SLOT_MAX_CODE_POINTS.toLocaleString('en-US')} Unicode code point limit: ${formatSourcePath(sourcePath)}`,
+    );
+  }
+  return content;
+}
+
+function exceedsUnicodeCodePointLimit(value, limit) {
+  let count = 0;
+  for (const _character of value) {
+    count += 1;
+    if (count > limit) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function customHtmlSlots(customHtml) {
@@ -871,6 +921,7 @@ function normalizeSourceFilePath(value, pathLabel) {
     value.trim() !== value
     || path.isAbsolute(value)
     || value.includes('\\')
+    || /\p{Cc}/u.test(value)
     || value.includes('?')
     || value.includes('#')
     || segments.some((segment) => !segment || segment === '.' || segment === '..')
@@ -953,22 +1004,29 @@ async function resolveRequiredHtmlSourceFile(sourcePath, pathLabel) {
   return realSourcePath;
 }
 
-function assertUniquePageSlug(pageInputs, slug, sourcePath) {
-  const matchingPages = pageInputs.filter((pageInput) => pageInput.route.slug === slug);
-  if (matchingPages.length > 1) {
-    throw new PrebuildConfigError(
-      `front_page.file resolves to a duplicate page slug "${slug}": ${formatSourcePath(sourcePath)}`,
-      'Choose a front page file whose generated slug is unique.',
-    );
+function assertUniquePageRoutes(pageInputs) {
+  const routeOwners = new Map();
+  for (const pageInput of pageInputs) {
+    const routePath = pageInput.route.path.normalize('NFC');
+    const existing = routeOwners.get(routePath);
+    if (existing) {
+      throw new PrebuildMarkdownError(
+        pageInput.sourcePath,
+        `effective page path ${JSON.stringify(routePath)} conflicts with ${formatSourcePath(existing.sourcePath)}.`,
+        'Change one source path or front matter path so each effective Page route is unique.',
+      );
+    }
+    routeOwners.set(routePath, pageInput);
   }
 }
 
-function assertNoPageSlugConflict(pageInputs, slug, sourcePath) {
-  const matchingPage = pageInputs.find((pageInput) => pageInput.route.slug === slug);
+function assertNoPagePathConflict(pageInputs, routePath, sourcePath) {
+  const normalizedRoutePath = routePath.normalize('NFC');
+  const matchingPage = pageInputs.find((pageInput) => pageInput.route.path.normalize('NFC') === normalizedRoutePath);
   if (matchingPage) {
     throw new PrebuildConfigError(
-      `front_page.file resolves to page slug "${slug}", which conflicts with ${formatSourcePath(matchingPage.sourcePath)}.`,
-      `Move or rename ${formatSourcePath(sourcePath)}, or choose a different front_page.file.`,
+      `front_page.file resolves to page path "${routePath}", which conflicts with ${formatSourcePath(matchingPage.sourcePath)}.`,
+      `Move or rename ${toTerminalSafeText(formatSourcePath(sourcePath))}, or choose a different front_page.file.`,
     );
   }
 }
@@ -986,6 +1044,98 @@ function defaultPermalinks() {
     categories: '/categories/:slug/',
     tags: '/tags/:slug/',
   };
+}
+
+function canonicalizePreviewPagePath(page, permalinks) {
+  if (typeof page?.path !== 'string' || !page.path) {
+    return page;
+  }
+
+  const outputStyle = permalinks?.output_style === 'html-extension'
+    ? 'html-extension'
+    : 'directory';
+  const explicitRoute = buildPreviewPageRouteInfo(page.path, outputStyle, true);
+  const fallbackPath = applyPreviewPagePermalinkPattern(permalinks?.pages, page.slug);
+  const fallbackRoute = buildPreviewPageRouteInfo(fallbackPath, outputStyle, false);
+
+  if (
+    explicitRoute.url !== fallbackRoute.url
+    || explicitRoute.outputPath !== fallbackRoute.outputPath
+  ) {
+    return page;
+  }
+
+  const { path: _path, ...pageWithoutPath } = page;
+  return pageWithoutPath;
+}
+
+function applyPreviewPagePermalinkPattern(pattern, slug) {
+  const body = String(pattern || '/:slug/').replace(/^\/+|\/+$/gu, '');
+  const segments = body.split('/').filter(Boolean).map((segment) => (
+    segment.startsWith(':')
+      ? (segment === ':slug' ? slug : '')
+      : segment
+  ));
+  return `/${segments.join('/')}/`;
+}
+
+function buildPreviewPageRouteInfo(routePath, outputStyle, useExplicitPagePathRules) {
+  const normalizedPath = normalizePreviewRoutePath(routePath);
+  return {
+    url: useExplicitPagePathRules
+      ? previewPagePathToPublicUrl(normalizedPath, outputStyle)
+      : previewRoutePathToPublicUrl(normalizedPath, outputStyle),
+    outputPath: previewRoutePathToOutputPath(normalizedPath, outputStyle),
+  };
+}
+
+function normalizePreviewRoutePath(routePath) {
+  if (!routePath || routePath === '/') {
+    return '/';
+  }
+
+  let decodedPath = String(routePath);
+  try {
+    decodedPath = decodeURI(decodedPath);
+  } catch {
+    // Preserve malformed input so downstream validation can report it.
+  }
+  return `/${decodedPath.replace(/^\/+|\/+$/gu, '')}/`;
+}
+
+function previewRoutePathToOutputPath(routePath, outputStyle) {
+  if (routePath === '/') {
+    return 'index.html';
+  }
+  if (outputStyle === 'html-extension') {
+    return `${routePath.replace(/^\/+|\/+$/gu, '')}.html`;
+  }
+  return `${routePath.replace(/^\//u, '')}index.html`;
+}
+
+function previewRoutePathToPublicUrl(routePath, outputStyle) {
+  if (routePath === '/') {
+    return '/';
+  }
+  if (outputStyle === 'html-extension') {
+    return routePath.replace(/\/$/u, '');
+  }
+  return routePath;
+}
+
+function previewPagePathToPublicUrl(routePath, outputStyle) {
+  if (outputStyle !== 'html-extension') {
+    return previewRoutePathToPublicUrl(routePath, outputStyle);
+  }
+
+  const withoutTrailingSlash = routePath.replace(/\/$/u, '');
+  if (withoutTrailingSlash === '/index') {
+    return '/';
+  }
+  if (withoutTrailingSlash.endsWith('/index')) {
+    return `${withoutTrailingSlash.slice(0, -'/index'.length)}/`;
+  }
+  return withoutTrailingSlash;
 }
 
 function normalizeMenus(value) {
@@ -1019,13 +1169,10 @@ function normalizeMenuItem(item, pathLabel) {
   if (!isPlainObject(item)) {
     throw new PrebuildConfigError(`${pathLabel} must be an object.`);
   }
-  assertKnownConfigKeys(item, ['title', 'url', 'type', 'target', 'meta', 'children'], pathLabel);
+  assertKnownConfigKeys(item, ['title', 'url', 'target', 'meta', 'children'], pathLabel);
   const title = readConfigNonBlankString(item.title, undefined, `${pathLabel}.title`);
   const url = normalizeMenuUrl(item.url, `${pathLabel}.url`);
 
-  if (item.type !== undefined) {
-    readConfigEnum(item.type, undefined, `${pathLabel}.type`, MENU_ITEM_TYPES);
-  }
   if (item.children !== undefined && !Array.isArray(item.children)) {
     throw new PrebuildConfigError(`${pathLabel}.children must be an array when provided.`);
   }
@@ -1044,7 +1191,7 @@ function normalizeMenuItem(item, pathLabel) {
 function normalizeMenuUrl(value, pathLabel) {
   if (typeof value !== 'string' || !value) {
     throw new PrebuildConfigError(
-      `${pathLabel} must be a non-empty absolute HTTP(S) URL or relative Web path.`,
+      `${pathLabel} must be a non-empty absolute HTTP(S) URL or root-relative Web path.`,
     );
   }
   if (
@@ -1059,7 +1206,7 @@ function normalizeMenuUrl(value, pathLabel) {
     throw new PrebuildConfigError(`${pathLabel} must not use a protocol-relative URL.`);
   }
 
-  if (URL_SCHEME_PATTERN.test(value)) {
+  if (!value.startsWith('/')) {
     if (!isStructurallyValidAbsoluteWebUrl(value)) {
       throw new PrebuildConfigError(`${pathLabel} must use http: or https: when an absolute URL is provided.`);
     }
@@ -1070,7 +1217,7 @@ function normalizeMenuUrl(value, pathLabel) {
     } catch {
       throw new PrebuildConfigError(`${pathLabel} must be a valid absolute HTTP(S) URL.`);
     }
-    if (!WEB_URL_PROTOCOLS.has(url.protocol) || !url.hostname) {
+    if (!WEB_URL_PROTOCOLS.has(url.protocol) || !url.hostname || url.username || url.password || hasDotUrlPathSegment(extractRawAbsolutePath(value))) {
       throw new PrebuildConfigError(`${pathLabel} must be a valid absolute HTTP(S) URL.`);
     }
     return value;
@@ -1080,7 +1227,7 @@ function normalizeMenuUrl(value, pathLabel) {
   if (!pathname) {
     throw new PrebuildConfigError(`${pathLabel} must include an actual relative URL path before its query or fragment.`);
   }
-  validateRelativeMenuPath(pathname, pathLabel);
+  validateRootRelativeMenuPath(pathname, pathLabel);
 
   try {
     new URL(value, 'https://zeropress.invalid/');
@@ -1099,23 +1246,30 @@ function isStructurallyValidAbsoluteWebUrl(value) {
     && ABSOLUTE_WEB_URL_PATTERN.test(value);
 }
 
-function validateRelativeMenuPath(pathname, pathLabel) {
+function validateRootRelativeMenuPath(pathname, pathLabel) {
   if (pathname === '/') {
     return;
   }
-
-  let actualPath = pathname.startsWith('/') ? pathname.slice(1) : pathname;
-  while (actualPath.startsWith('./') || actualPath.startsWith('../')) {
-    actualPath = actualPath.startsWith('./') ? actualPath.slice(2) : actualPath.slice(3);
+  if (!pathname.startsWith('/') || hasDotUrlPathSegment(pathname)) {
+    throw new PrebuildConfigError(`${pathLabel} must contain a safe root-relative Web path.`);
   }
+}
 
-  if (
-    !actualPath
-    || actualPath === '.'
-    || actualPath === '..'
-  ) {
-    throw new PrebuildConfigError(`${pathLabel} must contain a safe relative Web path.`);
-  }
+function extractRawAbsolutePath(value) {
+  const match = /^[A-Za-z][A-Za-z0-9+.-]*:\/\/[^/?#]*(?<path>[^?#]*)/u.exec(value);
+  return match?.groups?.path || '/';
+}
+
+function hasDotUrlPathSegment(pathname) {
+  return String(pathname || '').split('/').some((segment) => {
+    if (!segment) return false;
+    try {
+      const decoded = decodeURIComponent(segment).normalize('NFC');
+      return decoded === '.' || decoded === '..';
+    } catch {
+      return true;
+    }
+  });
 }
 
 function normalizeMenuItemMeta(value, pathLabel) {
@@ -1196,7 +1350,7 @@ function normalizeCollections(value, pageInputs, skippedMarkdown) {
       resolvedItems.push(normalizedPath);
       return {
         type: 'page',
-        slug: pageInput.route.slug,
+        path: pageInput.route.path,
       };
     });
 
@@ -1287,19 +1441,19 @@ function buildPrebuildReport({
 function printPrebuildSummary(report) {
   const lines = [
     'ZeroPress build report',
-    `- Source root: ${report.source_dir}`,
-    `- Public root: ${report.public_dir}`,
-    `- Theme: ${report.theme_id || 'unknown'}`,
+    `- Source root: ${toTerminalSafeText(report.source_dir)}`,
+    `- Public root: ${toTerminalSafeText(report.public_dir)}`,
+    `- Theme: ${toTerminalSafeText(report.theme_id || 'unknown')}`,
     `- Markdown discovered: ${report.markdown.discovered}`,
     `- Markdown pages generated: ${report.markdown.generated_pages}`,
     `- Markdown skipped: ${report.markdown.skipped}`,
     `- Total preview pages: ${report.pages.total}`,
-    `- Source config: ${formatConfigSummary(report)}`,
-    `- Config reference: ${report.config_reference_url}`,
-    `- Resolved config: ${report.build_pages_config_path} (generated effective config)`,
-    `- Front page: ${formatFrontPageSummary(report.front_page)}`,
-    `- Custom HTML slots: ${report.custom_html.length ? report.custom_html.join(', ') : 'none'}`,
-    `- Report: ${report.report_path}`,
+    `- Source config: ${toTerminalSafeText(formatConfigSummary(report))}`,
+    `- Config reference: ${toTerminalSafeText(report.config_reference_url)}`,
+    `- Resolved config: ${toTerminalSafeText(report.build_pages_config_path)} (generated effective config)`,
+    `- Front page: ${toTerminalSafeText(formatFrontPageSummary(report.front_page))}`,
+    `- Custom HTML slots: ${toTerminalSafeText(report.custom_html.length ? report.custom_html.join(', ') : 'none')}`,
+    `- Report: ${toTerminalSafeText(report.report_path)}`,
   ];
 
   console.log(lines.join('\n'));
@@ -1319,12 +1473,12 @@ function formatFrontPageSummary(frontPageReport) {
     return 'theme_index -> /';
   }
   if (config.type === 'markdown') {
-    return `markdown ${config.file} -> / (${previewData.page_slug})`;
+    return `markdown ${config.file} -> / (${previewData.page_path})`;
   }
   if (previewData.type === 'standalone_html') {
     return `html ${config.file} -> / (standalone_html)`;
   }
-  return `html ${config.file} -> / (${previewData.page_slug})`;
+  return `html ${config.file} -> / (${previewData.page_path})`;
 }
 
 function parseMarkdownSource(rawMarkdown, sourcePath) {
@@ -1369,7 +1523,7 @@ function parseYamlFrontMatter(rawMarkdown, sourcePath) {
 
     return {
       content: rawMarkdown,
-      data: {},
+      data: createYamlMapping(),
     };
   }
 
@@ -1419,7 +1573,7 @@ function readLine(input, offset) {
 function parseFrontMatterYamlBlock(block, sourcePath) {
   const lines = buildFrontMatterYamlLines(block, sourcePath);
   if (lines.length === 0) {
-    return {};
+    return createYamlMapping();
   }
   if (lines[0].indent !== 0) {
     throw frontMatterYamlError(sourcePath, lines[0], 'root front matter keys must not be indented.');
@@ -1506,7 +1660,7 @@ function parseFrontMatterYamlBlockAt(lines, index, indent, sourcePath) {
 }
 
 function parseFrontMatterYamlObject(lines, index, indent, sourcePath) {
-  const object = {};
+  const object = createYamlMapping();
   while (index < lines.length) {
     const line = lines[index];
     if (line.indent < indent) {
@@ -1722,10 +1876,10 @@ function parseFrontMatterYamlInlineObject(text, sourcePath, line) {
   }
   const content = text.slice(1, -1).trim();
   if (!content) {
-    return {};
+    return createYamlMapping();
   }
 
-  const object = {};
+  const object = createYamlMapping();
   for (const item of splitYamlInlineItems(content, sourcePath, line)) {
     const pair = parseFrontMatterYamlPair(item, sourcePath, line);
     if (Object.hasOwn(object, pair.key)) {
@@ -1955,7 +2109,7 @@ function normalizeFrontMatterRoutePath(value, sourcePath) {
     throw new PrebuildMarkdownError(
       sourcePath,
       'front matter path must be a safe generated route path.',
-      '  path: guides/install\n  path: spec/preview-data-v0.6',
+      '  path: guides/install\n  path: spec/preview-data-v0.7',
     );
   }
 
@@ -1972,7 +2126,20 @@ function normalizeFrontMatterRoutePath(value, sourcePath) {
     normalizedSegments.push(result.normalized);
   }
 
-  return normalizedSegments.join('/');
+  const normalizedPath = normalizedSegments.join('/');
+  assertRoutePathDoesNotContainHtmlSegment(normalizedPath, sourcePath, 'front matter path');
+  return normalizedPath;
+}
+
+function assertRoutePathDoesNotContainHtmlSegment(routePath, sourcePath, label) {
+  if (!routePath.split('/').some((segment) => segment.endsWith('.html'))) {
+    return;
+  }
+  throw new PrebuildMarkdownError(
+    sourcePath,
+    `${label} must not contain a segment ending with the literal lowercase suffix ".html".`,
+    'Remove the .html suffix; Build Pages selects the output filename from the permalink output style.',
+  );
 }
 
 function normalizeFrontMatterDiscoverability(value, sourcePath) {
@@ -2033,12 +2200,12 @@ async function buildPageUpdatedAtIso(sourcePath, frontMatter, markdownConfig) {
 
 async function readGitUpdatedAtIso(sourcePath) {
   const realSourcePath = await resolveRealPath(sourcePath);
-  const realRootDir = await resolveRealPath(rootDir);
-  const gitPath = path.relative(realRootDir, realSourcePath);
+  const sourceDirectory = path.dirname(realSourcePath);
+  const gitPath = path.basename(realSourcePath);
   try {
     const { stdout } = await execFileAsync('git', [
       '-C',
-      realRootDir,
+      sourceDirectory,
       'log',
       '-1',
       '--format=%cI',
@@ -2074,23 +2241,23 @@ async function resolveRealPath(value) {
 
 function warnGitUpdatedAt(sourcePath, reason) {
   console.warn([
-    `[zeropress-build-pages] Warning: could not read git updated_at for ${formatSourcePath(sourcePath)}.`,
-    `Reason: ${reason}`,
+    `[zeropress-build-pages] Warning: could not read git updated_at for ${toTerminalSafeText(formatSourcePath(sourcePath))}.`,
+    `Reason: ${toTerminalSafeText(reason)}`,
   ].join('\n'));
 }
 
 function warnInvalidFrontMatterUpdatedAt(sourcePath, value) {
   console.warn([
-    `[zeropress-build-pages] Warning: ignored invalid front matter updated_at in ${formatSourcePath(sourcePath)}.`,
-    `Reason: Expected "none", "git", or an ISO datetime string, received ${JSON.stringify(value)}.`,
+    `[zeropress-build-pages] Warning: ignored invalid front matter updated_at in ${toTerminalSafeText(formatSourcePath(sourcePath))}.`,
+    `Reason: Expected "none", "git", or an ISO datetime string, received ${toTerminalSafeText(JSON.stringify(value))}.`,
   ].join('\n'));
 }
 
 function warnInvalidFrontMatterFeaturedImage(sourcePath, value, reason) {
   console.warn([
-    `[zeropress-build-pages] Warning: ignored invalid front matter featured_image in ${formatSourcePath(sourcePath)}.`,
-    `Reason: ${reason}`,
-    `Received: ${JSON.stringify(value)}.`,
+    `[zeropress-build-pages] Warning: ignored invalid front matter featured_image in ${toTerminalSafeText(formatSourcePath(sourcePath))}.`,
+    `Reason: ${toTerminalSafeText(reason)}`,
+    `Received: ${toTerminalSafeText(JSON.stringify(value))}.`,
   ].join('\n'));
 }
 
@@ -2267,7 +2434,13 @@ function buildPageFeaturedImageUrl(value, sourcePath, siteUrl, publicAssetUrls) 
 function normalizeAbsoluteFeaturedImageUrl(value) {
   try {
     const url = new URL(value);
-    if (!FEATURED_IMAGE_PROTOCOLS.has(url.protocol) || !url.hostname) {
+    if (!FEATURED_IMAGE_PROTOCOLS.has(url.protocol)
+      || !url.hostname
+      || url.username
+      || url.password
+      || url.pathname === '/'
+      || !isStructurallyValidAbsoluteWebUrl(value)
+      || hasDotUrlPathSegment(extractRawAbsolutePath(value))) {
       return '';
     }
     return url.toString();
@@ -2279,7 +2452,11 @@ function normalizeAbsoluteFeaturedImageUrl(value) {
 function resolveSiteAbsoluteUrl(siteUrl, publicUrl) {
   try {
     const url = new URL(publicUrl, siteUrl);
-    if (!FEATURED_IMAGE_PROTOCOLS.has(url.protocol) || !url.hostname) {
+    if (!FEATURED_IMAGE_PROTOCOLS.has(url.protocol)
+      || !url.hostname
+      || url.username
+      || url.password
+      || url.pathname === '/') {
       return '';
     }
     return url.toString();
@@ -2327,11 +2504,11 @@ function recordSkippedMarkdown(skippedMarkdown, sourcePath, reason) {
 
 function formatSkippedMarkdownWarning(sourcePath, reason, expected = '', label = 'Skipped Markdown') {
   const lines = [
-    `[zeropress-build-pages] ${label}: ${formatSourcePath(sourcePath)}`,
-    `Reason: ${reason}`,
+    `[zeropress-build-pages] ${label}: ${toTerminalSafeText(formatSourcePath(sourcePath))}`,
+    `Reason: ${toTerminalSafeText(reason)}`,
   ];
   if (expected) {
-    lines.push(expected);
+    lines.push(toTerminalSafeMultilineText(expected));
   }
   lines.push('This file was not added to preview-data pages.');
   return lines.join('\n');
@@ -2368,6 +2545,47 @@ async function buildPublicAssetUrlMap(dir) {
   const assetUrls = new Map();
   await collectPublicAssetUrls(dir, dir, assetUrls);
   return assetUrls;
+}
+
+function assertNoPageRoutePublicAssetConflicts(pageInputs, publicAssetUrls, includeMarkdownSource) {
+  const publicFilesByUrl = new Map();
+  for (const [filePath, publicUrl] of publicAssetUrls) {
+    if (!includeMarkdownSource && filePath.toLowerCase().endsWith('.md')) {
+      continue;
+    }
+    publicFilesByUrl.set(normalizePublicUrlCollisionKey(publicUrl), publicUrl);
+  }
+  if (includeMarkdownSource) {
+    for (const pageInput of pageInputs) {
+      const sourceMarkdownUrl = buildSourceMarkdownUrl(pageInput.sourcePath);
+      publicFilesByUrl.set(normalizePublicUrlCollisionKey(sourceMarkdownUrl), sourceMarkdownUrl);
+    }
+  }
+
+  for (const pageInput of pageInputs) {
+    const routeUrl = pageInput.route.url;
+    const publicFileUrl = publicFilesByUrl.get(normalizePublicUrlCollisionKey(routeUrl));
+    if (!publicFileUrl) {
+      continue;
+    }
+
+    throw new PrebuildMarkdownError(
+      pageInput.sourcePath,
+      `route ${JSON.stringify(routeUrl)} conflicts with public file ${JSON.stringify(publicFileUrl)}.`,
+      'Change the front matter path or rename the public file so each public URL has one owner.',
+    );
+  }
+}
+
+function normalizePublicUrlCollisionKey(value) {
+  const url = new URL(String(value || '/'), 'https://zeropress.invalid');
+  let pathname;
+  try {
+    pathname = decodeURIComponent(url.pathname);
+  } catch {
+    pathname = url.pathname;
+  }
+  return pathname.normalize('NFC').replace(/\/+$/, '') || '/';
 }
 
 async function collectPublicAssetUrls(root, currentDir, assetUrls) {
@@ -2488,6 +2706,7 @@ function buildRoutePath(relativeSourcePath, sourcePath, options = {}) {
         '  path: docs/index\n  path: guide',
       );
     }
+    assertRoutePathDoesNotContainHtmlSegment(options.routePath, sourcePath, 'front matter path');
     return options.routePath;
   }
 
@@ -2506,6 +2725,7 @@ function buildRoutePath(relativeSourcePath, sourcePath, options = {}) {
   });
 
   const routePath = segments.join('/');
+  assertRoutePathDoesNotContainHtmlSegment(routePath, sourcePath, 'filename-derived route');
   if (routePath === 'index' && options.allowRootIndex) {
     return routePath;
   }
@@ -2525,7 +2745,7 @@ function buildSlug(routePath) {
   if (segments.length > 1 && segments.at(-1) === 'index') {
     segments.pop();
   }
-  return generateContentSlug(segments.join('-') || 'index');
+  return generateContentSlug(segments.at(-1) || 'index');
 }
 
 function pageRoute(slug, routePath) {
@@ -3071,7 +3291,15 @@ function resolveOptionalEnvPath(names, fallback) {
 }
 
 function isPlainObject(value) {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function createYamlMapping() {
+  return Object.create(null);
 }
 
 function formatSourcePath(sourcePath) {

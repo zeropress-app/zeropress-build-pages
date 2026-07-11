@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Target tag, branch, or commit SHA, e.g. v0.5.1"
+        description: "Target tag, branch, or commit SHA, e.g. v1.0.0"
         required: true
         type: string
       tag:
-        description: "Movable major tag to update, e.g. v0"
+        description: "Movable major tag to update, e.g. v1"
         required: true
-        default: "v0"
+        default: "v1"
         type: string
 
 permissions:

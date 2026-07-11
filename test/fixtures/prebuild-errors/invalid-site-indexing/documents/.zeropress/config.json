@@ -1,5 +1,8 @@
 {
+  "version": "1.0",
   "site": {
-    "indexing": "false"
+    "robots": {
+      "allow_indexing": "false"
+    }
   }
 }

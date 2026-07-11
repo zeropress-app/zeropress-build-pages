@@ -1,11 +1,11 @@
 {
-  "$schema": "https://schemas.zeropress.dev/theme-runtime/v0.6/schema.json",
+  "$schema": "https://schemas.zeropress.dev/theme-runtime/v0.7/schema.json",
   "name": "ZeroPress Plain",
   "namespace": "zeropress",
   "slug": "plain",
-  "version": "0.6.12",
+  "version": "1.0.0",
   "license": "MIT",
-  "runtime": "0.6",
+  "runtime": "0.7",
   "description": "Minimal document theme for plain Markdown publishing. Renders each Markdown file as a standalone page with progressive heading anchors, Mermaid support, source Markdown links, and optional GitHub edit links.",
   "features": {
     "post_index": false,

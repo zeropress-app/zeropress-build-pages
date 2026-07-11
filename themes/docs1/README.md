@@ -45,7 +45,7 @@ The following fields improve the result:
 - `site.logo`: optional brand image
 - `menus.primary`: top-level navigation links
 - `menus.footer`: compact footer links
-- `site.search`: enables the bundled search form and ZeroPress search artifacts
+- `site.search.enabled`: enables the bundled search form and ZeroPress search artifacts
 - `page.updated_at_iso` / `post.updated_at_iso`: optional updated date display
 
 The theme does not require collections, widgets, or custom front matter.
@@ -72,7 +72,7 @@ top-level sections rather than a deep sidebar tree.
 
 ## Search
 
-Docs1 uses ZeroPress native static search when `site.search` is enabled.
+Docs1 uses ZeroPress native static search when `site.search.enabled` is enabled.
 The search UI imports `/_zeropress/search.js`, so it can also use the Pagefind
 adapter flow documented by Build Pages.
 

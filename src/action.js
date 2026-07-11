@@ -1,4 +1,5 @@
 import { runBuildPages } from './index.js';
+import { toTerminalSafeText } from './terminal.js';
 
 try {
   const options = {
@@ -17,7 +18,7 @@ try {
   await runBuildPages(options);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
+  console.error(toTerminalSafeText(message));
   process.exitCode = 1;
 }
 

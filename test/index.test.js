@@ -108,6 +108,27 @@ test('CLI prints help and version', () => {
   assert.match(version.stdout.trim(), /^\d+\.\d+\.\d+$/);
 });
 
+test('CLI errors escape terminal control characters', () => {
+  const env = {
+    ...process.env,
+    NO_COLOR: '1',
+  };
+  delete env.FORCE_COLOR;
+
+  const result = spawnSync(process.execPath, [
+    binPath,
+    `--unknown\n\u001b\u0085\u202Eoption`,
+  ], {
+    cwd: packageDir,
+    encoding: 'utf8',
+    env,
+  });
+
+  assert.equal(result.status, 1);
+  assert.doesNotMatch(result.stderr, /[\u001b\u0085\u202E]/u);
+  assert.match(result.stderr, /--unknown\\u000A\\u001B\\u0085\\u202Eoption/);
+});
+
 test('parseArgs requires explicit CLI options and applies flag defaults', () => {
   assert.throws(
     () => parseArgs([]),
@@ -297,7 +318,7 @@ test('build allows an explicitly empty site URL', async () => {
   await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
   await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nContent.', 'utf8');
   await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-    version: '0.1',
+    version: '1.0',
     site: {
       url: '',
     },
@@ -414,9 +435,9 @@ test('builds a source directory without config and preserves markdown passthroug
   const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
   const buildReport = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'build-report.json'), 'utf8'));
   const homePage = previewData.content.pages.find((page) => page.slug === 'index');
-  const customPage = previewData.content.pages.find((page) => page.slug === 'guides-custom-page');
+  const customPage = previewData.content.pages.find((page) => page.path === 'guides/custom-page');
 
-  assert.equal(previewData.site.indexing, true);
+  assert.equal(Object.hasOwn(previewData.site, 'robots'), false);
   assert.equal(previewData.site.expose_generator, true);
   assert.equal(buildReport.build_pages_version, JSON.parse(await fs.readFile(path.join(packageDir, 'package.json'), 'utf8')).version);
   assert.equal(buildReport.theme_id, await readBundledThemeId('docs1'));
@@ -449,7 +470,7 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.match(indexHtml, /<meta name="description" content="Home from front matter\.">/);
   assert.match(indexHtml, /property="og:description" content="Home from front matter\."/);
   assert.match(indexHtml, /<meta name="generator" content="ZeroPress">/);
-  assert.match(indexHtml, /<link rel="icon" href="\/favicon\.ico" sizes="any">/);
+  assert.match(indexHtml, /<link rel="icon" href="\/favicon\.ico">/);
   assert.match(indexHtml, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
   assert.match(indexHtml, /<link rel="icon" href="\/favicon\.png" type="image\/png">/);
   assert.match(indexHtml, /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png">/);
@@ -536,7 +557,7 @@ test('uses front page markdown excerpt for front page metadata', async () => {
 
     if (testCase.site !== undefined) {
       await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-        version: '0.1',
+        version: '1.0',
         site: testCase.site,
       }, null, 2), 'utf8');
     }
@@ -607,7 +628,7 @@ test('rewrites source-relative markdown links with explicit html output when con
     'Nested content.',
   ].join('\n'), 'utf8');
   await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-    version: '0.1',
+    version: '1.0',
     markdown: {
       link_output: 'html',
     },
@@ -714,7 +735,7 @@ test('rewrites source-relative public asset links when the target exists in publ
   });
 
   const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
-  const featuresPage = previewData.content.pages.find((page) => page.slug === 'markdown-features');
+  const featuresPage = previewData.content.pages.find((page) => page.path === 'markdown/features/index');
 
   assert.equal(featuresPage.featured_image, 'https://example.com/images/poster.png?card=1#share');
   assert.match(featuresPage.content, /!\[Logo\]\(\/favicon\.png\)/);
@@ -781,6 +802,54 @@ test('builds with a separated public directory', async () => {
   await fs.access(path.join(tempDir, '_site', 'README.MD'));
   await fs.access(path.join(tempDir, '_site', 'index.md'));
   await fs.access(path.join(tempDir, '_site', 'guide.md'));
+});
+
+test('rejects a staged public file that owns a generated html-extension output path', async () => {
+  const tempDir = await makeTempDir();
+  const sourceDir = path.join(tempDir, 'docs');
+  const publicDir = path.join(tempDir, 'public');
+  await fs.mkdir(sourceDir, { recursive: true });
+  await fs.mkdir(publicDir, { recursive: true });
+  await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n', 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'guide.md'), '# Guide\n', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'guide.html'), '<h1>Public guide</h1>', 'utf8');
+
+  await assert.rejects(
+    () => runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      publicDir: 'public',
+      destination: '_site',
+      theme: 'plain',
+      skipLinkCheck: true,
+    }),
+    /Duplicate (?:public URL|output path) detected: \/?guide\.html/,
+  );
+  await assert.rejects(fs.access(path.join(tempDir, '_site')), { code: 'ENOENT' });
+});
+
+test('rejects a staged public index file whose parent clean URL owns a generated route', async () => {
+  const tempDir = await makeTempDir();
+  const sourceDir = path.join(tempDir, 'docs');
+  const publicDir = path.join(tempDir, 'public');
+  await fs.mkdir(sourceDir, { recursive: true });
+  await fs.mkdir(path.join(publicDir, 'guide'), { recursive: true });
+  await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n', 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'guide.md'), '# Guide\n', 'utf8');
+  await fs.writeFile(path.join(publicDir, 'guide', 'index.html'), '<h1>Public guide</h1>', 'utf8');
+
+  await assert.rejects(
+    () => runBuildPages({
+      cwd: tempDir,
+      source: 'docs',
+      publicDir: 'public',
+      destination: '_site',
+      theme: 'plain',
+      skipLinkCheck: true,
+    }),
+    /Duplicate public URL detected: \/guide\//,
+  );
+  await assert.rejects(fs.access(path.join(tempDir, '_site')), { code: 'ENOENT' });
 });
 
 test('can build without copying original markdown source', async () => {
@@ -876,8 +945,9 @@ test('uses source robots.txt before generated fallback robots', async () => {
     'utf8',
   );
   await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
+    version: '1.0',
     site: {
-      indexing: true,
+      robots: { allow_indexing: true },
     },
   }), 'utf8');
 
@@ -896,7 +966,7 @@ test('uses source robots.txt before generated fallback robots', async () => {
 test('rejects repository root source before touching internal working files', async () => {
   const tempDir = await makeTempDir();
   await fs.mkdir(path.join(tempDir, '.zeropress'), { recursive: true });
-  await fs.writeFile(path.join(tempDir, '.zeropress', 'config.json'), '{"version":"0.1"}', 'utf8');
+  await fs.writeFile(path.join(tempDir, '.zeropress', 'config.json'), '{"version":"1.0"}', 'utf8');
   await fs.writeFile(path.join(tempDir, 'index.md'), '# Home\n\nRoot source should be rejected.', 'utf8');
 
   await assert.rejects(
@@ -1130,9 +1200,9 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
   await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nConfigured home.', 'utf8');
   await fs.writeFile(path.join(sourceDir, 'topic.md'), '# Topic\n\nContent.', 'utf8');
-  await fs.writeFile(path.join(sourceDir, '.zeropress', 'head-end.html'), '<meta name="test-head" content="ok">', 'utf8');
+  await fs.writeFile(path.join(sourceDir, '.zeropress', 'head-end.html'), ' \n<meta name="test-head" content="ok">\n ', 'utf8');
   await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-    version: '0.1',
+    version: '1.0',
     site: {
       title: 'Configured Docs',
       description: 'A configured docs site.',
@@ -1144,7 +1214,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
       locale: 'ko-KR',
       expose_generator: false,
       search: false,
-      indexing: false,
+      robots: { allow_indexing: false },
       footer: {
         copyright_text: 'Copyright 2026 Example Corp.',
         attribution: false,
@@ -1178,9 +1248,8 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
             },
           },
           {
-            title: 'Legacy Typed Item',
-            url: '/legacy',
-            type: 'page',
+            title: 'External Docs',
+            url: 'https://docs.example.com/',
             target: '_blank',
           },
         ],
@@ -1215,27 +1284,25 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.doesNotMatch(indexHtml, /<meta name="generator" content="ZeroPress">/);
   assert.equal(robotsTxt.trim(), 'User-agent: *\nDisallow: /');
   const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
-  assert.equal(previewData.$schema, 'https://schemas.zeropress.dev/preview-data/v0.6/schema.json');
+  assert.equal(previewData.$schema, 'https://schemas.zeropress.dev/preview-data/v0.7/schema.json');
+  assert.equal(previewData.version, '0.7');
   assert.deepEqual(previewData.custom_html, {
-    head_end: {
-      content: '<meta name="test-head" content="ok">',
-    },
+    head_end: ' \n<meta name="test-head" content="ok">\n ',
   });
   assert.deepEqual(previewData.site.footer, {
     copyright_text: 'Copyright 2026 Example Corp.',
     attribution: false,
   });
   assert.equal(previewData.site.url, 'https://override.example');
-  assert.equal(previewData.site.media_base_url, '');
+  assert.equal(previewData.site.media_origin, '');
   assert.equal(previewData.site.locale, 'ko-KR');
   assert.equal(previewData.site.posts_per_page, 10);
-  assert.equal(previewData.site.datetime_display, 'static');
   assert.equal(previewData.site.date_style, 'medium');
   assert.equal(previewData.site.time_style, 'none');
   assert.equal(previewData.site.timezone, 'UTC');
   assert.equal(previewData.site.expose_generator, false);
-  assert.equal(previewData.site.search, false);
-  assert.equal(previewData.site.indexing, false);
+  assert.deepEqual(previewData.site.search, { enabled: false });
+  assert.deepEqual(previewData.site.robots, { allow_indexing: false });
   assert.deepEqual(previewData.site.logo, {
     src: '/logo.svg',
     alt: 'Configured Docs logo',
@@ -1252,10 +1319,10 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     categories: '/categories/:slug/',
     tags: '/tags/:slug/',
   });
-  assert.equal(previewData.site.disallow_comments, true);
+  assert.equal(Object.hasOwn(previewData.site, 'comments'), false);
   const resolvedConfig = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-page', 'build-pages-config.json'), 'utf8'));
-  assert.equal(resolvedConfig.$schema, 'https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json');
-  assert.equal(resolvedConfig.version, '0.1');
+  assert.equal(resolvedConfig.$schema, 'https://schemas.zeropress.dev/build-pages-config/v1.0/schema.json');
+  assert.equal(resolvedConfig.version, '1.0');
   assert.deepEqual(resolvedConfig.markdown, {
     updated_at: 'none',
     link_output: 'clean',
@@ -1282,8 +1349,8 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     docs: {
       title: 'Docs Order',
       items: [
-        { type: 'page', slug: 'index' },
-        { type: 'page', slug: 'topic' },
+        { type: 'page', path: 'index' },
+        { type: 'page', path: 'topic' },
       ],
     },
   });
@@ -1298,7 +1365,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     locale: 'ko-KR',
     expose_generator: false,
     search: false,
-    indexing: false,
+    robots: { allow_indexing: false },
     footer: {
       copyright_text: 'Copyright 2026 Example Corp.',
       attribution: false,
@@ -1318,7 +1385,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     /ENOENT/,
   );
   assert.doesNotMatch(indexHtml, /data-site-search/);
-  for (const key of ['media_base_url', 'posts_per_page', 'datetime_display', 'date_style', 'time_style', 'timezone', 'permalinks', 'disallow_comments']) {
+  for (const key of ['media_origin', 'posts_per_page', 'date_style', 'time_style', 'timezone', 'permalinks']) {
     assert.equal(Object.hasOwn(resolvedConfig.site, key), false);
   }
   assert.deepEqual(resolvedConfig.menus.primary.items[1], {
@@ -1332,22 +1399,73 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
     },
     children: [],
   });
-  assert.equal(Object.hasOwn(previewData.menus.primary.items[1], 'type'), false);
   assert.deepEqual(previewData.menus.primary.items[1].meta, {
     icon: 'book-open',
     badge: 'New',
     featured: true,
   });
   assert.deepEqual(resolvedConfig.menus.primary.items[2], {
-    title: 'Legacy Typed Item',
-    url: '/legacy',
+    title: 'External Docs',
+    url: 'https://docs.example.com/',
     target: '_blank',
     children: [],
   });
-  assert.equal(Object.hasOwn(previewData.menus.primary.items[2], 'type'), false);
   assert.deepEqual(previewData.menus.primary.items[2], resolvedConfig.menus.primary.items[2]);
   await fs.access(path.join(tempDir, '_site', 'topic.html'));
   await fs.access(path.join(tempDir, '_site', 'topic.md'));
+});
+
+test('uses effective paths while allowing duplicate Page leaf slugs in front-page and collection references', async () => {
+  const tempDir = await makeTempDir();
+  const sourceDir = path.join(tempDir, 'docs');
+  await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
+  await fs.mkdir(path.join(sourceDir, 'manual'), { recursive: true });
+  await fs.mkdir(path.join(sourceDir, 'reference'), { recursive: true });
+  await fs.writeFile(path.join(sourceDir, 'manual', 'guide.md'), '# Manual Guide\n', 'utf8');
+  await fs.writeFile(path.join(sourceDir, 'reference', 'guide.md'), '# Reference Guide\n', 'utf8');
+  await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
+    version: '1.0',
+    front_page: {
+      type: 'markdown',
+      file: 'reference/guide.md',
+    },
+    collections: {
+      guides: {
+        items: ['manual/guide.md', 'reference/guide.md'],
+      },
+    },
+  }, null, 2), 'utf8');
+
+  await runBuildPages({
+    cwd: tempDir,
+    source: 'docs',
+    destination: '_site',
+    theme: 'plain',
+    skipLinkCheck: true,
+  });
+
+  const previewData = JSON.parse(await fs.readFile(
+    path.join(tempDir, '.zeropress-build-page', 'preview-data.json'),
+    'utf8',
+  ));
+  assert.deepEqual(
+    previewData.content.pages.map(({ slug, path: pagePath }) => ({ slug, path: pagePath })),
+    [
+      { slug: 'guide', path: 'manual/guide' },
+      { slug: 'guide', path: 'reference/guide' },
+    ],
+  );
+  assert.deepEqual(previewData.site.front_page, {
+    type: 'page',
+    page_path: 'reference/guide',
+  });
+  assert.deepEqual(previewData.collections.guides.items, [
+    { type: 'page', path: 'manual/guide' },
+    { type: 'page', path: 'reference/guide' },
+  ]);
+  await fs.access(path.join(tempDir, '_site', 'index.html'));
+  await fs.access(path.join(tempDir, '_site', 'manual', 'guide.html'));
+  await assert.rejects(fs.access(path.join(tempDir, '_site', 'reference', 'guide.html')), /ENOENT/);
 });
 
 test('adds git updated_at timestamp and honors page-level overrides', async () => {
@@ -1385,7 +1503,7 @@ test('adds git updated_at timestamp and honors page-level overrides', async () =
     'Content.',
   ].join('\n'), 'utf8');
   await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-    version: '0.1',
+    version: '1.0',
     markdown: {
       updated_at: 'git',
     },
@@ -1434,7 +1552,7 @@ test('front matter can opt into git updated_at when config default is none', asy
     'Content.',
   ].join('\n'), 'utf8');
   await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-    version: '0.1',
+    version: '1.0',
     markdown: {
       updated_at: 'none',
     },
@@ -1458,13 +1576,51 @@ test('front matter can opt into git updated_at when config default is none', asy
   assert.equal(home.updated_at_iso, '2026-06-02T03:04:05Z');
 });
 
+test('git updated_at follows the source file repository when invoked outside it', async () => {
+  const repositoryDir = await makeTempDir();
+  const sourceDir = path.join(repositoryDir, 'docs');
+  await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
+  await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nContent.', 'utf8');
+  await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
+    version: '1.0',
+    markdown: {
+      updated_at: 'git',
+    },
+    front_page: {
+      type: 'markdown',
+    },
+  }, null, 2), 'utf8');
+  commitFixture(repositoryDir, '2026-06-03T04:05:06-04:00');
+
+  for (const scriptPath of [prebuildScript, bundledPrebuildPath]) {
+    const invocationDir = await makeTempDir();
+    const result = spawnSync(process.execPath, [scriptPath], {
+      cwd: invocationDir,
+      env: {
+        ...process.env,
+        ZEROPRESS_BUILD_PAGES_SOURCE: sourceDir,
+        ZEROPRESS_SKIP_UNTITLED_MARKDOWN: 'false',
+      },
+      encoding: 'utf8',
+    });
+
+    assert.equal(result.status, 0, `${scriptPath}\n${result.stderr}`);
+    assert.doesNotMatch(result.stderr, /could not read git updated_at/);
+    const previewData = JSON.parse(await fs.readFile(
+      path.join(invocationDir, '.zeropress-build-page', 'preview-data.json'),
+      'utf8',
+    ));
+    assert.equal(previewData.content.pages[0].updated_at_iso, '2026-06-03T04:05:06-04:00');
+  }
+});
+
 test('git updated_at warning is non-blocking when git history is unavailable', () => {
   const tempDir = fsSync.mkdtempSync(path.join(os.tmpdir(), 'zeropress-build-pages-no-git-'));
   const sourceDir = path.join(tempDir, 'docs');
   fsSync.mkdirSync(path.join(sourceDir, '.zeropress'), { recursive: true });
   fsSync.writeFileSync(path.join(sourceDir, 'index.md'), '# Home\n\nContent.', 'utf8');
   fsSync.writeFileSync(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-    version: '0.1',
+    version: '1.0',
     markdown: {
       updated_at: 'git',
     },
@@ -1503,7 +1659,7 @@ test('warns and ignores invalid front matter updated_at values', () => {
       'Content.',
     ].join('\n'), 'utf8');
     fsSync.writeFileSync(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-      version: '0.1',
+      version: '1.0',
       markdown: {
         updated_at: 'git',
       },
@@ -1610,7 +1766,7 @@ test('rejects invalid markdown config', async () => {
     await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
     await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nContent.', 'utf8');
     await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-      version: '0.1',
+      version: '1.0',
       markdown: markdownConfig,
       front_page: {
         type: 'markdown',
@@ -1670,7 +1826,7 @@ test('rejects invalid site logo and site meta config', async () => {
     await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
     await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n\nContent.', 'utf8');
     await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-      version: '0.1',
+      version: '1.0',
       site,
       front_page: {
         type: 'markdown',
@@ -1749,7 +1905,7 @@ test('rejects invalid config collections', async () => {
       'Draft content.',
     ].join('\n'), 'utf8');
     await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
-      version: '0.1',
+      version: '1.0',
       front_page: { type: 'markdown', file: 'index.md' },
       collections: testCase.collections,
     }, null, 2), 'utf8');
@@ -1873,6 +2029,17 @@ test('action metadata and entrypoint use supported inputs', async () => {
   assert.notEqual(subdirectoryResult.status, 0);
   assert.match(subdirectoryResult.stderr, /site\.url must use the origin root/);
   assert.equal(await pathExists(path.join(subdirectoryTempDir, '_site')), false);
+});
+
+test('bundled action includes the canonical theme package hard limits', async () => {
+  const actionBundle = await fs.readFile(actionPath, 'utf8');
+  for (const code of [
+    'THEME_PACKAGE_TOO_MANY_ENTRIES',
+    'THEME_FILE_TOO_LARGE',
+    'THEME_PACKAGE_TOO_LARGE',
+  ]) {
+    assert.match(actionBundle, new RegExp(code));
+  }
 });
 
 function runPrebuild(caseName, env = {}) {

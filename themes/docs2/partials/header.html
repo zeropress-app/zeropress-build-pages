@@ -13,7 +13,7 @@
     <span>{{site.title}}</span>
   </a>
   <div class="top-bar__actions">
-    {{#if site.search}}
+    {{#if site.search.enabled}}
     <button type="button" class="icon-btn top-bar__search" data-cmdk-open aria-label="Search docs" disabled>
       <svg class="icon" width="14" height="14" aria-hidden="true"><use href="#icon-search"/></svg>
       <span>Search docs</span>

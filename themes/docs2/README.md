@@ -41,7 +41,7 @@ Markdown. The following data shapes are useful:
 - `menus.primary`: sidebar navigation
 - `menus.footer`: footer links
 - `collections`: optional reading-order groups
-- `site.search`: enables command palette search and search artifacts
+- `site.search.enabled`: enables command palette search and search artifacts
 - `page.updated_at_iso` / `post.updated_at_iso`: optional update metadata
 
 Docs2 intentionally does not declare `collection_slots` in `theme.json`.
