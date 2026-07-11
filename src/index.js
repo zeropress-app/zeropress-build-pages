@@ -78,7 +78,6 @@ export async function runBuildPages(options) {
   await assertDestinationPath(destinationDir);
   const themeId = await readThemeId(themeDir);
   await fs.rm(generatedDir, { recursive: true, force: true });
-  await fs.mkdir(generatedDir, { recursive: true });
 
   const env = {
     ...process.env,

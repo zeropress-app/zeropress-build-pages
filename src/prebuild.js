@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { generateContentSlug, validateSlugSegment } from '@zeropress/slug-policy';
 import MarkdownIt from 'markdown-it';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,6 +23,9 @@ const skipUntitledMarkdown = readBooleanEnv('ZEROPRESS_SKIP_UNTITLED_MARKDOWN');
 const copyMarkdownSource = readBooleanEnv('ZEROPRESS_COPY_MARKDOWN_SOURCE', true);
 const themeId = readEnv('ZEROPRESS_BUILD_PAGES_THEME_ID', '');
 const FRONT_PAGE_TYPES = new Set(['theme_index', 'markdown', 'html']);
+const CONFIG_ROOT_KEYS = ['$schema', 'version', 'site', 'markdown', 'front_page', 'custom_html', 'menus', 'collections'];
+const MENU_ITEM_TYPES = new Set(['custom', 'page', 'post', 'category']);
+const MENU_ITEM_TARGETS = new Set(['_self', '_blank']);
 const BUILD_PAGES_CONFIG_SCHEMA_URL = 'https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json';
 const PREVIEW_DATA_SCHEMA_URL = 'https://schemas.zeropress.dev/preview-data/v0.6/schema.json';
 const FRONT_MATTER_DATA_KEY_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*$/;
@@ -32,6 +36,12 @@ const FRONT_MATTER_DISCOVERABILITY_VALUES = new Set(['default', 'noindex', 'deli
 const MARKDOWN_UPDATED_AT_VALUES = new Set(['none', 'git']);
 const MARKDOWN_LINK_OUTPUT_VALUES = new Set(['clean', 'html']);
 const FEATURED_IMAGE_PROTOCOLS = new Set(['http:', 'https:']);
+const WEB_URL_PROTOCOLS = new Set(['http:', 'https:']);
+const URL_SCHEME_PATTERN = /^[a-z][a-z0-9+.-]*:/i;
+const ABSOLUTE_WEB_URL_PATTERN = /^(?:[Hh][Tt][Tt][Pp][Ss]?):\/\/(?:[^/?#@]+@)?(?:\[[0-9A-Fa-f:.]+\]|[^/?#:@]+)(?::[0-9]+)?(?:[/?#].*)?$/u;
+const UNSAFE_WEB_URL_CHARACTER_PATTERN = /[\s\\\p{Cc}]/u;
+const MALFORMED_PERCENT_ENCODING_PATTERN = /%(?![0-9A-Fa-f]{2})/;
+const ENCODED_UNSAFE_WEB_URL_CHARACTER_PATTERN = /%(?:0[0-9A-Fa-f]|1[0-9A-Fa-f]|7[Ff]|5[Cc])/;
 const CONFIG_REFERENCE_URL = 'https://build-pages.zeropress.dev/reference/config/';
 const markdownDiscoverExcludeRoots = buildMarkdownDiscoverExcludeRoots();
 const markdownLinkParser = createMarkdownLinkParser();
@@ -62,6 +72,7 @@ main().catch(handlePrebuildError);
 async function main() {
   const packageJson = await readPackageJson();
   const config = await loadPrebuildConfig();
+  validateConfigEnvelope(config);
   const frontPageConfig = await normalizeDefaultFrontPageConfig(
     normalizeFrontPageConfig(config.front_page),
     config.front_page,
@@ -280,6 +291,18 @@ async function loadPrebuildConfig() {
   }
 }
 
+function validateConfigEnvelope(config) {
+  assertKnownConfigKeys(config, CONFIG_ROOT_KEYS, 'config');
+
+  if (config.$schema !== undefined && typeof config.$schema !== 'string') {
+    throw new PrebuildConfigError('$schema must be a string when provided.');
+  }
+
+  if (config.version !== undefined && config.version !== '0.1') {
+    throw new PrebuildConfigError('version must be exactly "0.1" when provided.');
+  }
+}
+
 async function readPackageJson() {
   return JSON.parse(await fs.readFile(path.join(packageDir, 'package.json'), 'utf8'));
 }
@@ -372,10 +395,10 @@ function normalizeSiteConfig(value) {
 
   const configuredSite = isPlainObject(value) ? value : {};
   assertKnownConfigKeys(configuredSite, ['title', 'description', 'url', 'logo', 'locale', 'expose_generator', 'search', 'indexing', 'footer', 'meta'], 'site');
-  const configuredSiteUrl = configuredSite.url === undefined ? '' : configuredSite.url;
+  const configuredSiteUrl = normalizeSiteUrl(configuredSite.url);
   const site = {
-    title: readConfigString(configuredSite.title, 'Documentation'),
-    description: readConfigString(configuredSite.description, ''),
+    title: readConfigNonBlankString(configuredSite.title, 'Documentation', 'site.title'),
+    description: readConfigString(configuredSite.description, '', 'site.description'),
     url: normalizeSiteUrl(readEnv('ZEROPRESS_SITE_URL', configuredSiteUrl)),
     locale: normalizeSiteLocale(configuredSite.locale),
     expose_generator: readConfigBoolean(configuredSite.expose_generator, true, 'site.expose_generator'),
@@ -408,14 +431,16 @@ function normalizeSiteUrl(value) {
     throw new PrebuildConfigError('site.url must be a string when provided.');
   }
 
-  const normalized = value.trim();
-  if (!normalized) {
-    return '';
+  if (!isStructurallyValidAbsoluteWebUrl(value)) {
+    throw new PrebuildConfigError(
+      'site.url must be an absolute http: or https: URL when provided.',
+      '  "site": { "url": "https://example.com" }',
+    );
   }
 
   let url;
   try {
-    url = new URL(normalized);
+    url = new URL(value);
   } catch {
     throw new PrebuildConfigError(
       'site.url must be an absolute http: or https: URL when provided.',
@@ -432,8 +457,8 @@ function normalizeSiteUrl(value) {
 
   if (
     url.pathname !== '/'
-    || normalized.includes('?')
-    || normalized.includes('#')
+    || value.includes('?')
+    || value.includes('#')
   ) {
     throw new PrebuildConfigError(
       'site.url must use the origin root without a path, query, or fragment. Subdirectory hosting is not supported.',
@@ -441,7 +466,7 @@ function normalizeSiteUrl(value) {
     );
   }
 
-  return normalized;
+  return value;
 }
 
 function normalizeSiteLocale(value) {
@@ -452,12 +477,11 @@ function normalizeSiteLocale(value) {
     throw new PrebuildConfigError('site.locale must be a string when provided.');
   }
 
-  const locale = value.trim();
-  if (locale.length < 2) {
+  if (value.trim() !== value || /\s/u.test(value) || Array.from(value).length < 2) {
     throw new PrebuildConfigError('site.locale must be a non-empty locale string such as "en-US" or "ko-KR".');
   }
 
-  return locale;
+  return value;
 }
 
 function normalizeSiteLogo(value) {
@@ -469,24 +493,15 @@ function normalizeSiteLogo(value) {
   }
   assertKnownConfigKeys(value, ['src', 'alt'], 'site.logo');
 
-  const src = readConfigString(value.src, '');
-  if (!src) {
-    throw new PrebuildConfigError(
-      'site.logo.src must be a non-empty URL-like string.',
-      '  "logo": { "src": "/logo.svg", "alt": "My Site" }',
-    );
+  const src = readConfigNonBlankString(value.src, undefined, 'site.logo.src');
+  if (src !== value.src) {
+    throw new PrebuildConfigError('site.logo.src must not contain leading or trailing whitespace.');
   }
   validateSiteLogoSrc(src);
 
   const logo = { src };
   if (value.alt !== undefined) {
-    if (typeof value.alt !== 'string') {
-      throw new PrebuildConfigError('site.logo.alt must be a string when provided.');
-    }
-    const alt = value.alt.trim();
-    if (alt) {
-      logo.alt = alt;
-    }
+    logo.alt = readConfigString(value.alt, undefined, 'site.logo.alt');
   }
 
   return logo;
@@ -518,9 +533,12 @@ function normalizeFooter(value) {
   assertKnownConfigKeys(value, ['copyright_text', 'attribution'], 'site.footer');
 
   const footer = {};
-  const copyrightText = readConfigString(value.copyright_text, '');
-  if (copyrightText) {
-    footer.copyright_text = copyrightText;
+  if (value.copyright_text !== undefined) {
+    footer.copyright_text = readConfigNonBlankString(
+      value.copyright_text,
+      undefined,
+      'site.footer.copyright_text',
+    );
   }
 
   if (value.attribution !== undefined) {
@@ -534,8 +552,22 @@ function normalizeFooter(value) {
 }
 
 function validateSiteLogoSrc(value) {
+  if (
+    UNSAFE_WEB_URL_CHARACTER_PATTERN.test(value)
+    || MALFORMED_PERCENT_ENCODING_PATTERN.test(value)
+    || ENCODED_UNSAFE_WEB_URL_CHARACTER_PATTERN.test(value)
+  ) {
+    throw new PrebuildConfigError('site.logo.src contains an unsafe or malformed URL character.');
+  }
+
   if (value.startsWith('/') && !value.startsWith('//')) {
     return;
+  }
+
+  if (!isStructurallyValidAbsoluteWebUrl(value)) {
+    throw new PrebuildConfigError(
+      'site.logo.src must be a root-relative URL path starting with / or an absolute HTTP(S) URL. Relative paths such as ./logo.svg and ../logo.svg are not supported.',
+    );
   }
 
   try {
@@ -609,12 +641,12 @@ async function buildFrontPageData(frontPageConfig, pageInputs, config) {
       page_slug: route.slug,
     },
     page: {
-      title: readConfigString(config.site?.title, 'Home'),
+      title: config.site?.title || 'Home',
       slug: route.slug,
       path: route.path,
       content: html,
       document_type: 'html',
-      excerpt: extractHtmlExcerpt(html) || readConfigString(config.site?.description, ''),
+      excerpt: extractHtmlExcerpt(html) || config.site?.description || '',
       status: 'published',
     },
   };
@@ -656,7 +688,7 @@ function normalizeFrontPageConfig(value) {
 
   const file = normalizeSourceFilePath(defaultFrontPageFile(type, value.file), 'front_page.file');
   const expectedExtension = type === 'markdown' ? '.md' : '.html';
-  if (!file.toLowerCase().endsWith(expectedExtension)) {
+  if (!file.endsWith(expectedExtension)) {
     throw new PrebuildConfigError(
       `front_page.file must end with ${expectedExtension} when front_page.type is "${type}".`,
       `  "front_page": { "type": "${type}", "file": "${type === 'markdown' ? 'index.md' : '.zeropress/index.html'}" }`,
@@ -710,7 +742,7 @@ function defaultFrontPageFile(type, value) {
 }
 
 function isZeropressHtmlFile(filePath) {
-  return filePath.startsWith('.zeropress/') && filePath.toLowerCase().endsWith('.html');
+  return filePath.startsWith('.zeropress/') && filePath.endsWith('.html');
 }
 
 function normalizeCustomHtmlConfig(value) {
@@ -814,7 +846,7 @@ function shouldAllowRootMarkdownIndex(frontPageConfig) {
 
 function resolveConfiguredSourceFile(filePath, expectedExtension, pathLabel) {
   const normalizedPath = normalizeSourceFilePath(filePath, pathLabel);
-  if (!normalizedPath.toLowerCase().endsWith(expectedExtension)) {
+  if (!normalizedPath.endsWith(expectedExtension)) {
     throw new PrebuildConfigError(
       `${pathLabel} must end with ${expectedExtension}.`,
       `  "${pathLabel.split('.').at(-1)}": "index${expectedExtension}"`,
@@ -834,12 +866,13 @@ function normalizeSourceFilePath(value, pathLabel) {
     throw new PrebuildConfigError(`${pathLabel} must be a non-empty string.`);
   }
 
-  const normalizedPath = value.trim().replace(/\\/g, '/');
-  const segments = normalizedPath.split('/');
+  const segments = value.split('/');
   if (
-    path.isAbsolute(normalizedPath)
-    || normalizedPath.includes('?')
-    || normalizedPath.includes('#')
+    value.trim() !== value
+    || path.isAbsolute(value)
+    || value.includes('\\')
+    || value.includes('?')
+    || value.includes('#')
     || segments.some((segment) => !segment || segment === '.' || segment === '..')
   ) {
     throw new PrebuildConfigError(
@@ -848,7 +881,7 @@ function normalizeSourceFilePath(value, pathLabel) {
     );
   }
 
-  return normalizedPath;
+  return value;
 }
 
 async function readRequiredSourceFile(sourcePath, pathLabel) {
@@ -965,14 +998,16 @@ function normalizeMenus(value) {
 
   const menus = {};
   for (const [menuId, menu] of Object.entries(value)) {
+    validateConfigId(menuId, `menus.${menuId}`);
     if (!isPlainObject(menu)) {
       throw new PrebuildConfigError(`menus.${menuId} must be an object.`);
     }
+    assertKnownConfigKeys(menu, ['name', 'items'], `menus.${menuId}`);
     if (!Array.isArray(menu.items)) {
       throw new PrebuildConfigError(`menus.${menuId}.items must be an array.`);
     }
     menus[menuId] = {
-      name: readConfigString(menu.name, menuId),
+      name: readConfigNonBlankString(menu.name, menuId, `menus.${menuId}.name`),
       items: menu.items.map((item, index) => normalizeMenuItem(item, `menus.${menuId}.items[${index}]`)),
     };
   }
@@ -984,21 +1019,103 @@ function normalizeMenuItem(item, pathLabel) {
   if (!isPlainObject(item)) {
     throw new PrebuildConfigError(`${pathLabel} must be an object.`);
   }
-  const title = readConfigString(item.title, '');
-  const url = readConfigString(item.url, '');
-  if (!title || !url) {
-    throw new PrebuildConfigError(`${pathLabel} must include non-empty title and url strings.`);
+  assertKnownConfigKeys(item, ['title', 'url', 'type', 'target', 'meta', 'children'], pathLabel);
+  const title = readConfigNonBlankString(item.title, undefined, `${pathLabel}.title`);
+  const url = normalizeMenuUrl(item.url, `${pathLabel}.url`);
+
+  if (item.type !== undefined) {
+    readConfigEnum(item.type, undefined, `${pathLabel}.type`, MENU_ITEM_TYPES);
+  }
+  if (item.children !== undefined && !Array.isArray(item.children)) {
+    throw new PrebuildConfigError(`${pathLabel}.children must be an array when provided.`);
   }
 
   return {
     title,
     url,
-    target: readConfigString(item.target, '_self'),
+    target: readConfigEnum(item.target, '_self', `${pathLabel}.target`, MENU_ITEM_TARGETS),
     ...(item.meta !== undefined ? { meta: normalizeMenuItemMeta(item.meta, `${pathLabel}.meta`) } : {}),
-    children: Array.isArray(item.children)
+    children: item.children !== undefined
       ? item.children.map((child, index) => normalizeMenuItem(child, `${pathLabel}.children[${index}]`))
       : [],
   };
+}
+
+function normalizeMenuUrl(value, pathLabel) {
+  if (typeof value !== 'string' || !value) {
+    throw new PrebuildConfigError(
+      `${pathLabel} must be a non-empty absolute HTTP(S) URL or relative Web path.`,
+    );
+  }
+  if (
+    value.trim() !== value
+    || UNSAFE_WEB_URL_CHARACTER_PATTERN.test(value)
+    || MALFORMED_PERCENT_ENCODING_PATTERN.test(value)
+    || ENCODED_UNSAFE_WEB_URL_CHARACTER_PATTERN.test(value)
+  ) {
+    throw new PrebuildConfigError(`${pathLabel} contains an unsafe or malformed URL character.`);
+  }
+  if (value.startsWith('//')) {
+    throw new PrebuildConfigError(`${pathLabel} must not use a protocol-relative URL.`);
+  }
+
+  if (URL_SCHEME_PATTERN.test(value)) {
+    if (!isStructurallyValidAbsoluteWebUrl(value)) {
+      throw new PrebuildConfigError(`${pathLabel} must use http: or https: when an absolute URL is provided.`);
+    }
+
+    let url;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new PrebuildConfigError(`${pathLabel} must be a valid absolute HTTP(S) URL.`);
+    }
+    if (!WEB_URL_PROTOCOLS.has(url.protocol) || !url.hostname) {
+      throw new PrebuildConfigError(`${pathLabel} must be a valid absolute HTTP(S) URL.`);
+    }
+    return value;
+  }
+
+  const pathname = value.split(/[?#]/u, 1)[0];
+  if (!pathname) {
+    throw new PrebuildConfigError(`${pathLabel} must include an actual relative URL path before its query or fragment.`);
+  }
+  validateRelativeMenuPath(pathname, pathLabel);
+
+  try {
+    new URL(value, 'https://zeropress.invalid/');
+  } catch {
+    throw new PrebuildConfigError(`${pathLabel} must be a valid relative Web URL.`);
+  }
+
+  return value;
+}
+
+function isStructurallyValidAbsoluteWebUrl(value) {
+  return value.trim() === value
+    && !UNSAFE_WEB_URL_CHARACTER_PATTERN.test(value)
+    && !MALFORMED_PERCENT_ENCODING_PATTERN.test(value)
+    && !ENCODED_UNSAFE_WEB_URL_CHARACTER_PATTERN.test(value)
+    && ABSOLUTE_WEB_URL_PATTERN.test(value);
+}
+
+function validateRelativeMenuPath(pathname, pathLabel) {
+  if (pathname === '/') {
+    return;
+  }
+
+  let actualPath = pathname.startsWith('/') ? pathname.slice(1) : pathname;
+  while (actualPath.startsWith('./') || actualPath.startsWith('../')) {
+    actualPath = actualPath.startsWith('./') ? actualPath.slice(2) : actualPath.slice(3);
+  }
+
+  if (
+    !actualPath
+    || actualPath === '.'
+    || actualPath === '..'
+  ) {
+    throw new PrebuildConfigError(`${pathLabel} must contain a safe relative Web path.`);
+  }
 }
 
 function normalizeMenuItemMeta(value, pathLabel) {
@@ -1084,8 +1201,18 @@ function normalizeCollections(value, pageInputs, skippedMarkdown) {
     });
 
     const resolvedCollection = {
-      title: readConfigString(collection.title, collectionId),
-      ...(collection.description !== undefined ? { description: readConfigString(collection.description, '') } : {}),
+      title: readConfigNonBlankString(
+        collection.title,
+        collectionId,
+        `collections.${collectionId}.title`,
+      ),
+      ...(collection.description !== undefined ? {
+        description: readConfigString(
+          collection.description,
+          undefined,
+          `collections.${collectionId}.description`,
+        ),
+      } : {}),
       items: resolvedItems,
     };
 
@@ -1104,7 +1231,7 @@ function normalizeCollections(value, pageInputs, skippedMarkdown) {
 
 function resolveCollectionSourcePath(value, pathLabel) {
   const normalizedPath = normalizeSourceFilePath(value, pathLabel);
-  if (!normalizedPath.toLowerCase().endsWith('.md')) {
+  if (!normalizedPath.endsWith('.md')) {
     throw new PrebuildConfigError(`${pathLabel} must be a Markdown source path ending in .md.`);
   }
   return normalizedPath;
@@ -1810,22 +1937,20 @@ function normalizeFrontMatterRoutePath(value, sourcePath) {
   if (value === undefined) {
     return '';
   }
-  if (typeof value !== 'string' || !value.trim()) {
+  if (typeof value !== 'string' || !value) {
     throw new PrebuildMarkdownError(
       sourcePath,
       'front matter path must be a non-empty string when provided.',
     );
   }
 
-  const routePath = value.trim();
-  const segments = routePath.split('/');
+  const segments = value.split('/');
   if (
-    routePath.startsWith('/')
-    || routePath.endsWith('/')
-    || routePath.includes('\\')
-    || routePath.includes('?')
-    || routePath.includes('#')
-    || segments.some((segment) => !isSafeRoutePathSegment(segment))
+    value.startsWith('/')
+    || value.endsWith('/')
+    || value.includes('\\')
+    || value.includes('?')
+    || value.includes('#')
   ) {
     throw new PrebuildMarkdownError(
       sourcePath,
@@ -1834,7 +1959,20 @@ function normalizeFrontMatterRoutePath(value, sourcePath) {
     );
   }
 
-  return routePath;
+  const normalizedSegments = [];
+  for (const segment of segments) {
+    const result = validateSlugSegment(segment);
+    if (!result.ok) {
+      throw new PrebuildMarkdownError(
+        sourcePath,
+        `front matter path segment ${JSON.stringify(segment)} is invalid: ${result.issues[0]?.message || 'invalid slug segment'}.`,
+        '  path: guides/install\n  path: 가이드/설치_방법',
+      );
+    }
+    normalizedSegments.push(result.normalized);
+  }
+
+  return normalizedSegments.join('/');
 }
 
 function normalizeFrontMatterDiscoverability(value, sourcePath) {
@@ -1849,13 +1987,6 @@ function normalizeFrontMatterDiscoverability(value, sourcePath) {
     sourcePath,
     `front matter discoverability must be one of: ${Array.from(FRONT_MATTER_DISCOVERABILITY_VALUES).join(', ')}.`,
     '  discoverability: default\n  discoverability: noindex\n  discoverability: delist',
-  );
-}
-
-function isSafeRoutePathSegment(segment) {
-  return (
-    /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/.test(segment)
-    && !segment.includes('..')
   );
 }
 
@@ -2334,7 +2465,7 @@ function buildHtmlPageRoute(sourcePath, options = {}) {
   const relativePath = path.relative(sourceDir, sourcePath).replace(/\\/g, '/');
   const routePath = buildRoutePath(relativePath, sourcePath, {
     ...options,
-    extensionPattern: /\.html$/i,
+    extensionPattern: /\.html$/,
   });
   const slug = buildSlug(routePath);
 
@@ -2360,12 +2491,19 @@ function buildRoutePath(relativeSourcePath, sourcePath, options = {}) {
     return options.routePath;
   }
 
-  const extensionPattern = options.extensionPattern || /\.md$/i;
-  const withoutExtension = relativeSourcePath.replace(extensionPattern, '').toLowerCase();
-  const segments = withoutExtension
-    .split('/')
-    .map((segment) => sanitizePathSegment(segment))
-    .filter(Boolean);
+  const extensionPattern = options.extensionPattern || /\.md$/;
+  const withoutExtension = relativeSourcePath.replace(extensionPattern, '');
+  const segments = withoutExtension.split('/').map((segment) => {
+    const generated = generateContentSlug(segment);
+    if (!generated) {
+      throw new PrebuildMarkdownError(
+        sourcePath,
+        `source path segment ${JSON.stringify(segment)} cannot derive a route slug.`,
+        'Rename every source path segment so it contains at least one Unicode letter or decimal digit.',
+      );
+    }
+    return generated;
+  });
 
   const routePath = segments.join('/');
   if (routePath === 'index' && options.allowRootIndex) {
@@ -2387,14 +2525,7 @@ function buildSlug(routePath) {
   if (segments.length > 1 && segments.at(-1) === 'index') {
     segments.pop();
   }
-  return sanitizePathSegment(segments.join('-') || 'index');
-}
-
-function sanitizePathSegment(segment) {
-  return segment
-    .replace(/[^a-z0-9.-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-');
+  return generateContentSlug(segments.join('-') || 'index');
 }
 
 function pageRoute(slug, routePath) {
@@ -2880,12 +3011,39 @@ function readEnv(name, fallback) {
   return value || fallback;
 }
 
-function readConfigString(value, fallback) {
-  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+function readConfigString(value, fallback, pathName) {
+  if (value === undefined) {
+    return fallback;
+  }
+  if (typeof value !== 'string') {
+    throw new PrebuildConfigError(`${pathName} must be a string when provided.`);
+  }
+  return value;
 }
 
-function readConfigInteger(value, fallback) {
-  return Number.isInteger(value) && value > 0 ? value : fallback;
+function readConfigNonBlankString(value, fallback, pathName) {
+  if (value === undefined) {
+    if (fallback === undefined) {
+      throw new PrebuildConfigError(`${pathName} is required and must be a non-empty string.`);
+    }
+    return fallback;
+  }
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new PrebuildConfigError(`${pathName} must be a non-empty string when provided.`);
+  }
+  return value.trim();
+}
+
+function readConfigEnum(value, fallback, pathName, allowedValues) {
+  if (value === undefined) {
+    return fallback;
+  }
+  if (typeof value !== 'string' || !allowedValues.has(value)) {
+    throw new PrebuildConfigError(
+      `${pathName} must be one of: ${Array.from(allowedValues).join(', ')}.`,
+    );
+  }
+  return value;
 }
 
 function readBooleanEnv(name, fallback = false) {

@@ -362,6 +362,8 @@ Supported front matter fields:
 
 Unknown front matter fields are ignored to make migration from existing Markdown sites easier.
 
+Each explicit `path` segment follows the shared ZeroPress slug policy: Unicode letters, combining marks, decimal digits, hyphens, and underscores are supported, at least one letter or digit is required, and each NFC-normalized segment is limited to 200 Unicode code points. Characters such as `!`, whitespace, percent escapes, path separators, and control characters are rejected. Filename-derived routes use the same policy and normalize unsupported filename characters into hyphens.
+
 `featured_image` accepts an absolute `https://` or `http://` URL, a root-relative public URL such as `/images/share.png`, or a source-relative path to an existing file inside `public-dir`. Root-relative and source-relative values are converted to an absolute URL with `site.url`. If Build Pages cannot safely resolve the value, it prints a warning and omits `featured_image` for that page.
 
 `status` controls route generation. `status: draft` removes the Markdown file from generated preview-data and no HTML route is created.
@@ -435,7 +437,9 @@ progressive enhancement owned by the theme or site.
 
 Build Pages reads `<source>/.zeropress/config.json` when present. A missing implicit default config falls back to defaults. A config path supplied explicitly through `--config` or the Action `config` input must exist.
 
-`site.url` is optional. Omit it or use an empty string while the deployment URL is unknown. When present, it must be an absolute HTTP(S) origin-root URL such as `https://example.com`, without a path, query, or fragment. Build Pages does not support sites mounted below an origin path.
+Config objects are closed contracts: unknown root or nested fields are rejected. Optional `$schema` must be a string, and optional `version` must be exactly `"0.1"`. Defaults apply only when a field is omitted; an explicitly provided value with the wrong type, an invalid enum value, or a blank value for a non-blank field is an error.
+
+`site.url` is optional. Omit it or use an empty string while the deployment URL is unknown. When present, it must be an absolute HTTP(S) origin-root URL such as `https://example.com`, without a path, query, or fragment. Build Pages does not support sites mounted below an origin path. Runtime WHATWG URL parsing additionally validates hostname, port range, and IP-address syntax.
 
 See the public config reference at [build-pages.zeropress.dev/reference/config/](https://build-pages.zeropress.dev/reference/config/).
 
@@ -512,7 +516,11 @@ See the public config reference at [build-pages.zeropress.dev/reference/config/]
 
 HTML front page and `custom_html` files, including the final targets of symlinks, must resolve inside the source `.zeropress/` directory.
 
+Configured source file paths are exact source-root relative paths. Build Pages does not trim surrounding whitespace, convert backslashes to slashes, or change extension case. Use `/` separators and lowercase `.md` or `.html` extensions as shown above.
+
 Menu item `meta` is optional scalar display metadata copied into generated preview-data for themes that manually iterate menus. Use it for small values such as `icon`, `badge`, or `accent`; arrays and objects are not accepted.
+
+Menu URLs may be absolute HTTP(S) URLs or bare, root-relative, or dot-relative Web paths with a real path component. Query strings and fragments are preserved. Protocol-relative URLs, non-Web schemes, query-only or fragment-only values, raw whitespace or backslashes, control characters, and malformed percent escapes are rejected. Runtime WHATWG URL parsing additionally validates absolute-URL hostname, port range, and IP-address syntax.
 
 `collections` defines group-level reading order from Markdown source paths. Build Pages converts each source-relative `.md` path into preview-data collection items such as `{ "type": "page", "slug": "deployment" }`. Collection prev/next cursors stop at collection boundaries, so the last item in `collections.guides` does not continue into another collection.
 
@@ -546,7 +554,7 @@ Client-side progressive enhancement may replace the fallback text with a localiz
 
 Bundled documentation themes show `Published with ZeroPress` by default. Set `site.footer.attribution` to `false` to hide it.
 
-`site.logo` is optional theme-facing brand data. Use a root-relative public path such as `/logo.svg` for public logo files, or an absolute `https://` or `http://` URL for media-hosted logos. Document-relative paths such as `./logo.svg` and `../logo.svg` are rejected because browsers resolve them relative to each generated page. Build Pages emits `media_base_url: ""`, so root-relative logo paths remain same-host public paths.
+`site.logo` is optional theme-facing brand data. Use a root-relative public path such as `/logo.svg` for public logo files, or an absolute `https://` or `http://` URL for media-hosted logos. Document-relative paths such as `./logo.svg` and `../logo.svg` are rejected because browsers resolve them relative to each generated page. Runtime WHATWG URL parsing validates absolute-URL hostname, port range, and IP-address syntax. Build Pages emits `media_base_url: ""`, so root-relative logo paths remain same-host public paths.
 
 `site.locale` is optional language metadata copied into generated preview-data. It affects theme-facing `site.locale`, the common `language` render context value, generated HTML language metadata, and feed language. Missing `site.locale` defaults to `en-US`.
 
