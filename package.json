@@ -35,9 +35,9 @@
     "node": ">=22.12.0"
   },
   "dependencies": {
-    "@zeropress/build": "0.6.13",
-    "@zeropress/slug-policy": "0.2.0",
-    "markdown-it": "14.2.0"
+    "@zeropress/build": "0.7.0",
+    "@zeropress/slug-policy": "0.2.1",
+    "markdown-it": "14.3.0"
   },
   "devDependencies": {
     "esbuild": "0.28.1"
