@@ -1,4 +1,4 @@
-Wrote .zeropress-build-page/preview-data.json with 0 pages
+Wrote .zeropress-build-pages/preview-data.json with 0 pages
 ZeroPress build report
 - Source root: test/fixtures/prebuild-errors/skip-untitled/documents
 - Public root: test/fixtures/prebuild-errors/skip-untitled/documents
@@ -9,7 +9,7 @@ ZeroPress build report
 - Total preview pages: 0
 - Source config: test/fixtures/prebuild-errors/skip-untitled/documents/.zeropress/config.json (not found; using defaults)
 - Config reference: https://build-pages.zeropress.dev/reference/config/
-- Resolved config: .zeropress-build-page/build-pages-config.json (generated effective config)
+- Resolved config: .zeropress-build-pages/build-pages-config.json (generated effective config)
 - Front page: theme_index -> /
 - Custom HTML slots: none
-- Report: .zeropress-build-page/build-report.json
+- Report: .zeropress-build-pages/build-report.json

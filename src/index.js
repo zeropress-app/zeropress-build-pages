@@ -11,7 +11,7 @@ const packageDir = path.resolve(__dirname, '..');
 const prebuildScript = __dirname === path.join(packageDir, 'dist')
   ? path.join(__dirname, 'prebuild.js')
   : path.join(packageDir, 'src', 'prebuild.js');
-const INTERNAL_WORK_DIR = '.zeropress-build-page';
+const INTERNAL_WORK_DIR = '.zeropress-build-pages';
 const PREVIEW_DATA_PATH = `${INTERNAL_WORK_DIR}/preview-data.json`;
 const STAGING_DIR = `${INTERNAL_WORK_DIR}/public-assets`;
 const DEFAULT_THEME = 'docs';

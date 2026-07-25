@@ -25,7 +25,7 @@ public directory
         |
         v
 @zeropress/build-pages
-  generates .zeropress-build-page/preview-data.json
+  generates .zeropress-build-pages/preview-data.json
   stages public files
         |
         v
@@ -46,7 +46,7 @@ flowchart TD
   config --> buildPages
   publicFiles --> buildPages
 
-  buildPages --> previewData[".zeropress-build-page/preview-data.json<br/>internal generated build input"]
+  buildPages --> previewData[".zeropress-build-pages/preview-data.json<br/>internal generated build input"]
   buildPages --> stagedPublic["Staged public files"]
 
   previewData --> build["@zeropress/build"]
@@ -288,7 +288,7 @@ Root-level public files named `favicon.ico`, `favicon.svg`, `favicon.png`, and `
 
 A root-level public `sitemap.xsl` is copied to the destination. When ZeroPress generates `sitemap.xml`, it auto-discovers that file and adds an XML stylesheet processing instruction for `/sitemap.xsl`.
 
-The source directory must be an existing dedicated directory, must not be a symlink, and must not overlap the destination directory, the selected theme directory, or the internal `.zeropress-build-page/` working directory. The destination and selected theme directories must not overlap. An explicit public directory must be an existing dedicated directory and must not be a file, symlink, repository root, destination directory, selected theme directory, or internal `.zeropress-build-page/` working directory.
+The source directory must be an existing dedicated directory, must not be a symlink, and must not overlap the destination directory, the selected theme directory, or the internal `.zeropress-build-pages/` working directory. The destination and selected theme directories must not overlap. An explicit public directory must be an existing dedicated directory and must not be a file, symlink, repository root, destination directory, selected theme directory, or internal `.zeropress-build-pages/` working directory.
 
 If `public-dir` is inside `source`, Build Pages excludes that public subtree from Markdown page discovery.
 
@@ -453,7 +453,7 @@ Build Pages reads `<source>/.zeropress/config.json` when present. A missing impl
 
 Config objects are closed contracts: unknown root or nested fields are rejected. Optional `$schema` must be a string, and every authored config file must declare `version: "1.0"`. Earlier config versions are not accepted. When the default config file does not exist, Build Pages still uses its built-in defaults. Defaults apply only when a field is omitted; an explicitly provided value with the wrong type, an invalid enum value, or a blank value for a non-blank field is an error.
 
-Generated `.zeropress-build-page/build-pages-config.json` always uses the canonical v1.0 schema URL and `"version": "1.0"`.
+Generated `.zeropress-build-pages/build-pages-config.json` always uses the canonical v1.0 schema URL and `"version": "1.0"`.
 
 Build Pages 1.x and Build Pages Config 1.0 are the user-facing tool contracts. The generated build input remains Preview Data 0.7 and bundled themes remain Theme Runtime 0.7; those contracts are versioned independently.
 
@@ -607,12 +607,12 @@ cp ./_site/_zeropress/search_pagefind.js ./_site/_zeropress/search.js
 rm ./_site/_zeropress/search.json
 ```
 
-## Workspace Internal `.zeropress-build-page/` Files
+## Workspace Internal `.zeropress-build-pages/` Files
 
-Build Pages reads optional user-authored site config from `<source>/.zeropress/config.json`. Separately, it writes generated internal working files to `.zeropress-build-page/` in the current working directory. These generated working files are not the final deploy output. The final static site is written to the `destination` directory.
+Build Pages reads optional user-authored site config from `<source>/.zeropress/config.json`. Separately, it writes generated internal working files to `.zeropress-build-pages/` in the current working directory. These generated working files are not the final deploy output. The final static site is written to the `destination` directory.
 
 ```txt
-.zeropress-build-page/
+.zeropress-build-pages/
   build-pages-config.json
   preview-data.json
   build-report.json

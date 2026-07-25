@@ -110,7 +110,7 @@ test('custom HTML source slots materialize as raw strings and enforce nonblank 6
 
   assert.equal(rawResult.status, 0, rawResult.stderr);
   const rawPreviewData = JSON.parse(await fs.readFile(
-    path.join(rawSource.cwd, '.zeropress-build-page', 'preview-data.json'),
+    path.join(rawSource.cwd, '.zeropress-build-pages', 'preview-data.json'),
     'utf8',
   ));
   assert.deepEqual(rawPreviewData.custom_html, {
@@ -125,7 +125,7 @@ test('custom HTML source slots materialize as raw strings and enforce nonblank 6
 
   assert.equal(maximumResult.status, 0, maximumResult.stderr);
   const maximumPreviewData = JSON.parse(await fs.readFile(
-    path.join(maximumSource.cwd, '.zeropress-build-page', 'preview-data.json'),
+    path.join(maximumSource.cwd, '.zeropress-build-pages', 'preview-data.json'),
     'utf8',
   ));
   assert.equal(maximumPreviewData.custom_html.head_end, maximumHtml);
@@ -203,7 +203,7 @@ test('menu URLs accept credential-free absolute HTTP(S) and root-relative Web re
   const result = runPrebuild(cwd, sourceDir);
 
   assert.equal(result.status, 0, result.stderr);
-  const previewData = JSON.parse(await fs.readFile(path.join(cwd, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
+  const previewData = JSON.parse(await fs.readFile(path.join(cwd, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
   assert.deepEqual(previewData.menus.primary.items.map((item) => item.url), urls);
 });
 
@@ -297,7 +297,7 @@ test('filename-derived and explicit routes use the shared Unicode slug policy', 
   const result = runPrebuild(cwd, sourceDir);
 
   assert.equal(result.status, 0, result.stderr);
-  const previewData = JSON.parse(await fs.readFile(path.join(cwd, '.zeropress-build-page', 'preview-data.json'), 'utf8'));
+  const previewData = JSON.parse(await fs.readFile(path.join(cwd, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
   const pages = new Map(previewData.content.pages.map((page) => [page.title, page]));
   assert.equal(Object.hasOwn(pages.get('Café Guide'), 'path'), false);
   assert.equal(pages.get('Café Guide').slug, 'café-guide');
@@ -620,12 +620,12 @@ function runPrebuild(cwd, sourceDir, extraEnv = {}, scriptPath = prebuildScript)
 }
 
 async function readGeneratedJson(cwd, filename) {
-  return JSON.parse(await fs.readFile(path.join(cwd, '.zeropress-build-page', filename), 'utf8'));
+  return JSON.parse(await fs.readFile(path.join(cwd, '.zeropress-build-pages', filename), 'utf8'));
 }
 
 async function assertNoGeneratedOutputs(cwd) {
   await assert.rejects(
-    fs.access(path.join(cwd, '.zeropress-build-page')),
+    fs.access(path.join(cwd, '.zeropress-build-pages')),
     { code: 'ENOENT' },
   );
 }

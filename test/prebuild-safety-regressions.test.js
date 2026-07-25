@@ -106,7 +106,7 @@ test('configured HTML symlinks cannot escape the source .zeropress directory', {
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /front_page\.file must resolve to an HTML file inside the source \.zeropress directory/);
-  await assert.rejects(fs.access(path.join(cwd, '.zeropress-build-page', 'preview-data.json')), { code: 'ENOENT' });
+  await assert.rejects(fs.access(path.join(cwd, '.zeropress-build-pages', 'preview-data.json')), { code: 'ENOENT' });
 });
 
 test('a non-index Markdown front page is the link-rewrite target for its source file', async () => {
@@ -152,7 +152,7 @@ test('headings inside fenced code do not satisfy the page-title requirement', as
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /missing top-level heading/);
-  await assert.rejects(fs.access(path.join(cwd, '.zeropress-build-page', 'preview-data.json')), { code: 'ENOENT' });
+  await assert.rejects(fs.access(path.join(cwd, '.zeropress-build-pages', 'preview-data.json')), { code: 'ENOENT' });
 });
 
 test('an explicitly configured missing config path is an error', async () => {
@@ -169,7 +169,7 @@ test('an explicitly configured missing config path is an error', async () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /configured config file does not exist/);
   assert.match(result.stderr, /missing\.json/);
-  await assert.rejects(fs.access(path.join(cwd, '.zeropress-build-page', 'preview-data.json')), { code: 'ENOENT' });
+  await assert.rejects(fs.access(path.join(cwd, '.zeropress-build-pages', 'preview-data.json')), { code: 'ENOENT' });
 });
 
 test('front matter mappings keep prototype-named keys as own data properties', async () => {
@@ -201,7 +201,7 @@ test('front matter mappings keep prototype-named keys as own data properties', a
     assert.equal(result.status, 0, `${scriptPath}\n${result.stderr}`);
 
     const previewData = JSON.parse(await fs.readFile(
-      path.join(cwd, '.zeropress-build-page', 'preview-data.json'),
+      path.join(cwd, '.zeropress-build-pages', 'preview-data.json'),
       'utf8',
     ));
     const page = previewData.content.pages[0];
