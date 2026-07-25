@@ -52,6 +52,7 @@ export async function runBuildPages(options) {
   const packageJson = await readPackageJson();
   console.log(formatBuildPagesBanner(packageJson.version));
   console.log(`Docs: ${formatDocsUrl(packageJson.homepage || BUILD_PAGES_DOCS_URL)}`);
+  console.log('');
 
   const cwd = path.resolve(options.cwd || process.cwd());
   const copyMarkdownSource = options.copyMarkdownSource !== false;
@@ -106,6 +107,9 @@ export async function runBuildPages(options) {
   process.stdout.write(prebuild.stdout || '');
   process.stderr.write(prebuild.stderr || '');
   if (prebuild.status !== 0) {
+    if (prebuild.stderr) {
+      process.stderr.write('\n');
+    }
     throw new Error('Build pages prebuild failed.');
   }
 
@@ -125,6 +129,7 @@ export async function runBuildPages(options) {
   process.env.ZEROPRESS_PUBLIC_DIR = stagingDir;
   try {
     const result = await runBuild(themeDir, previewData, destinationDir, { generateFeed: false });
+    console.log('');
     console.log(formatBuildPagesSuccessMessage());
     console.log(`Files: ${result.files.length}`);
     console.log(`Output: ${formatPath(cwd, destinationDir)}`);

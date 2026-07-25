@@ -28,6 +28,8 @@ const CONFIG_ROOT_KEYS = ['$schema', 'version', 'site', 'markdown', 'front_page'
 const MENU_ITEM_TARGETS = new Set(['_self', '_blank']);
 const BUILD_PAGES_CONFIG_VERSION = '1.0';
 const BUILD_PAGES_CONFIG_SCHEMA_URL = 'https://schemas.zeropress.dev/build-pages-config/v1.0/schema.json';
+const LEGACY_BUILD_PAGES_CONFIG_VERSION = '0.1';
+const LEGACY_BUILD_PAGES_PACKAGE_VERSION = '0.6.13';
 const PREVIEW_DATA_SCHEMA_URL = 'https://schemas.zeropress.dev/preview-data/v0.7/schema.json';
 const FRONT_MATTER_DATA_KEY_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*$/;
 const FRONT_MATTER_DATA_MAX_DEPTH = 4;
@@ -60,11 +62,13 @@ class PrebuildMarkdownError extends Error {
 }
 
 class PrebuildConfigError extends Error {
-  constructor(reason, expected = '') {
+  constructor(reason, expected = '', options = {}) {
     super(reason);
     this.name = 'PrebuildConfigError';
     this.reason = reason;
     this.expected = expected;
+    this.code = options.code || 'INVALID_CONFIG';
+    this.receivedVersion = options.receivedVersion;
   }
 }
 
@@ -244,29 +248,51 @@ function handlePrebuildError(error) {
 }
 
 function formatMarkdownError(error) {
-  const lines = [
-    `[zeropress-build-pages] Invalid Markdown page: ${toTerminalSafeText(formatSourcePath(error.sourcePath))}`,
-    `Reason: ${toTerminalSafeText(error.reason)}`,
+  const blocks = [
+    [
+      `[zeropress-build-pages] Invalid Markdown page: ${toTerminalSafeText(formatSourcePath(error.sourcePath))}`,
+      `Reason: ${toTerminalSafeText(error.reason)}`,
+    ].join('\n'),
   ];
 
   if (error.expected) {
-    lines.push(`Expected one of:\n${toTerminalSafeMultilineText(error.expected)}`);
+    blocks.push(`Expected one of:\n${toTerminalSafeMultilineText(error.expected)}`);
   }
 
-  return lines.join('\n');
+  return joinErrorBlocks(blocks);
 }
 
 function formatConfigError(error) {
-  const lines = [
-    `[zeropress-build-pages] Invalid site config: ${toTerminalSafeText(formatSourcePath(configPath))}`,
-    `Reason: ${toTerminalSafeText(error.reason)}`,
+  const blocks = [
+    [
+      `[zeropress-build-pages] Invalid site config: ${toTerminalSafeText(formatSourcePath(configPath))}`,
+      `Reason: ${toTerminalSafeText(error.reason)}`,
+    ].join('\n'),
   ];
 
   if (error.expected) {
-    lines.push(`Expected:\n${toTerminalSafeMultilineText(error.expected)}`);
+    blocks.push(`Expected:\n${toTerminalSafeMultilineText(error.expected)}`);
   }
 
-  return lines.join('\n');
+  if (
+    error.code === 'UNSUPPORTED_CONFIG_VERSION'
+    && error.receivedVersion === LEGACY_BUILD_PAGES_CONFIG_VERSION
+  ) {
+    blocks.push([
+      'Guidance:',
+      `Migrate this config to Build Pages Config ${BUILD_PAGES_CONFIG_VERSION}:`,
+      CONFIG_REFERENCE_URL,
+      '',
+      'For temporary compatibility, pin the last compatible CLI in the existing npx command:',
+      `  npx --yes @zeropress/build-pages@${LEGACY_BUILD_PAGES_PACKAGE_VERSION} ...`,
+    ].join('\n'));
+  }
+
+  return joinErrorBlocks(blocks);
+}
+
+function joinErrorBlocks(blocks) {
+  return blocks.filter(Boolean).join('\n\n');
 }
 
 async function loadPrebuildConfig() {
@@ -296,6 +322,21 @@ async function loadPrebuildConfig() {
 }
 
 function validateConfigEnvelope(config) {
+  if (
+    configFound
+    && Object.hasOwn(config, 'version')
+    && config.version === LEGACY_BUILD_PAGES_CONFIG_VERSION
+  ) {
+    throw new PrebuildConfigError(
+      `Build Pages Config "${LEGACY_BUILD_PAGES_CONFIG_VERSION}" is not supported by this release; expected "${BUILD_PAGES_CONFIG_VERSION}".`,
+      '',
+      {
+        code: 'UNSUPPORTED_CONFIG_VERSION',
+        receivedVersion: config.version,
+      },
+    );
+  }
+
   assertKnownConfigKeys(config, CONFIG_ROOT_KEYS, 'config');
 
   if (config.$schema !== undefined && typeof config.$schema !== 'string') {

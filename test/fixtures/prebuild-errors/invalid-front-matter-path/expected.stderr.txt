@@ -1,5 +1,6 @@
 [zeropress-prebuild] Invalid Markdown page: test/fixtures/prebuild-errors/invalid-front-matter-path/documents/page.md
 Reason: front matter path segment ".." is invalid: Slug must not be "." or "..".
+
 Expected one of:
   path: guides/install
   path: 가이드/설치_방법

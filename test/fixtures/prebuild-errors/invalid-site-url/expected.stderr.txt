@@ -1,5 +1,6 @@
 [zeropress-build-pages] Invalid site config: test/fixtures/prebuild-errors/invalid-site-url/documents/.zeropress/config.json
 Reason: site.url must use the origin root without a path, query, or fragment. Subdirectory hosting is not supported.
+
 Expected:
   "site": { "url": "https://example.com" }
 Omit site.url or use an empty string when the deployment URL is not known.

@@ -1,5 +1,6 @@
 [zeropress-prebuild] Invalid Markdown page: test/fixtures/prebuild-errors/missing-h1/documents/page.md
 Reason: missing top-level heading.
+
 Expected one of:
   # Page Title
 

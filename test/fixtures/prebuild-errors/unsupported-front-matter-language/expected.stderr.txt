@@ -1,5 +1,6 @@
 [zeropress-prebuild] Invalid Markdown page: test/fixtures/prebuild-errors/unsupported-front-matter-language/documents/page.md
 Reason: front matter must use plain YAML delimiters. Language-specific front matter is not supported.
+
 Expected one of:
   ---
   title: My Page

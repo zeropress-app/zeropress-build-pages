@@ -19,7 +19,7 @@ test('config envelope and nested config objects reject schema-invalid values bef
   const cases = [
     [{ version: '9.9' }, /version must be exactly "1\.0"/],
     [{ version: '0.7' }, /version must be exactly "1\.0"/],
-    [{ version: '0.1' }, /version must be exactly "1\.0"/],
+    [{ version: '0.1' }, /Build Pages Config "0\.1" is not supported by this release; expected "1\.0"/],
     [{ version: 1.0 }, /version must be exactly "1\.0"/],
     [{ version: '' }, /version must be exactly "1\.0"/],
     [{ version: ' 1.0 ' }, /version must be exactly "1\.0"/],
@@ -524,14 +524,36 @@ test('an authored config must declare its version', async () => {
   }
 });
 
-test('earlier Build Pages config versions are rejected without compatibility fallback', async () => {
+test('legacy Config 0.1 is rejected with migration and temporary npx pin guidance', async () => {
   for (const scriptPath of [prebuildScript, bundledPrebuildScript]) {
-    for (const version of ['0.1', '0.7']) {
+    const source = await createSource({ version: '0.1' });
+    const result = runPrebuild(source.cwd, source.sourceDir, {}, scriptPath);
+
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      /Reason: Build Pages Config "0\.1" is not supported by this release; expected "1\.0"\./,
+    );
+    assert.match(result.stderr, /Guidance:\nMigrate this config to Build Pages Config 1\.0:/);
+    assert.match(result.stderr, /https:\/\/build-pages\.zeropress\.dev\/reference\/config\//);
+    assert.match(
+      result.stderr,
+      /npx --yes @zeropress\/build-pages@0\.6\.13 \.\.\./,
+    );
+    await assertNoGeneratedOutputs(source.cwd);
+  }
+});
+
+test('other invalid config versions do not receive the Config 0.1 pin guidance', async () => {
+  for (const scriptPath of [prebuildScript, bundledPrebuildScript]) {
+    for (const version of ['0.7', '9.9']) {
       const source = await createSource({ version });
       const result = runPrebuild(source.cwd, source.sourceDir, {}, scriptPath);
 
       assert.notEqual(result.status, 0);
       assert.match(result.stderr, /version must be exactly "1\.0"/);
+      assert.doesNotMatch(result.stderr, /@zeropress\/build-pages@0\.6\.13/);
+      assert.doesNotMatch(result.stderr, /\nGuidance:/);
       await assertNoGeneratedOutputs(source.cwd);
     }
   }

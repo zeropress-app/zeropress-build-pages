@@ -1,5 +1,6 @@
 [zeropress-prebuild] Invalid Markdown page: test/fixtures/prebuild-errors/empty-markdown/documents/page.md
 Reason: empty Markdown file.
+
 Expected one of:
   # Page Title
 

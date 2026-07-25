@@ -1,4 +1,5 @@
 [zeropress-prebuild] Invalid site config: test/fixtures/prebuild-errors/removed-site-field/documents/.zeropress/config.json
 Reason: site contains unknown field "posts_per_page".
+
 Expected:
 Allowed fields: title, description, url, logo, locale, expose_generator, search, robots, footer, meta

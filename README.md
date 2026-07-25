@@ -199,14 +199,16 @@ Project settings:
 | Setting | Value |
 | --- | --- |
 | Framework Preset | `Other` |
-| Build Command | `npx --yes @zeropress/build-pages --source ./docs --destination ./_site` |
+| Build Command | `npx --yes @zeropress/build-pages@1 --source ./docs --destination ./_site` |
 | Output Directory | `_site` |
 
 If your public assets live outside the source directory, include `--public-dir`:
 
 ```bash
-npx --yes @zeropress/build-pages --source ./docs --public-dir ./public --destination ./_site
+npx --yes @zeropress/build-pages@1 --source ./docs --public-dir ./public --destination ./_site
 ```
+
+CI and hosting examples use `@1` to receive compatible Build Pages 1.x updates without automatically crossing a future major-version boundary.
 
 If your project uses a `package.json` script, set the Vercel Build Command to `npm run build` and keep the Output Directory as `_site`.
 

@@ -1,5 +1,6 @@
 [zeropress-build-pages] Invalid Markdown page: test/fixtures/prebuild-errors/invalid-front-matter-discoverability/documents/page.md
 Reason: front matter discoverability must be one of: default, noindex, delist.
+
 Expected one of:
   discoverability: default
   discoverability: noindex
