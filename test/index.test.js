@@ -21,6 +21,18 @@ const actionPath = path.join(packageDir, 'dist', 'action.js');
 const bundledPrebuildPath = path.join(packageDir, 'dist', 'prebuild.js');
 const fixtureRoot = path.join(packageDir, 'test', 'fixtures', 'prebuild-errors');
 const prebuildScript = path.join(packageDir, 'src', 'prebuild.js');
+const sourceIndexPath = path.join(packageDir, 'src', 'index.js');
+
+test('uses the official @zeropress/build package entrypoint', async () => {
+  const [packageJson, sourceIndex] = await Promise.all([
+    fs.readFile(path.join(packageDir, 'package.json'), 'utf8').then(JSON.parse),
+    fs.readFile(sourceIndexPath, 'utf8'),
+  ]);
+
+  assert.equal(packageJson.dependencies['@zeropress/build'], '0.7.1');
+  assert.match(sourceIndex, /from '@zeropress\/build';/);
+  assert.doesNotMatch(sourceIndex, /@zeropress\/build\/src\//);
+});
 
 async function readBundledThemeId(themeName) {
   const manifest = JSON.parse(await fs.readFile(path.join(packageDir, 'themes', themeName, 'theme.json'), 'utf8'));

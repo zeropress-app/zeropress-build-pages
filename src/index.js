@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runBuild } from '@zeropress/build/src/index.js';
+import { runBuild } from '@zeropress/build';
 import { checkInternalLinks } from './check-links.js';
 import { toTerminalSafeText } from './terminal.js';
 
