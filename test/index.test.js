@@ -269,6 +269,31 @@ test('bundled theme docs aliases docs1, docs2, plain builds, and unknown themes 
   );
 });
 
+test('a successful build atomically replaces an existing destination', async () => {
+  const tempDir = await makeTempDir();
+  const sourceDir = path.join(tempDir, 'docs');
+  const destinationDir = path.join(tempDir, '_site');
+  await fs.mkdir(sourceDir, { recursive: true });
+  await fs.mkdir(destinationDir);
+  await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n', 'utf8');
+  await fs.writeFile(path.join(destinationDir, 'stale.txt'), 'stale output', 'utf8');
+
+  await runBuildPages({
+    cwd: tempDir,
+    source: 'docs',
+    destination: '_site',
+    theme: 'plain',
+    skipLinkCheck: true,
+  });
+
+  await fs.access(path.join(destinationDir, 'index.html'));
+  await assert.rejects(fs.access(path.join(destinationDir, 'stale.txt')), { code: 'ENOENT' });
+  assert.equal(
+    (await fs.readdir(tempDir)).some((entry) => entry.startsWith('._site.zeropress-build-')),
+    false,
+  );
+});
+
 const failureCases = [
   'invalid-front-page-type',
   'invalid-html-front-page-path',
@@ -820,11 +845,14 @@ test('rejects a staged public file that owns a generated html-extension output p
   const tempDir = await makeTempDir();
   const sourceDir = path.join(tempDir, 'docs');
   const publicDir = path.join(tempDir, 'public');
+  const destinationDir = path.join(tempDir, '_site');
   await fs.mkdir(sourceDir, { recursive: true });
   await fs.mkdir(publicDir, { recursive: true });
+  await fs.mkdir(destinationDir);
   await fs.writeFile(path.join(sourceDir, 'index.md'), '# Home\n', 'utf8');
   await fs.writeFile(path.join(sourceDir, 'guide.md'), '# Guide\n', 'utf8');
   await fs.writeFile(path.join(publicDir, 'guide.html'), '<h1>Public guide</h1>', 'utf8');
+  await fs.writeFile(path.join(destinationDir, 'sentinel.txt'), 'previous output', 'utf8');
 
   await assert.rejects(
     () => runBuildPages({
@@ -837,7 +865,11 @@ test('rejects a staged public file that owns a generated html-extension output p
     }),
     /Duplicate (?:public URL|output path) detected: \/?guide\.html/,
   );
-  await assert.rejects(fs.access(path.join(tempDir, '_site')), { code: 'ENOENT' });
+  assert.equal(
+    await fs.readFile(path.join(destinationDir, 'sentinel.txt'), 'utf8'),
+    'previous output',
+  );
+  assert.deepEqual(await fs.readdir(destinationDir), ['sentinel.txt']);
 });
 
 test('rejects a staged public index file whose parent clean URL owns a generated route', async () => {

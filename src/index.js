@@ -114,7 +114,6 @@ export async function runBuildPages(options) {
   }
 
   const previewData = JSON.parse(await fs.readFile(previewDataPath, 'utf8'));
-  await fs.rm(destinationDir, { recursive: true, force: true });
   await fs.rm(stagingDir, { recursive: true, force: true });
   await fs.mkdir(stagingDir, { recursive: true });
   await copyPublicStaging(publicDir, stagingDir, {
@@ -125,21 +124,17 @@ export async function runBuildPages(options) {
     await copySourceMarkdownFiles(sourceDir, stagingDir, previewData);
   }
 
-  const previousPublicDir = process.env.ZEROPRESS_PUBLIC_DIR;
-  process.env.ZEROPRESS_PUBLIC_DIR = stagingDir;
-  try {
-    const result = await runBuild(themeDir, previewData, destinationDir, { generateFeed: false });
-    console.log('');
-    console.log(formatBuildPagesSuccessMessage());
-    console.log(`Files: ${result.files.length}`);
-    console.log(`Output: ${formatPath(cwd, destinationDir)}`);
-  } finally {
-    if (previousPublicDir === undefined) {
-      delete process.env.ZEROPRESS_PUBLIC_DIR;
-    } else {
-      process.env.ZEROPRESS_PUBLIC_DIR = previousPublicDir;
-    }
-  }
+  const result = await runBuild(themeDir, previewData, destinationDir, {
+    emptyOutDir: true,
+    generateFeed: false,
+    previewDataPath,
+    projectRoot: cwd,
+    publicDir: stagingDir,
+  });
+  console.log('');
+  console.log(formatBuildPagesSuccessMessage());
+  console.log(`Files: ${result.files.length}`);
+  console.log(`Output: ${formatPath(cwd, destinationDir)}`);
 
   if (!options.skipLinkCheck) {
     const result = await checkInternalLinks(destinationDir);

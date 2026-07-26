@@ -286,6 +286,10 @@ my-site/
 
 Build Pages stages the public directory before calling [`@zeropress/build`](https://github.com/zeropress-app/zeropress-build). Build reserves those final public paths during output planning and rejects collisions with generated routes, assets, search artifacts, and special files before writing.
 
+The complete destination is built in a sibling staging directory. A successful
+build replaces the previous destination, while a prebuild, validation, render,
+or public-file failure leaves the previous deployable output untouched.
+
 Root-level public files named `favicon.ico`, `favicon.svg`, `favicon.png`, and `apple-touch-icon.png` are copied to the destination and auto-injected into generated HTML `<head>` output.
 
 A root-level public `sitemap.xsl` is copied to the destination. When ZeroPress generates `sitemap.xml`, it auto-discovers that file and adds an XML stylesheet processing instruction for `/sitemap.xsl`.
