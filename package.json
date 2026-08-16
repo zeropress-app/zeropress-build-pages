@@ -35,7 +35,7 @@
     "build:action": "node scripts/build-action.mjs"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.22.0"
   },
   "dependencies": {
     "@zeropress/build": "0.7.2",
