@@ -169,9 +169,7 @@ async function main() {
       ...(frontMatter.discoverability !== 'default' ? { discoverability: frontMatter.discoverability } : {}),
       content: rewriteMarkdownLinks(bodyMarkdown, sourcePath, routeBySourcePath, markdownConfig.link_output, publicAssetUrls),
       document_type: 'markdown',
-      excerpt: frontMatter.description !== undefined
-        ? frontMatter.description
-        : extractExcerpt(bodyMarkdown, title),
+      excerpt: frontMatter.description !== undefined ? frontMatter.description : '',
       status: 'published',
     });
   }
@@ -722,7 +720,7 @@ async function buildFrontPageData(frontPageConfig, pageInputs, config) {
       path: route.path,
       content: html,
       document_type: 'html',
-      excerpt: extractHtmlExcerpt(html) || config.site?.description || '',
+      excerpt: '',
       status: 'published',
     },
   };
@@ -2910,54 +2908,6 @@ function expectedHeadingSyntax() {
     '  Page Title',
     '  ==========',
   ].join('\n');
-}
-
-function extractExcerpt(markdown, title) {
-  const paragraphs = markdown
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .filter(Boolean)
-    .filter((block) => !isMarkdownHeadingBlock(block))
-    .filter((block) => !block.startsWith('```'));
-
-  const first = paragraphs[0] || title;
-  return first
-    .replace(/^>\s*/gm, '')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/[`*_]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 240);
-}
-
-function extractHtmlExcerpt(html) {
-  const text = html
-    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  return text.slice(0, 240);
-}
-
-function isMarkdownHeadingBlock(block) {
-  if (block.startsWith('#')) {
-    return true;
-  }
-
-  const lines = block.split(/\r?\n/);
-  return Boolean(
-    lines.length >= 2
-    && lines[0].trim()
-    && /^[=-]+$/.test(lines[1].trim()),
-  );
 }
 
 function rewriteMarkdownLinks(markdown, sourcePath, routes, linkOutput = 'clean', publicAssetUrls = new Map()) {

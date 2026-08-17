@@ -1,4 +1,5 @@
 import { build } from 'esbuild';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,5 +35,18 @@ await build({
   outfile: prebuildPath,
 });
 
+await Promise.all([
+  removeGeneratedTrailingWhitespace(actionPath),
+  removeGeneratedTrailingWhitespace(prebuildPath),
+]);
+
 console.log(`Wrote ${path.relative(packageDir, actionPath)}`);
 console.log(`Wrote ${path.relative(packageDir, prebuildPath)}`);
+
+async function removeGeneratedTrailingWhitespace(filePath) {
+  const source = await fs.readFile(filePath, 'utf8');
+  const normalized = source.replace(/[ \t]+$/gm, '');
+  if (normalized !== source) {
+    await fs.writeFile(filePath, normalized, 'utf8');
+  }
+}

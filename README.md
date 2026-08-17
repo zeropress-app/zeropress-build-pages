@@ -363,7 +363,7 @@ Supported front matter fields:
 | Field | Purpose |
 | --- | --- |
 | `title` | Page title. Takes priority over Markdown H1. |
-| `description` | Page excerpt and description. |
+| `description` | Explicit authored Page excerpt. When omitted or empty, Build Pages stores `excerpt: ""`; Build Core derives runtime summaries and metadata from rendered content. |
 | `path` | Generated route path, such as `guides/install` for `/guides/install`. |
 | `status` | `published` includes the page. `draft` skips the page. Other values warn and skip. |
 | `discoverability` | `default`, `noindex`, or `delist`. Missing is `default`. |
@@ -373,6 +373,8 @@ Supported front matter fields:
 | `data` | Optional structured JSON-style data for theme-facing lists, facts, galleries, timelines, or swatches. |
 
 Unknown front matter fields are ignored to make migration from existing Markdown sites easier.
+
+Build Pages never extracts a Preview Data excerpt from Markdown body text. An omitted `description` and an explicit `description: ""` both produce `excerpt: ""`; a non-empty `description` is the only authored Page excerpt. Build Core independently derives the Theme Runtime `page.summary` and metadata description from rendered content when the authored excerpt is empty.
 
 Each explicit `path` segment follows the shared ZeroPress slug policy: Unicode letters, combining marks, decimal digits, periods, hyphens, and underscores are supported, at least one letter or digit is required, and each NFC-normalized segment is limited to 200 Unicode code points. A period may appear only as an isolated internal character, so values such as `v0.6` are valid while `.hidden`, `version.`, and `a..b` are rejected. Characters such as `!`, whitespace, percent escapes, path separators, and control characters are also rejected. Filename-derived routes preserve isolated internal periods, collapse period runs with other unsupported filename characters into hyphens, and remove leading or trailing periods.
 
@@ -539,6 +541,8 @@ See the public config reference at [build-pages.zeropress.dev/reference/config/]
 - `{ "type": "html", "layout": false }`: write trusted standalone HTML directly.
 
 HTML front page and `custom_html` files, including the final targets of symlinks, must resolve inside the source `.zeropress/` directory.
+
+A layout-enabled HTML front page also produces `excerpt: ""`; its HTML body and `site.description` are not promoted into authored Preview Data. Build Core may derive the runtime summary from the rendered body and uses `site.description` only as the final metadata fallback when that front page has no visible summary.
 
 The authoring config keeps each custom HTML slot as a `{ "file": "..." }` reference. Build Pages reads the selected file as UTF-8, requires non-whitespace content, limits each slot to 65,536 Unicode code points, and preserves the raw whitespace. Generated Preview Data uses flat trusted strings such as `{ "custom_html": { "head_end": "<meta ...>" } }`; the generated resolved Build Pages config continues to record the original `{ file }` reference.
 

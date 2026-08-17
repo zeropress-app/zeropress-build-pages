@@ -468,6 +468,7 @@ test('builds a source directory without config and preserves markdown passthroug
   const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
   const buildReport = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'build-report.json'), 'utf8'));
   const homePage = previewData.content.pages.find((page) => page.slug === 'index');
+  const guidePage = previewData.content.pages.find((page) => page.slug === 'guide');
   const customPage = previewData.content.pages.find((page) => page.path === 'guides/custom-page');
 
   assert.equal(Object.hasOwn(previewData.site, 'robots'), false);
@@ -477,6 +478,7 @@ test('builds a source directory without config and preserves markdown passthroug
   assert.match(buildReport.theme_id, /^[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*@\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/);
   assert.equal(homePage.title, 'Front Matter Home');
   assert.equal(homePage.excerpt, 'Home from front matter.');
+  assert.equal(guidePage.excerpt, '');
   assert.equal(customPage.title, 'Custom Front Matter Title');
   assert.equal(customPage.excerpt, 'Custom front matter excerpt.');
   assert.equal(customPage.path, 'guides/custom-page');
@@ -533,16 +535,16 @@ test('builds a source directory without config and preserves markdown passthroug
   await fs.access(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'));
 });
 
-test('uses front page markdown excerpt for front page metadata', async () => {
+test('keeps front page Markdown excerpts authored while Build Core derives metadata summaries', async () => {
   const cases = [
     {
-      name: 'generated excerpt',
+      name: 'omitted authored excerpt',
       site: { description: 'Site description stays in the title only.' },
       frontMatter: [],
       body: 'Generated page excerpt.',
       expectedTitle: 'Documentation - Site description stays in the title only.',
       expectedSiteDescription: 'Site description stays in the title only.',
-      expectedPageExcerpt: 'Generated page excerpt.',
+      expectedPageExcerpt: '',
       expectedMetaDescription: 'Generated page excerpt.',
     },
     {
@@ -559,11 +561,11 @@ test('uses front page markdown excerpt for front page metadata', async () => {
       name: 'empty front matter description',
       site: { description: 'bar' },
       frontMatter: ['description: ""'],
-      body: 'Generated page excerpt should be suppressed.',
+      body: 'Rendered body summary remains available.',
       expectedTitle: 'Documentation - bar',
       expectedSiteDescription: 'bar',
       expectedPageExcerpt: '',
-      expectedMetaDescription: '',
+      expectedMetaDescription: 'Rendered body summary remains available.',
     },
   ];
 
@@ -620,6 +622,47 @@ test('uses front page markdown excerpt for front page metadata', async () => {
       assert.doesNotMatch(indexHtml, /property="og:description"/);
     }
   }
+});
+
+test('keeps a layout HTML front page excerpt empty while Build Core derives its metadata summary', async () => {
+  const tempDir = await makeTempDir();
+  const sourceDir = path.join(tempDir, 'docs');
+  await fs.mkdir(path.join(sourceDir, '.zeropress'), { recursive: true });
+  await fs.writeFile(
+    path.join(sourceDir, '.zeropress', 'home.html'),
+    '<h1>HTML Home</h1><p>Visible HTML summary &amp; details.</p>',
+    'utf8',
+  );
+  await fs.writeFile(path.join(sourceDir, '.zeropress', 'config.json'), JSON.stringify({
+    version: '1.0',
+    site: {
+      title: 'HTML Home',
+      description: 'Site description is only the final front-page fallback.',
+    },
+    front_page: {
+      type: 'html',
+      file: '.zeropress/home.html',
+    },
+  }, null, 2), 'utf8');
+
+  await runBuildPages({
+    cwd: tempDir,
+    source: 'docs',
+    destination: '_site',
+    theme: 'plain',
+    skipLinkCheck: true,
+  });
+
+  const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
+  const previewData = JSON.parse(await fs.readFile(
+    path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'),
+    'utf8',
+  ));
+  const frontPage = previewData.content.pages.find((page) => page.slug === 'home');
+
+  assert.equal(frontPage.excerpt, '');
+  assert.match(indexHtml, /<meta name="description" content="Visible HTML summary &amp; details\.">/);
+  assert.match(indexHtml, /property="og:description" content="Visible HTML summary &amp; details\."/);
 });
 
 test('rewrites source-relative markdown links with explicit html output when configured', async () => {
