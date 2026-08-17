@@ -38,11 +38,11 @@
     "node": ">=22.22.0"
   },
   "dependencies": {
-    "@zeropress/build": "0.7.2",
+    "@zeropress/build": "0.7.3",
     "@zeropress/slug-policy": "0.2.1",
-    "markdown-it": "14.3.0"
+    "markdown-it": "15.0.0"
   },
   "devDependencies": {
-    "esbuild": "0.28.1"
+    "esbuild": "0.28.2"
   }
 }
