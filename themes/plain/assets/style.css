@@ -650,3 +650,38 @@ a:hover {
     clip-path: polygon(14% 52%, 36% 74%, 82% 22%, 92% 32%, 37% 88%, 4% 60%);
   }
 }
+/* WordPress-compatible authored image alignment. */
+.prose::after {
+  display: table;
+  clear: both;
+  content: '';
+}
+
+.prose img.alignleft {
+  float: left;
+  margin: 0 1.5rem 1rem 0;
+}
+
+.prose img.aligncenter {
+  display: block;
+  clear: both;
+  float: none;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.prose img.alignright {
+  float: right;
+  margin: 0 0 1rem 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .prose img.alignleft,
+  .prose img.alignright {
+    display: block;
+    clear: both;
+    float: none;
+    margin-right: auto;
+    margin-left: auto;
+  }
+}
