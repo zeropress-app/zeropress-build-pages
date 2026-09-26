@@ -896,7 +896,7 @@ a { color: inherit; }
 .page-meta__updated { margin-left: auto; }
 
 /* Code block language label */
-.prose pre[class*="language-"]::before {
+.prose pre[data-language]::before {
   content: attr(data-language);
   position: absolute;
   top: 0.5rem;
@@ -1340,7 +1340,7 @@ a { color: inherit; }
 
   /* Code language label: the screen colors assume a dark code surface and are
      near-invisible on the light print background. Use dark-on-light instead. */
-  .prose pre[class*="language-"]::before {
+  .prose pre[data-language]::before {
     color: #555 !important;
     background: #fff !important;
     border-color: #ccc !important;
@@ -1398,4 +1398,10 @@ a { color: inherit; }
     margin-right: auto;
     margin-left: auto;
   }
+}
+
+/* Keep preformatted HTML readable when no inner code element is present. */
+.prose pre:not(:has(> code)) {
+  padding: 1.25rem;
+  overflow-x: auto;
 }

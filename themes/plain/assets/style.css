@@ -685,3 +685,9 @@ a:hover {
     margin-left: auto;
   }
 }
+
+/* Keep preformatted HTML readable when no inner code element is present. */
+.prose pre:not(:has(> code)) {
+  padding: 1.25rem;
+  overflow-x: auto;
+}
