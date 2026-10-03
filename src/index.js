@@ -132,6 +132,9 @@ export async function runBuildPages(options) {
     publicDir: stagingDir,
   });
   console.log('');
+  for (const warning of result.warnings) {
+    console.warn(formatBuildWarning(warning));
+  }
   console.log(formatBuildPagesSuccessMessage());
   console.log(`Files: ${result.files.length}`);
   console.log(`Output: ${formatPath(cwd, destinationDir)}`);
@@ -284,6 +287,10 @@ function prefixError(message) {
 
 export function formatBuildPagesSuccessMessage(stream = process.stdout) {
   return createColor(stream).green('Built ZeroPress Pages site successfully');
+}
+
+export function formatBuildWarning(warning, stream = process.stderr) {
+  return createColor(stream).yellow(toTerminalSafeText(`[${warning.code}] ${warning.message}`));
 }
 
 export function formatBuildPagesBanner(version, stream = process.stdout) {

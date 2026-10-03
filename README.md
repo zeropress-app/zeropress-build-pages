@@ -550,6 +550,12 @@ Configured source file paths are exact source-root relative paths. Build Pages d
 
 Menu item `meta` is optional scalar display metadata copied into generated preview-data for themes that manually iterate menus. Use it for small values such as `icon`, `badge`, or `accent`; arrays and objects are not accepted.
 
+A custom theme can declare `menu_slots.<id>.max_depth` (top-level items are
+depth 1). Deeper descendants are excluded from rendering, while generated Preview
+Data stays complete. The CLI and GitHub Action report one
+`MENU_MAX_DEPTH_EXCEEDED` warning per affected menu on stderr and continue the
+build. An omitted limit leaves the menu tree unchanged.
+
 When `menus` is omitted, Build Pages materializes the built-in `primary` menu with a Home item. An explicit `"menus": {}` opts out and materializes no menus. If a menu omits `name`, its menu id becomes the resolved name. `collections` omission and `{}` both materialize no collections; an omitted collection `title` materializes its collection id. These fallbacks are written explicitly to the resolved config and generated Preview Data.
 
 Menu URLs may be credential-free absolute HTTP(S) URLs or single-slash root-relative paths. Query strings and fragments are preserved. Bare, dot-relative, protocol-relative, dot-segment, non-Web scheme, query-only or fragment-only values, raw whitespace or backslashes, control characters, and malformed percent escapes are rejected. Runtime WHATWG URL parsing additionally validates absolute-URL hostname, port range, and IP-address syntax.
