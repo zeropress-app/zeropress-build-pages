@@ -216,30 +216,12 @@ a { color: inherit; }
 .skip-link:focus { left: 1rem; top: 1rem; z-index: 100; }
 
 /* ===== Sidebar ===== */
-.nav-toggle {
-  position: fixed;
-  width: 1px;
-  height: 1px;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  clip-path: inset(50%);
-  border: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-.nav-overlay {
-  display: none; position: fixed; inset: 0; z-index: 40;
-  background: var(--scrim); backdrop-filter: blur(2px);
-}
 .sidebar {
   position: fixed; top: var(--topbar-h); left: 0; bottom: 0; width: var(--sidebar-w);
   background: var(--canvas);
   border-top: 1px solid var(--border);
   border-right: 1px solid var(--border);
   z-index: 50; overflow-y: auto;
-  transition: transform 0.25s ease;
   scrollbar-color: var(--scrollbar-thumb) var(--canvas);
 }
 .sidebar::-webkit-scrollbar-track { background: var(--canvas); }
@@ -509,6 +491,7 @@ a { color: inherit; }
 .prose li + li { margin-top: 0.4rem; }
 .prose a { color: var(--tab-terracotta); text-decoration: underline; text-underline-offset: 3px; }
 .prose a[target="_blank"]::after,
+.sidebar__link[target="_blank"]::after,
 .site-footer a[target="_blank"]::after {
   content: "";
   display: inline-block;
@@ -1173,23 +1156,41 @@ a { color: inherit; }
   color: var(--page);
 }
 
+/* Mobile navigation uses the same links as the desktop navigation. */
+.mobile-nav-open { overflow: hidden; }
+.mobile-nav-dialog {
+  position: fixed; inset: 0; margin: 0; padding: 0; border: 0;
+  width: 100%; max-width: none; height: 100dvh; max-height: none;
+  background: transparent; color: var(--ink-base); overflow: hidden;
+}
+.mobile-nav-dialog::backdrop { background: var(--scrim); backdrop-filter: blur(2px); }
+.mobile-nav-panel {
+  box-sizing: border-box; width: min(22rem, calc(100% - 2rem)); height: 100%;
+  padding: 1rem; background: var(--canvas); border-right: 1px solid var(--border);
+  overflow-y: auto; overscroll-behavior: contain;
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+.mobile-nav-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.mobile-nav-header h2 { margin: 0; font-size: 1.25rem; }
+.mobile-nav-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 2.75rem; width: 2.75rem; height: 2.75rem; padding: 0;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--page); color: var(--ink-base); cursor: pointer;
+}
+.mobile-nav-close:hover { color: var(--tab-terracotta); }
+
+.mobile-nav-panel .sidebar { position: static; width: auto; border: 0; overflow: visible; }
+.mobile-nav-panel .sidebar__inner { padding: .5rem 0; }
+
 /* Mobile */
 @media (max-width: 1023px) {
-  .sidebar {
-    transform: translateX(-100%);
-    /* Off-canvas: remove from tab order and assistive tech when closed.
-       visibility transitions in after the slide-out completes. */
-    visibility: hidden;
-    transition: transform 0.25s ease, visibility 0s linear 0.25s;
-  }
-  .nav-toggle:checked ~ .sidebar {
-    transform: translateX(0);
-    visibility: visible;
-    transition: transform 0.25s ease, visibility 0s linear 0s;
-  }
-  .nav-toggle:checked ~ .nav-overlay { display: block; }
+  .top-bar__search .kbd { display: none; }
+  .sidebar { position: static; width: auto; border-right: 0; }
+  .mobile-nav-ready body > .sidebar { display: none; }
   .page-shell { margin-left: 0; }
-  .nav-trigger { display: inline-flex; }
+  .mobile-nav-ready .nav-trigger { display: inline-flex; }
   .doc-main { padding: 2rem 1.5rem 2rem; }
   .site-footer { padding: 1.5rem; }
   .prose h1 { font-size: 2.1rem; }
@@ -1215,7 +1216,6 @@ a { color: inherit; }
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   html.is-scroll-enhanced { scroll-behavior: auto; }
-  .sidebar { transition: none; }
   .clear-search-highlights,
   .back-to-top { transition: none; }
 }
@@ -1245,8 +1245,7 @@ a { color: inherit; }
   /* Hide chrome */
   .sidebar,
   .top-bar,
-  .nav-overlay,
-  .nav-toggle,
+  .mobile-nav-dialog,
   .cmdk,
   .pager,
   .copy-btn,

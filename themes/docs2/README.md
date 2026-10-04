@@ -120,8 +120,11 @@ When Build Pages copies Markdown source files, the theme renders a
 `post.meta.source_markdown_url`.
 
 When a route has `updated_at_iso`, Docs2 renders an `Updated` time element with
-the ISO timestamp in the `datetime` and `title` attributes. The client script may
-progressively enhance the displayed date for the visitor's locale.
+the ISO timestamp in the `datetime` and `title` attributes. The client script
+uses the visitor's browser language and time zone, while `site.date_style` and
+`site.time_style` control the display format. Setting both styles to `none`
+omits the update label and time. Without JavaScript or supported date formatting,
+the initial HTML keeps the site's language and time zone.
 
 ## Footer
 

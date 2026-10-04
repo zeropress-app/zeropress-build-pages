@@ -1,7 +1,9 @@
 <header class="top-bar">
-  <label for="nav-toggle" class="icon-btn nav-trigger" role="button" tabindex="0" aria-label="Open navigation" aria-controls="site-sidebar" aria-expanded="false" data-nav-trigger>
-    <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-menu"/></svg>
-  </label>
+  {{#if menus.primary.items}}
+  <button type="button" class="icon-btn nav-trigger" data-mobile-nav-trigger aria-label="Open navigation" aria-controls="site-navigation-dialog" aria-expanded="false" aria-haspopup="dialog">
+    <svg class="icon" width="16" height="16" aria-hidden="true" focusable="false"><use href="#icon-menu"/></svg>
+  </button>
+  {{/if}}
   <a class="top-bar__brand" href="/">
     {{#if site.logo.src}}
     <img

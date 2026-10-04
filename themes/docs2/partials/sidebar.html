@@ -1,4 +1,4 @@
-<aside id="site-sidebar" class="sidebar" aria-label="Documentation navigation">
+<aside id="site-sidebar" class="sidebar" aria-label="Documentation navigation" data-mobile-nav-content>
   <div class="sidebar__inner">
     <nav class="sidebar__nav">
       {{#if menus.primary.items}}
@@ -17,7 +17,10 @@
                       class="sidebar__link{{#if item.children}} sidebar__link--parent{{/if}}"
                       href="{{item.url}}"
                       {{#if item.target}}target="{{item.target}}"{{/if}}
-                      {{#if_eq item.target "_blank"}}rel="noopener noreferrer"{{/if}}
+                      {{#if_eq item.target "_blank"}}
+                        rel="noopener noreferrer"
+                        aria-label="{{item.title}} (opens in a new tab)"
+                      {{/if}}
                       {{#if_eq item.url "/"}}
                         {{#if_eq route.url item.url}}aria-current="page"{{/if}}
                       {{#else_if_eq route.url item.url}}
@@ -36,7 +39,10 @@
                               class="sidebar__link sidebar__link--child"
                               href="{{child.url}}"
                               {{#if child.target}}target="{{child.target}}"{{/if}}
-                              {{#if_eq child.target "_blank"}}rel="noopener noreferrer"{{/if}}
+                              {{#if_eq child.target "_blank"}}
+                                rel="noopener noreferrer"
+                                aria-label="{{child.title}} (opens in a new tab)"
+                              {{/if}}
                               {{#if_eq child.url "/"}}
                                 {{#if_eq route.url child.url}}aria-current="page"{{/if}}
                               {{#else_if_eq route.url child.url}}
@@ -60,7 +66,10 @@
               class="sidebar__link sidebar__link--top"
               href="{{group.url}}"
               {{#if group.target}}target="{{group.target}}"{{/if}}
-              {{#if_eq group.target "_blank"}}rel="noopener noreferrer"{{/if}}
+              {{#if_eq group.target "_blank"}}
+                rel="noopener noreferrer"
+                aria-label="{{group.title}} (opens in a new tab)"
+              {{/if}}
               {{#if_eq group.url "/"}}
                 {{#if_eq route.url group.url}}aria-current="page"{{/if}}
               {{#else_if_starts_with route.url group.url}}

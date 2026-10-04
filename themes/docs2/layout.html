@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="{{site.locale}}">
+<html lang="{{site.locale}}" data-zp-date-style="{{site.date_style}}" data-zp-time-style="{{site.time_style}}">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     {{partial:theme-init}}
+    {{partial:mobile-navigation-init}}
     <title>{{meta.title}}</title>
     <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#1F1B1A" media="(prefers-color-scheme: dark)">
@@ -14,10 +15,9 @@
     {{partial:icon-sprite}}
     <a class="skip-link" href="#content">Skip to content</a>
     <div class="sr-only" aria-live="polite" aria-atomic="true" data-zp-status></div>
-    <input type="checkbox" id="nav-toggle" class="nav-toggle" tabindex="-1" aria-label="Navigation menu">
-    <label for="nav-toggle" class="nav-overlay" aria-hidden="true"></label>
     {{partial:header}}
     {{partial:sidebar}}
+    {{partial:mobile-navigation}}
     <div class="page-shell">
       <main id="content" class="doc-main">
         {{slot:content}}

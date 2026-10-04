@@ -263,6 +263,11 @@ Only the documented CLI options and GitHub Action inputs configure a public Buil
 
 Human-readable diagnostics escape terminal control and directional characters as visible `\uXXXX` sequences. Generated Preview Data, reports, Markdown, and HTML content are not rewritten by this terminal-only formatting.
 
+The `docs2` theme opens navigation in a modal panel on narrow screens. Keyboard
+focus stays inside until the panel closes; **Escape** closes it and returns
+focus to the navigation button. Without JavaScript, narrow layouts show
+navigation above the content as a regular list.
+
 ## Source Tree
 
 The source directory is the folder that Build Pages reads for Markdown pages and optional `.zeropress/config.json`. By default, the source directory is also the public passthrough root. Use `public-dir` when you want to keep Markdown source and public assets separate.

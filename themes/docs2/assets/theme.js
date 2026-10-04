@@ -32,27 +32,67 @@
 
   enableEnhancedControls();
 
-  // ===== Local date progressive enhancement =====
-  function enhanceLocalDates() {
-    if (!window.Intl || !Intl.DateTimeFormat) return;
+  // ===== Local date and time progressive enhancement =====
+  function createDateFormatter(options) {
+    const styles = {};
+    if (options.dateStyle && options.dateStyle !== "none") {
+      styles.dateStyle = options.dateStyle;
+    }
+    if (options.timeStyle && options.timeStyle !== "none") {
+      styles.timeStyle = options.timeStyle;
+    }
+    if (!Object.keys(styles).length) {
+      return { format: () => "" };
+    }
 
-    var formatter = new Intl.DateTimeFormat(undefined, {
-      dateStyle: 'medium',
+    if (!window.Intl || !Intl.DateTimeFormat) {
+      return null;
+    }
+
+    try {
+      return new Intl.DateTimeFormat(undefined, styles);
+    } catch {
+      return null;
+    }
+  }
+
+  const localDateFormatter = createDateFormatter({
+    dateStyle: document.documentElement.dataset.zpDateStyle || "medium",
+  });
+
+  const localDateTimeFormatter = createDateFormatter({
+    dateStyle: document.documentElement.dataset.zpDateStyle || "medium",
+    timeStyle: document.documentElement.dataset.zpTimeStyle || "none",
+  });
+
+  function enhanceTimeElement(time, formatter) {
+    if (!(time instanceof HTMLTimeElement) || !formatter) {
+      return;
+    }
+
+    const value = time.getAttribute("datetime");
+    const date = new Date(value);
+    if (!value || Number.isNaN(date.getTime())) {
+      return;
+    }
+
+    if (!time.getAttribute("title")) {
+      time.setAttribute("title", value);
+    }
+    time.textContent = formatter.format(date);
+  }
+
+  function enhanceLocalTimes(root = document) {
+    root.querySelectorAll("time[data-zp-local-date]").forEach((time) => {
+      enhanceTimeElement(time, localDateFormatter);
     });
 
-    document.querySelectorAll('time[data-zp-local-date]').forEach(function (time) {
-      var value = time.getAttribute('datetime');
-      var date = new Date(value);
-      if (!value || Number.isNaN(date.getTime())) return;
-
-      if (!time.getAttribute('title')) {
-        time.setAttribute('title', value);
-      }
-      time.textContent = formatter.format(date);
+    root.querySelectorAll("time[data-zp-local-date-time]").forEach((time) => {
+      enhanceTimeElement(time, localDateTimeFormatter);
     });
   }
 
-  enhanceLocalDates();
+  enhanceLocalTimes();
 
   // ===== Theme toggle (initial system, then light / dark) =====
   function getStoredTheme() {
@@ -111,61 +151,6 @@
     };
     if (mql.addEventListener) mql.addEventListener('change', onChange);
     else if (mql.addListener) mql.addListener(onChange);
-  }
-
-  // ===== Mobile nav close on link click =====
-  var navToggle = document.getElementById('nav-toggle');
-  var navTrigger = document.querySelector('[data-nav-trigger]');
-  var sidebar = document.getElementById('site-sidebar');
-  // Sidebar is off-canvas only at mobile widths; keep this in sync with the
-  // `@media (max-width: 1023px)` breakpoint in style.css.
-  var offCanvasQuery = window.matchMedia ? window.matchMedia('(max-width: 1023px)') : null;
-
-  function syncNavState() {
-    if (!navToggle || !navTrigger) return;
-    navTrigger.setAttribute('aria-expanded', navToggle.checked ? 'true' : 'false');
-    navTrigger.setAttribute('aria-label', navToggle.checked ? 'Close navigation' : 'Open navigation');
-    syncSidebarInert();
-  }
-  function syncSidebarInert() {
-    if (!sidebar) return;
-    // Remove the closed off-canvas sidebar from the tab order and assistive
-    // tech. On desktop the sidebar is always part of the page, so never inert.
-    var isOffCanvas = offCanvasQuery ? offCanvasQuery.matches : false;
-    var shouldDisable = isOffCanvas && !(navToggle && navToggle.checked);
-    if (shouldDisable) {
-      sidebar.setAttribute('inert', '');
-      sidebar.setAttribute('aria-hidden', 'true');
-    } else {
-      sidebar.removeAttribute('inert');
-      sidebar.removeAttribute('aria-hidden');
-    }
-  }
-  if (offCanvasQuery) {
-    var onOffCanvasChange = function () { syncSidebarInert(); };
-    if (offCanvasQuery.addEventListener) offCanvasQuery.addEventListener('change', onOffCanvasChange);
-    else if (offCanvasQuery.addListener) offCanvasQuery.addListener(onOffCanvasChange);
-  }
-  function setNavOpen(open) {
-    if (!navToggle) return;
-    navToggle.checked = open;
-    navToggle.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-  if (navToggle) {
-    navToggle.addEventListener('change', syncNavState);
-    syncNavState();
-    if (navTrigger) {
-      navTrigger.addEventListener('keydown', function (e) {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        e.preventDefault();
-        setNavOpen(!navToggle.checked);
-      });
-    }
-    document.querySelectorAll('.sidebar__link').forEach(function (a) {
-      a.addEventListener('click', function () {
-        setNavOpen(false);
-      });
-    });
   }
 
   // ===== Sidebar collapsible group persistence =====
@@ -845,6 +830,7 @@
   }
 
   function open(prefill) {
+    document.dispatchEvent(new Event('zp:close-navigation'));
     if (palette.hidden) previousFocus = document.activeElement;
     palette.hidden = false;
     if (input) {
@@ -869,6 +855,7 @@
   });
 
   document.addEventListener('keydown', function (e) {
+    if (e.defaultPrevented || e.isComposing || document.querySelector('dialog[open]:not([data-mobile-nav-dialog])')) return;
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       palette.hidden ? open() : close();
