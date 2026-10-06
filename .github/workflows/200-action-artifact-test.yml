@@ -35,6 +35,8 @@ jobs:
 
       - name: Verify output
         run: |
+          test -f .zeropress-build-pages/zeropress-preview-data.json
+          test ! -e .zeropress-build-pages/preview-data.json
           test -f _site/index.html
           test -f _site/index.md
           test -f _site/assets/asset.txt
@@ -44,7 +46,7 @@ jobs:
           test -f _site/_zeropress/search_pagefind.js
 
       - name: Reset generated files
-        run: rm -rf _site .zeropress
+        run: rm -rf _site .zeropress-build-pages
 
       - name: Run local checked-out action without Markdown source copy
         uses: ./
@@ -57,6 +59,8 @@ jobs:
 
       - name: Verify private Markdown behavior
         run: |
+          test -f .zeropress-build-pages/zeropress-preview-data.json
+          test ! -e .zeropress-build-pages/preview-data.json
           test -f _site/index.html
           test ! -f _site/index.md
           test -f _site/assets/asset.txt

@@ -1,4 +1,4 @@
-Wrote .zeropress-build-pages/preview-data.json with 0 pages
+Wrote .zeropress-build-pages/zeropress-preview-data.json with 0 pages
 ZeroPress build report
 - Source root: test/fixtures/prebuild-errors/skip-untitled/documents
 - Public root: test/fixtures/prebuild-errors/skip-untitled/documents

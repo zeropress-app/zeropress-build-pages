@@ -11,7 +11,7 @@ Build ZeroPress static output for modern hosting platforms.
 The generated output is plain static files that can be deployed to GitHub Pages, Cloudflare Pages, Netlify, Vercel, or another static hosting provider at the origin root. Subdirectory mount paths are not supported.
 
 Build Pages is the Markdown-source document publishing entry point for ZeroPress.
-Other ZeroPress workflows can build directly from `preview-data.json` and a
+Other ZeroPress workflows can build directly from `zeropress-preview-data.json` and a
 theme, or publish from ZeroPress Studio after managed authoring, media upload,
 WXR import, and build trigger workflows.
 
@@ -25,7 +25,7 @@ public directory
         |
         v
 @zeropress/build-pages
-  generates .zeropress-build-pages/preview-data.json
+  generates .zeropress-build-pages/zeropress-preview-data.json
   stages public files
         |
         v
@@ -46,7 +46,7 @@ flowchart TD
   config --> buildPages
   publicFiles --> buildPages
 
-  buildPages --> previewData[".zeropress-build-pages/preview-data.json<br/>internal generated build input"]
+  buildPages --> previewData[".zeropress-build-pages/zeropress-preview-data.json<br/>internal generated build input"]
   buildPages --> stagedPublic["Staged public files"]
 
   previewData --> build["@zeropress/build"]
@@ -635,14 +635,14 @@ Build Pages reads optional user-authored site config from `<source>/.zeropress/c
 ```txt
 .zeropress-build-pages/
   build-pages-config.json
-  preview-data.json
+  zeropress-preview-data.json
   build-report.json
   public-assets/
 ```
 
 `build-pages-config.json` is the resolved user-facing Build Pages config used for the current run. It combines source config, defaults, and CLI or Action input overrides where applicable, and is always canonicalized to Build Pages Config v1.0.
 
-`preview-data.json` is an internal generated build input for the ZeroPress renderer. Most users do not need to edit or understand this file.
+`zeropress-preview-data.json` is an internal generated build input for the ZeroPress renderer. Most users do not need to edit or understand this file.
 
 `build-report.json` records the Build Pages package version, source/public roots, discovered Markdown counts, skipped Markdown files, front page resolution, source Markdown copy policy, and custom HTML slots.
 

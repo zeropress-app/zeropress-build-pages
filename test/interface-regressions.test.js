@@ -84,7 +84,7 @@ test('source and bundled actions ignore inherited internal config and site URL v
 
     assert.equal(result.status, 0, `${actionPath}\n${result.stderr}`);
     const previewData = JSON.parse(await fs.readFile(
-      path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'),
+      path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'),
       'utf8',
     ));
     assert.equal(previewData.site.url, 'https://configured.example');

@@ -369,7 +369,7 @@ test('build allows an explicitly empty site URL', async () => {
   });
 
   const previewData = JSON.parse(await fs.readFile(
-    path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'),
+    path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'),
     'utf8',
   ));
   assert.equal(previewData.site.url, '');
@@ -465,7 +465,7 @@ test('builds a source directory without config and preserves markdown passthroug
   const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
   const guideHtml = await fs.readFile(path.join(tempDir, '_site', 'guide.html'), 'utf8');
   const customHtml = await fs.readFile(path.join(tempDir, '_site', 'guides', 'custom-page.html'), 'utf8');
-  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'), 'utf8'));
   const buildReport = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'build-report.json'), 'utf8'));
   const homePage = previewData.content.pages.find((page) => page.slug === 'index');
   const guidePage = previewData.content.pages.find((page) => page.slug === 'guide');
@@ -532,7 +532,7 @@ test('builds a source directory without config and preserves markdown passthroug
     /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<\?xml-stylesheet type="text\/xsl" href="\/sitemap\.xsl"\?>\n<urlset/,
   );
   await assert.rejects(() => fs.access(path.join(tempDir, '_site', 'feed.xml')));
-  await fs.access(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'));
+  await fs.access(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'));
 });
 
 test('keeps front page Markdown excerpts authored while Build Core derives metadata summaries', async () => {
@@ -607,7 +607,7 @@ test('keeps front page Markdown excerpts authored while Build Core derives metad
     });
 
     const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
-    const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
+    const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'), 'utf8'));
     const frontPage = previewData.content.pages.find((page) => page.slug === 'index');
 
     assert.equal(previewData.site.description, testCase.expectedSiteDescription);
@@ -655,7 +655,7 @@ test('keeps a layout HTML front page excerpt empty while Build Core derives its 
 
   const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
   const previewData = JSON.parse(await fs.readFile(
-    path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'),
+    path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'),
     'utf8',
   ));
   const frontPage = previewData.content.pages.find((page) => page.slug === 'home');
@@ -724,7 +724,7 @@ test('rewrites source-relative markdown links with explicit html output when con
 
   const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
   const resolvedConfig = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'build-pages-config.json'), 'utf8'));
-  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'), 'utf8'));
   const indexPage = previewData.content.pages.find((page) => page.slug === 'index');
 
   assert.deepEqual(resolvedConfig.markdown, {
@@ -810,7 +810,7 @@ test('rewrites source-relative public asset links when the target exists in publ
     skipLinkCheck: true,
   });
 
-  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'), 'utf8'));
   const featuresPage = previewData.content.pages.find((page) => page.path === 'markdown/features/index');
 
   assert.equal(featuresPage.featured_image, 'https://example.com/images/poster.png?card=1#share');
@@ -864,7 +864,7 @@ test('builds with a separated public directory', async () => {
 
   const indexHtml = await fs.readFile(path.join(tempDir, '_site', 'index.html'), 'utf8');
   const robotsTxt = await fs.readFile(path.join(tempDir, '_site', 'robots.txt'), 'utf8');
-  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'), 'utf8'));
   const buildReport = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'build-report.json'), 'utf8'));
 
   assert.match(buildReport.source_dir, /docs$/);
@@ -953,7 +953,7 @@ test('can build without copying original markdown source', async () => {
   });
 
   const guideHtml = await fs.readFile(path.join(tempDir, '_site', 'guide.html'), 'utf8');
-  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'), 'utf8'));
   const buildReport = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'build-report.json'), 'utf8'));
   const resolvedConfig = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'build-pages-config.json'), 'utf8'));
   const guidePage = previewData.content.pages.find((page) => page.slug === 'guide');
@@ -1011,7 +1011,7 @@ test('excludes nested public directory from markdown discovery', async () => {
     skipLinkCheck: true,
   });
 
-  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'), 'utf8'));
   assert.equal(previewData.content.pages.some((page) => page.slug === 'asset'), false);
   await fs.access(path.join(tempDir, '_site', 'asset.md'));
   assert.equal(await pathExists(path.join(tempDir, '_site', 'asset.html')), false);
@@ -1366,7 +1366,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.doesNotMatch(indexHtml, /Published with/);
   assert.doesNotMatch(indexHtml, /<meta name="generator" content="ZeroPress">/);
   assert.equal(robotsTxt.trim(), 'User-agent: *\nDisallow: /');
-  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'), 'utf8'));
   assert.equal(previewData.$schema, 'https://schemas.zeropress.dev/preview-data/v0.7/schema.json');
   assert.equal(previewData.version, '0.7');
   assert.deepEqual(previewData.custom_html, {
@@ -1528,7 +1528,7 @@ test('uses effective paths while allowing duplicate Page leaf slugs in front-pag
   });
 
   const previewData = JSON.parse(await fs.readFile(
-    path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'),
+    path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'),
     'utf8',
   ));
   assert.deepEqual(
@@ -1605,7 +1605,7 @@ test('adds git updated_at timestamp and honors page-level overrides', async () =
     skipLinkCheck: true,
   });
 
-  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'), 'utf8'));
   const resolvedConfig = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'build-pages-config.json'), 'utf8'));
   const pages = new Map(previewData.content.pages.map((page) => [page.slug, page]));
 
@@ -1654,7 +1654,7 @@ test('front matter can opt into git updated_at when config default is none', asy
     skipLinkCheck: true,
   });
 
-  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
+  const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'), 'utf8'));
   const home = previewData.content.pages.find((page) => page.slug === 'index');
   assert.equal(home.updated_at_iso, '2026-06-02T03:04:05Z');
 });
@@ -1690,7 +1690,7 @@ test('git updated_at follows the source file repository when invoked outside it'
     assert.equal(result.status, 0, `${scriptPath}\n${result.stderr}`);
     assert.doesNotMatch(result.stderr, /could not read git updated_at/);
     const previewData = JSON.parse(await fs.readFile(
-      path.join(invocationDir, '.zeropress-build-pages', 'preview-data.json'),
+      path.join(invocationDir, '.zeropress-build-pages', 'zeropress-preview-data.json'),
       'utf8',
     ));
     assert.equal(previewData.content.pages[0].updated_at_iso, '2026-06-03T04:05:06-04:00');
@@ -1724,7 +1724,7 @@ test('git updated_at warning is non-blocking when git history is unavailable', (
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stderr, /Warning: could not read git updated_at/);
-  assert.match(result.stdout, /Wrote \.zeropress-build-pages\/preview-data\.json with 1 pages/);
+  assert.match(result.stdout, /Wrote \.zeropress-build-pages\/zeropress-preview-data\.json with 1 pages/);
 });
 
 test('warns and ignores invalid front matter updated_at values', () => {
@@ -1763,7 +1763,7 @@ test('warns and ignores invalid front matter updated_at values', () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stderr, /Warning: ignored invalid front matter updated_at/);
-    const previewData = JSON.parse(fsSync.readFileSync(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
+    const previewData = JSON.parse(fsSync.readFileSync(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'), 'utf8'));
     const home = previewData.content.pages.find((page) => page.slug === 'index');
     assert.equal(Object.hasOwn(home, 'updated_at_iso'), false);
   }
@@ -1833,7 +1833,7 @@ test('warns and omits invalid front matter featured_image values', () => {
   assert.match(result.stderr, /source-relative featured_image must point to an existing file inside public-dir/);
   assert.match(result.stderr, /featured_image must be a non-empty string/);
 
-  const previewData = JSON.parse(fsSync.readFileSync(path.join(tempDir, '.zeropress-build-pages', 'preview-data.json'), 'utf8'));
+  const previewData = JSON.parse(fsSync.readFileSync(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'), 'utf8'));
   for (const page of previewData.content.pages) {
     assert.equal(Object.hasOwn(page, 'featured_image'), false);
   }
