@@ -476,7 +476,7 @@ See the public config reference at [build-pages.zeropress.dev/reference/config/]
 
 ```json
 {
-  "$schema": "https://schemas.zeropress.dev/build-pages-config/v1.0/schema.json",
+  "$schema": "https://www.schemastore.org/zeropress-build-pages-config-1.0.json",
   "version": "1.0",
   "site": {
     "title": "My Docs",
@@ -609,7 +609,7 @@ Bundled documentation themes show `Published with ZeroPress` by default. Set `si
 
 Schemas:
 
-- [ZeroPress Build Pages Config v1.0](https://schemas.zeropress.dev/build-pages-config/v1.0/schema.json) (current)
+- [ZeroPress Build Pages Config v1.0](https://www.schemastore.org/zeropress-build-pages-config-1.0.json) (current)
 - [ZeroPress Build Pages Config v0.1](https://schemas.zeropress.dev/build-pages-config/v0.1/schema.json) (historical)
 
 ## Search

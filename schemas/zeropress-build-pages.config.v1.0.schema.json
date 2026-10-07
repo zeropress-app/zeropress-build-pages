@@ -1,43 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.zeropress.dev/build-pages-config/v1.0/schema.json",
-  "title": "ZeroPress Build Pages Config v1.0",
-  "description": "Optional source-directory configuration for @zeropress/build-pages workflows.",
-  "markdownDescription": "Optional source-directory configuration for `@zeropress/build-pages` workflows.",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["version"],
-  "properties": {
-    "$schema": {
-      "type": "string",
-      "description": "Optional JSON Schema URI or path used by editors and tooling.",
-      "markdownDescription": "Optional JSON Schema URI or path used by editors and tooling."
-    },
-    "version": {
-      "type": "string",
-      "const": "1.0",
-      "description": "ZeroPress Build Pages config format version.",
-      "markdownDescription": "ZeroPress Build Pages config format version."
-    },
-    "site": {
-      "$ref": "#/$defs/site"
-    },
-    "markdown": {
-      "$ref": "#/$defs/markdown"
-    },
-    "front_page": {
-      "$ref": "#/$defs/frontPage"
-    },
-    "custom_html": {
-      "$ref": "#/$defs/customHtml"
-    },
-    "menus": {
-      "$ref": "#/$defs/menus"
-    },
-    "collections": {
-      "$ref": "#/$defs/collections"
-    }
-  },
   "$defs": {
     "absoluteWebUrl": {
       "type": "string",
@@ -52,8 +15,12 @@
       "anyOf": [
         {
           "allOf": [
-            { "$ref": "#/$defs/absoluteWebUrl" },
-            { "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://[^/?#]+/(?=[^?#]*[^/?#])" }
+            {
+              "$ref": "#/$defs/absoluteWebUrl"
+            },
+            {
+              "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://[^/?#]+/(?=[^?#]*[^/?#])"
+            }
           ]
         },
         {
@@ -88,9 +55,21 @@
             }
           ],
           "allOf": [
-            { "not": { "pattern": "[\\\\\\s\\p{Cc}]" } },
-            { "not": { "pattern": "%(?![0-9A-Fa-f]{2})" } },
-            { "not": { "pattern": "%(?:0[0-9A-Fa-f]|1[0-9A-Fa-f]|7[Ff]|5[Cc])" } }
+            {
+              "not": {
+                "pattern": "[\\\\\\s\\p{Cc}]"
+              }
+            },
+            {
+              "not": {
+                "pattern": "%(?![0-9A-Fa-f]{2})"
+              }
+            },
+            {
+              "not": {
+                "pattern": "%(?:0[0-9A-Fa-f]|1[0-9A-Fa-f]|7[Ff]|5[Cc])"
+              }
+            }
           ],
           "x-zeropress-runtime-url-validation": "WHATWG URL parsing validates hostname, port range, and IP-address syntax.",
           "description": "Canonical HTTP(S) site URL at the origin root. Paths, queries, fragments, and subdirectory hosting are not supported. Use an empty string or omit this field when the deployment URL is not known.",
@@ -234,15 +213,21 @@
         {
           "if": {
             "properties": {
-              "type": { "const": "theme_index" }
+              "type": {
+                "const": "theme_index"
+              }
             },
             "required": ["type"]
           },
           "then": {
             "not": {
               "anyOf": [
-                { "required": ["file"] },
-                { "required": ["layout"] }
+                {
+                  "required": ["file"]
+                },
+                {
+                  "required": ["layout"]
+                }
               ]
             }
           }
@@ -250,7 +235,9 @@
         {
           "if": {
             "properties": {
-              "type": { "const": "markdown" }
+              "type": {
+                "const": "markdown"
+              }
             },
             "required": ["type"]
           },
@@ -269,7 +256,9 @@
         {
           "if": {
             "properties": {
-              "type": { "const": "html" }
+              "type": {
+                "const": "html"
+              }
             },
             "required": ["type"]
           },
@@ -301,9 +290,21 @@
           "format": "uri",
           "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?:\\[[0-9A-Fa-f:.]+\\]|[^/?#:@]+)(?::[0-9]+)?(?:[/?#].*)?$",
           "allOf": [
-            { "not": { "pattern": "[\\\\\\s\\p{Cc}]" } },
-            { "not": { "pattern": "%(?![0-9A-Fa-f]{2})" } },
-            { "not": { "pattern": "%(?:0[0-9A-Fa-f]|1[0-9A-Fa-f]|7[Ff]|5[Cc])" } }
+            {
+              "not": {
+                "pattern": "[\\\\\\s\\p{Cc}]"
+              }
+            },
+            {
+              "not": {
+                "pattern": "%(?![0-9A-Fa-f]{2})"
+              }
+            },
+            {
+              "not": {
+                "pattern": "%(?:0[0-9A-Fa-f]|1[0-9A-Fa-f]|7[Ff]|5[Cc])"
+              }
+            }
           ]
         },
         {
@@ -339,7 +340,9 @@
       "properties": {
         "file": {
           "allOf": [
-            { "$ref": "#/$defs/sourceFilePath" },
+            {
+              "$ref": "#/$defs/sourceFilePath"
+            },
             {
               "type": "string",
               "pattern": "^\\.zeropress/.+\\.html$"
@@ -454,7 +457,9 @@
           "uniqueItems": true,
           "items": {
             "allOf": [
-              { "$ref": "#/$defs/sourceFilePath" },
+              {
+                "$ref": "#/$defs/sourceFilePath"
+              },
               {
                 "type": "string",
                 "pattern": "\\.md$"
@@ -463,6 +468,43 @@
           }
         }
       }
+    }
+  },
+  "title": "ZeroPress Build Pages Config v1.0",
+  "description": "Optional source-directory configuration for @zeropress/build-pages workflows.",
+  "markdownDescription": "Optional source-directory configuration for `@zeropress/build-pages` workflows.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional JSON Schema URI or path used by editors and tooling.",
+      "markdownDescription": "Optional JSON Schema URI or path used by editors and tooling."
+    },
+    "version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "ZeroPress Build Pages config format version.",
+      "markdownDescription": "ZeroPress Build Pages config format version."
+    },
+    "site": {
+      "$ref": "#/$defs/site"
+    },
+    "markdown": {
+      "$ref": "#/$defs/markdown"
+    },
+    "front_page": {
+      "$ref": "#/$defs/frontPage"
+    },
+    "custom_html": {
+      "$ref": "#/$defs/customHtml"
+    },
+    "menus": {
+      "$ref": "#/$defs/menus"
+    },
+    "collections": {
+      "$ref": "#/$defs/collections"
     }
   },
   "examples": [
@@ -480,7 +522,9 @@
         "locale": "en-US",
         "expose_generator": true,
         "search": true,
-        "robots": { "allow_indexing": true },
+        "robots": {
+          "allow_indexing": true
+        },
         "meta": {
           "issue": "Spring 2026"
         }
@@ -504,7 +548,10 @@
         "primary": {
           "name": "Primary Menu",
           "items": [
-            { "title": "Home", "url": "/" },
+            {
+              "title": "Home",
+              "url": "/"
+            },
             {
               "title": "Docs",
               "url": "/docs/",
@@ -519,10 +566,7 @@
       "collections": {
         "guides": {
           "title": "Guides",
-          "items": [
-            "getting-started/index.md",
-            "deployment/index.md"
-          ]
+          "items": ["getting-started/index.md", "deployment/index.md"]
         }
       }
     }

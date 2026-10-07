@@ -1367,7 +1367,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   assert.doesNotMatch(indexHtml, /<meta name="generator" content="ZeroPress">/);
   assert.equal(robotsTxt.trim(), 'User-agent: *\nDisallow: /');
   const previewData = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'zeropress-preview-data.json'), 'utf8'));
-  assert.equal(previewData.$schema, 'https://schemas.zeropress.dev/preview-data/v0.7/schema.json');
+  assert.equal(previewData.$schema, 'https://www.schemastore.org/zeropress-preview-data-0.7.json');
   assert.equal(previewData.version, '0.7');
   assert.deepEqual(previewData.custom_html, {
     head_end: ' \n<meta name="test-head" content="ok">\n ',
@@ -1404,7 +1404,7 @@ test('builds with config, custom theme path, and source inside a subdirectory', 
   });
   assert.equal(Object.hasOwn(previewData.site, 'comments'), false);
   const resolvedConfig = JSON.parse(await fs.readFile(path.join(tempDir, '.zeropress-build-pages', 'build-pages-config.json'), 'utf8'));
-  assert.equal(resolvedConfig.$schema, 'https://schemas.zeropress.dev/build-pages-config/v1.0/schema.json');
+  assert.equal(resolvedConfig.$schema, 'https://www.schemastore.org/zeropress-build-pages-config-1.0.json');
   assert.equal(resolvedConfig.version, '1.0');
   assert.deepEqual(resolvedConfig.markdown, {
     updated_at: 'none',
