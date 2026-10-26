@@ -4209,109 +4209,6 @@ var require_is_plain_object = __commonJS({
   }
 });
 
-// node_modules/deepmerge/dist/cjs.js
-var require_cjs = __commonJS({
-  "node_modules/deepmerge/dist/cjs.js"(exports, module) {
-    "use strict";
-    var isMergeableObject = function isMergeableObject2(value) {
-      return isNonNullObject(value) && !isSpecial(value);
-    };
-    function isNonNullObject(value) {
-      return !!value && typeof value === "object";
-    }
-    function isSpecial(value) {
-      var stringValue = Object.prototype.toString.call(value);
-      return stringValue === "[object RegExp]" || stringValue === "[object Date]" || isReactElement(value);
-    }
-    var canUseSymbol = typeof Symbol === "function" && Symbol.for;
-    var REACT_ELEMENT_TYPE = canUseSymbol ? /* @__PURE__ */ Symbol.for("react.element") : 60103;
-    function isReactElement(value) {
-      return value.$$typeof === REACT_ELEMENT_TYPE;
-    }
-    function emptyTarget(val) {
-      return Array.isArray(val) ? [] : {};
-    }
-    function cloneUnlessOtherwiseSpecified(value, options) {
-      return options.clone !== false && options.isMergeableObject(value) ? deepmerge(emptyTarget(value), value, options) : value;
-    }
-    function defaultArrayMerge(target, source, options) {
-      return target.concat(source).map(function(element) {
-        return cloneUnlessOtherwiseSpecified(element, options);
-      });
-    }
-    function getMergeFunction(key, options) {
-      if (!options.customMerge) {
-        return deepmerge;
-      }
-      var customMerge = options.customMerge(key);
-      return typeof customMerge === "function" ? customMerge : deepmerge;
-    }
-    function getEnumerableOwnPropertySymbols(target) {
-      return Object.getOwnPropertySymbols ? Object.getOwnPropertySymbols(target).filter(function(symbol) {
-        return Object.propertyIsEnumerable.call(target, symbol);
-      }) : [];
-    }
-    function getKeys(target) {
-      return Object.keys(target).concat(getEnumerableOwnPropertySymbols(target));
-    }
-    function propertyIsOnObject(object, property) {
-      try {
-        return property in object;
-      } catch (_) {
-        return false;
-      }
-    }
-    function propertyIsUnsafe(target, key) {
-      return propertyIsOnObject(target, key) && !(Object.hasOwnProperty.call(target, key) && Object.propertyIsEnumerable.call(target, key));
-    }
-    function mergeObject(target, source, options) {
-      var destination = {};
-      if (options.isMergeableObject(target)) {
-        getKeys(target).forEach(function(key) {
-          destination[key] = cloneUnlessOtherwiseSpecified(target[key], options);
-        });
-      }
-      getKeys(source).forEach(function(key) {
-        if (propertyIsUnsafe(target, key)) {
-          return;
-        }
-        if (propertyIsOnObject(target, key) && options.isMergeableObject(source[key])) {
-          destination[key] = getMergeFunction(key, options)(target[key], source[key], options);
-        } else {
-          destination[key] = cloneUnlessOtherwiseSpecified(source[key], options);
-        }
-      });
-      return destination;
-    }
-    function deepmerge(target, source, options) {
-      options = options || {};
-      options.arrayMerge = options.arrayMerge || defaultArrayMerge;
-      options.isMergeableObject = options.isMergeableObject || isMergeableObject;
-      options.cloneUnlessOtherwiseSpecified = cloneUnlessOtherwiseSpecified;
-      var sourceIsArray = Array.isArray(source);
-      var targetIsArray = Array.isArray(target);
-      var sourceAndTargetTypesMatch = sourceIsArray === targetIsArray;
-      if (!sourceAndTargetTypesMatch) {
-        return cloneUnlessOtherwiseSpecified(source, options);
-      } else if (sourceIsArray) {
-        return options.arrayMerge(target, source, options);
-      } else {
-        return mergeObject(target, source, options);
-      }
-    }
-    deepmerge.all = function deepmergeAll(array, options) {
-      if (!Array.isArray(array)) {
-        throw new Error("first argument should be an array");
-      }
-      return array.reduce(function(prev, next) {
-        return deepmerge(prev, next, options);
-      }, {});
-    };
-    var deepmerge_1 = deepmerge;
-    module.exports = deepmerge_1;
-  }
-});
-
 // node_modules/parse-srcset/src/parse-srcset.js
 var require_parse_srcset = __commonJS({
   "node_modules/parse-srcset/src/parse-srcset.js"(exports, module) {
@@ -5308,8 +5205,28 @@ var require_stringify = __commonJS({
       if (!str.includes("<")) return str;
       return str.replace(STYLE_TAG, "\\3c $2").replace(COMMENT_OPEN, "\\3c $2");
     }
+    function cutEscaped(chunks, css, escaped) {
+      let parts = [];
+      let at = 0;
+      let into = 0;
+      for (let i = 0; i < chunks.length; i += 3) {
+        let from = into;
+        let end = at + chunks[i].length;
+        while (at < end) {
+          if (css[at] === escaped[into]) {
+            at += 1;
+            into += 1;
+          } else {
+            at += 1;
+            into += 4;
+          }
+        }
+        parts.push(escaped.slice(from, into));
+      }
+      return parts;
+    }
     var SafeStringifier = class extends Stringifier {
-      escapeHTML(node, print) {
+      escapeHTML(print) {
         let builder = this.builder;
         let chunks, css;
         this.builder = (str, child, type) => {
@@ -5332,15 +5249,18 @@ var require_stringify = __commonJS({
             builder(chunks[i], chunks[i + 1], chunks[i + 2]);
           }
         } else {
-          builder(escaped, node);
+          let parts = cutEscaped(chunks, css, escaped);
+          for (let i = 0; i < chunks.length; i += 3) {
+            builder(parts[i / 3], chunks[i + 1], chunks[i + 2]);
+          }
         }
       }
       root(node) {
         if (node.parent && node.parent.type === "document") {
-          this.escapeHTML(node, () => this.body(node));
+          this.escapeHTML(() => this.body(node));
           if (node.raws.after) this.builder(node.raws.after);
         } else {
-          this.escapeHTML(node, () => super.root(node));
+          this.escapeHTML(() => super.root(node));
         }
       }
     };
@@ -5349,7 +5269,7 @@ var require_stringify = __commonJS({
       if (node.type === "root" || node.type === "document") {
         str.stringify(node);
       } else {
-        str.escapeHTML(node, () => str.stringify(node));
+        str.escapeHTML(() => str.stringify(node));
       }
     }
     module.exports = stringify;
@@ -10549,7 +10469,7 @@ var require_processor = __commonJS({
     var Root2 = require_root();
     var Processor = class {
       constructor(plugins = []) {
-        this.version = "8.5.29";
+        this.version = "8.5.31";
         this.plugins = this.normalize(plugins);
       }
       normalize(plugins) {
@@ -11340,7 +11260,6 @@ var require_sanitize_html = __commonJS({
     var htmlparser = (init_dist6(), __toCommonJS(dist_exports3));
     var escapeStringRegexp = require_escape_string_regexp();
     var { isPlainObject } = require_is_plain_object();
-    var deepmerge = require_cjs();
     var parseSrcset = require_parse_srcset();
     var { parse: postcssParse } = require_postcss();
     var { naughtyHref: launderNaughtyHref } = require_launder();
@@ -11364,6 +11283,15 @@ var require_sanitize_html = __commonJS({
       "set"
     ];
     var alwaysUrlAttributes = ["href"];
+    var severities = ["debug", "info", "warn", "error"];
+    function loggerFor(options) {
+      const source = options && options.logger || console;
+      const logger = {};
+      for (const severity of severities) {
+        logger[severity] = typeof source[severity] === "function" ? (...args) => source[severity](...args) : (...args) => console[severity](...args);
+      }
+      return logger;
+    }
     function each(obj, cb) {
       if (obj) {
         Object.keys(obj).forEach(function(key) {
@@ -11373,6 +11301,21 @@ var require_sanitize_html = __commonJS({
     }
     function has(obj, key) {
       return {}.hasOwnProperty.call(obj, key);
+    }
+    function mergeClasses(specific, wildcard) {
+      if (!Array.isArray(specific) || !Array.isArray(wildcard)) {
+        return wildcard;
+      }
+      return specific.concat(wildcard);
+    }
+    function mergeStyles(specific, wildcard) {
+      const merged = /* @__PURE__ */ Object.create(null);
+      for (const rules of [specific, wildcard]) {
+        for (const prop of Object.keys(rules)) {
+          merged[prop] = has(merged, prop) ? merged[prop].concat(rules[prop]) : rules[prop];
+        }
+      }
+      return merged;
     }
     function filter2(a, cb) {
       const n = [];
@@ -11401,10 +11344,13 @@ var require_sanitize_html = __commonJS({
     }
     module.exports = sanitizeHtml2;
     var VALID_HTML_ATTRIBUTE_NAME = /^[^\0\t\n\f\r /<=>]+$/;
-    function sanitizeHtml2(html, options, _recursing) {
+    var MAX_IFRAME_FALLBACK_DEPTH = 8;
+    function sanitizeHtml2(html, options, _fallback) {
       if (html == null) {
         return "";
       }
+      const baseDepth = _fallback && _fallback.depth || 0;
+      const iframeFallbackDepth = _fallback && _fallback.iframeFallbackDepth || 0;
       if (typeof html === "number") {
         html = html.toString();
       }
@@ -11433,19 +11379,15 @@ var require_sanitize_html = __commonJS({
       }
       options = Object.assign({}, sanitizeHtml2.defaults, options);
       options.parser = Object.assign({}, htmlParserDefaults, options.parser);
+      const logger = loggerFor(options);
       const tagAllowed = function(name) {
         return options.allowedTags === false || (options.allowedTags || []).indexOf(name) > -1;
       };
       vulnerableTags.forEach(function(tag) {
         if (tagAllowed(tag) && !options.allowVulnerableTags) {
-          console.warn(`
-
-\u26A0\uFE0F Your \`allowedTags\` option includes, \`${tag}\`, which is inherently
-vulnerable to XSS attacks. Please remove it from \`allowedTags\`.
-Or, to disable this warning, add the \`allowVulnerableTags\` option
-and ensure you are accounting for this risk.
-
-`);
+          logger.warn(
+            `Your \`allowedTags\` option includes \`${tag}\`, which is inherently vulnerable to XSS attacks. Please remove it from \`allowedTags\`, or, to disable this warning, add the \`allowVulnerableTags\` option and ensure you are accounting for this risk.`
+          );
         }
       });
       const nonTextTagsArray = options.nonTextTags || [
@@ -11525,6 +11467,8 @@ and ensure you are accounting for this risk.
       let transformMap;
       let skipText;
       let skipTextDepth;
+      let rawTextEnd;
+      let skipRawText;
       let addedText = false;
       initializeState();
       const parser = new htmlparser.Parser({
@@ -11532,8 +11476,12 @@ and ensure you are accounting for this risk.
           if (options.onOpenTag) {
             options.onOpenTag(name, attribs);
           }
+          updateRawTextRegion();
           if (options.enforceHtmlBoundary && name === "html") {
             initializeState();
+          }
+          if (skipRawText) {
+            return;
           }
           if (skipText) {
             skipTextDepth++;
@@ -11570,6 +11518,9 @@ and ensure you are accounting for this risk.
               if (nonTextTagsArray.indexOf(name) !== -1) {
                 skipText = true;
                 skipTextDepth = 1;
+                if (frame.tag.toLowerCase() === "noscript") {
+                  rawTextEnd = findRawTextEnd("noscript", parser.endIndex + 1);
+                }
               }
             }
           }
@@ -11645,6 +11596,10 @@ and ensure you are accounting for this risk.
                     return;
                   }
                 }
+                if (name === "meta" && a.toLowerCase() === "content" && isRefresh(attribs) && naughtyRefresh(value)) {
+                  delete frame.attribs[a];
+                  return;
+                }
                 if (name === "script" && a === "src") {
                   let allowed = true;
                   try {
@@ -11693,7 +11648,7 @@ and ensure you are accounting for this risk.
                   try {
                     let parsed = parseSrcset(value);
                     parsed.forEach(function(value2) {
-                      if (naughtyHref(a, value2.url)) {
+                      if (naughtyHref(name, value2.url)) {
                         value2.evil = true;
                       }
                     });
@@ -11730,7 +11685,7 @@ and ensure you are accounting for this risk.
                   if (allowedSpecificClasses && allowedWildcardClasses) {
                     value = filterClasses(
                       value,
-                      deepmerge(allowedSpecificClasses, allowedWildcardClasses),
+                      mergeClasses(allowedSpecificClasses, allowedWildcardClasses),
                       allowedClassesGlobs
                     );
                   } else {
@@ -11760,7 +11715,9 @@ and ensure you are accounting for this risk.
                       }
                     } catch (e) {
                       if (typeof window !== "undefined") {
-                        console.warn('Failed to parse "' + name + " {" + value + `}", If you're running this in a browser, we recommend to disable style parsing: options.parseStyleAttributes: false, since this only works in a node environment due to a postcss dependency, More info: https://github.com/apostrophecms/sanitize-html/issues/547`);
+                        logger.warn(
+                          `Failed to parse "${name} {${value}}". If you are running this in a browser, we recommend disabling style parsing with the parseStyleAttributes option, since it only works in a node environment due to a postcss dependency. More info: https://github.com/apostrophecms/sanitize-html/issues/547`
+                        );
                       }
                       delete frame.attribs[a];
                       return;
@@ -11801,7 +11758,8 @@ and ensure you are accounting for this risk.
           frame.openingTagLength = result.length - frame.tagPosition;
         },
         ontext: function(text2) {
-          if (skipText) {
+          updateRawTextRegion();
+          if (skipText || skipRawText) {
             return;
           }
           const lastFrame = stack[stack.length - 1];
@@ -11820,6 +11778,19 @@ and ensure you are accounting for this risk.
             } else {
               result += escapeHtml5(text2, false);
             }
+          } else if (
+            // htmlparser2 treats <iframe> as a raw-text element, so markup inside
+            // (including after an unclosed <iframe>) arrives as a single text node.
+            // When the iframe is discarded, re-sanitize that fallback markup as HTML
+            // instead of escaping it as plain text (issue #5550).
+            // The nested call continues from the current depth so that
+            // `nestingLimit` applies to the whole output.
+            tag === "iframe" && !tagAllowed(tag) && options.disallowedTagsMode === "discard" && iframeFallbackDepth < MAX_IFRAME_FALLBACK_DEPTH
+          ) {
+            result += sanitizeHtml2(text2, options, {
+              depth,
+              iframeFallbackDepth: iframeFallbackDepth + 1
+            });
           } else if (!addedText) {
             const escaped = escapeHtml5(text2, false);
             if (options.textFilter) {
@@ -11837,10 +11808,19 @@ and ensure you are accounting for this risk.
           if (options.onCloseTag) {
             options.onCloseTag(name, isImplied);
           }
-          if (skipText) {
+          updateRawTextRegion();
+          if (skipRawText) {
+            const lastFrame = stack[stack.length - 1];
+            if (!lastFrame || lastFrame.tag !== name) {
+              return;
+            }
+          } else if (skipText) {
             skipTextDepth--;
             if (!skipTextDepth) {
               skipText = false;
+              if (rawTextEnd !== null) {
+                skipRawText = true;
+              }
             } else {
               return;
             }
@@ -11918,12 +11898,26 @@ and ensure you are accounting for this risk.
       return result;
       function initializeState() {
         result = "";
-        depth = 0;
+        depth = baseDepth;
         stack = [];
         skipMap = {};
         transformMap = {};
         skipText = false;
         skipTextDepth = 0;
+        rawTextEnd = null;
+        skipRawText = false;
+      }
+      function updateRawTextRegion() {
+        if (rawTextEnd !== null && parser.startIndex >= rawTextEnd) {
+          rawTextEnd = null;
+          skipRawText = false;
+        }
+      }
+      function findRawTextEnd(tagName, from) {
+        const re = new RegExp("</" + tagName + "[\\t\\n\\f\\r />]", "ig");
+        re.lastIndex = from;
+        const match = re.exec(html);
+        return match ? match.index : Infinity;
       }
       function escapeHtml5(s, quote) {
         if (typeof s !== "string") {
@@ -11948,19 +11942,93 @@ and ensure you are accounting for this risk.
           allowProtocolRelative: options.allowProtocolRelative
         });
       }
+      function isRefresh(attribs) {
+        return Object.keys(attribs).some(function(a) {
+          return a.toLowerCase() === "http-equiv" && String(attribs[a]).trim().toLowerCase() === "refresh";
+        });
+      }
+      function naughtyRefresh(content) {
+        const input2 = String(content);
+        const isWhitespace2 = function(c) {
+          return c === " " || c === "	" || c === "\n" || c === "\f" || c === "\r";
+        };
+        let position = 0;
+        const skipWhitespace = function() {
+          while (position < input2.length && isWhitespace2(input2[position])) {
+            position++;
+          }
+        };
+        const lowerAt = function(i) {
+          return (input2[i] || "").toLowerCase();
+        };
+        skipWhitespace();
+        const timeStart = position;
+        while (position < input2.length && /[0-9.]/.test(input2[position])) {
+          position++;
+        }
+        if (position === timeStart) {
+          return true;
+        }
+        if (position < input2.length) {
+          const c = input2[position];
+          if (c !== ";" && c !== "," && !isWhitespace2(c)) {
+            return true;
+          }
+          skipWhitespace();
+          if (input2[position] === ";" || input2[position] === ",") {
+            position++;
+          }
+          skipWhitespace();
+        }
+        if (position >= input2.length) {
+          return false;
+        }
+        let url = input2.slice(position);
+        let quoted = true;
+        if (lowerAt(position) === "u") {
+          quoted = false;
+          if (lowerAt(position + 1) === "r" && lowerAt(position + 2) === "l") {
+            position += 3;
+            skipWhitespace();
+            if (input2[position] === "=") {
+              position++;
+              skipWhitespace();
+              quoted = true;
+            }
+          }
+        }
+        if (quoted) {
+          const quote = input2[position];
+          if (quote === '"' || quote === "'") {
+            position++;
+          }
+          url = input2.slice(position);
+          if (quote === '"' || quote === "'") {
+            const end = url.indexOf(quote);
+            if (end !== -1) {
+              url = url.slice(0, end);
+            }
+          }
+        }
+        return naughtyHref("meta", url);
+      }
       function animatesUrlAttribute(name, attribs) {
-        if (svgAnimationTags.indexOf(name.toLowerCase()) === -1) {
+        if (svgAnimationTags.indexOf(localPart(name)) === -1) {
           return false;
         }
         const schemeCheckedAttributes = options.allowedSchemesAppliedToAttributes || [];
         return Object.keys(attribs || {}).some(function(attributeName) {
-          if (attributeName.toLowerCase() !== "attributename") {
+          if (localPart(attributeName) !== "attributename") {
             return false;
           }
           const target = (attribs[attributeName] || "").trim().toLowerCase();
           const localName = target.slice(target.lastIndexOf(":") + 1);
           return alwaysUrlAttributes.indexOf(localName) !== -1 || schemeCheckedAttributes.indexOf(target) !== -1 || schemeCheckedAttributes.indexOf(localName) !== -1;
         });
+      }
+      function localPart(name) {
+        const lower = name.toLowerCase();
+        return lower.slice(lower.lastIndexOf(":") + 1);
       }
       function parseUrl(value) {
         value = value.replace(/^(\w+:)?\s*[\\/]\s*[\\/]/, "$1//");
@@ -11985,7 +12053,7 @@ and ensure you are accounting for this risk.
         const astRules = abstractSyntaxTree.nodes[0];
         let selectedRule;
         if (allowedStyles[astRules.selector] && allowedStyles["*"]) {
-          selectedRule = deepmerge(
+          selectedRule = mergeStyles(
             allowedStyles[astRules.selector],
             allowedStyles["*"]
           );
@@ -70631,12 +70699,14 @@ var StateBlock = class {
     const s = this.src;
     for (let start = 0, pos = 0, indent = 0, offset = 0, len = s.length, indent_found = false; pos < len; pos++) {
       const ch = s.charCodeAt(pos);
-      if (!indent_found) if (isSpace(ch)) {
-        indent++;
-        if (ch === 9) offset += 4 - offset % 4;
-        else offset++;
-        continue;
-      } else indent_found = true;
+      if (!indent_found) {
+        if (isSpace(ch)) {
+          indent++;
+          if (ch === 9) offset += 4 - offset % 4;
+          else offset++;
+          continue;
+        } else indent_found = true;
+      }
       if (ch === 10 || pos === len - 1) {
         if (ch !== 10) pos++;
         this.bMarks.push(start);
@@ -70703,9 +70773,10 @@ var StateBlock = class {
       else last = this.eMarks[line];
       while (first < last && lineIndent < indent) {
         const ch = this.src.charCodeAt(first);
-        if (isSpace(ch)) if (ch === 9) lineIndent += 4 - (lineIndent + this.bsCount[line]) % 4;
-        else lineIndent++;
-        else if (first - lineStart < this.tShift[line]) lineIndent++;
+        if (isSpace(ch)) {
+          if (ch === 9) lineIndent += 4 - (lineIndent + this.bsCount[line]) % 4;
+          else lineIndent++;
+        } else if (first - lineStart < this.tShift[line]) lineIndent++;
         else break;
         first++;
       }
@@ -70730,13 +70801,15 @@ function escapedSplit(str) {
   let lastPos = 0;
   let current = "";
   while (pos < max) {
-    if (ch === 124) if (!isEscaped) {
-      result.push(current + str.substring(lastPos, pos));
-      current = "";
-      lastPos = pos + 1;
-    } else {
-      current += str.substring(lastPos, pos - 1);
-      lastPos = pos;
+    if (ch === 124) {
+      if (!isEscaped) {
+        result.push(current + str.substring(lastPos, pos));
+        current = "";
+        lastPos = pos + 1;
+      } else {
+        current += str.substring(lastPos, pos - 1);
+        lastPos = pos;
+      }
     }
     isEscaped = ch === 92;
     pos++;
@@ -70768,8 +70841,10 @@ function table(state, startLine, endLine, silent) {
   const aligns = [];
   for (let i = 0; i < columns.length; i++) {
     const t = columns[i].trim();
-    if (!t) if (i === 0 || i === columns.length - 1) continue;
-    else return false;
+    if (!t) {
+      if (i === 0 || i === columns.length - 1) continue;
+      else return false;
+    }
     if (!/^:?-+:?$/.test(t)) return false;
     if (t.charCodeAt(t.length - 1) === 58) aligns.push(t.charCodeAt(0) === 58 ? "center" : "right");
     else if (t.charCodeAt(0) === 58) aligns.push("left");
@@ -70956,9 +71031,10 @@ function blockquote(state, startLine, endLine, silent) {
       state.bMarks[nextLine] = pos;
       while (pos < max) {
         const ch = state.src.charCodeAt(pos);
-        if (isSpace(ch)) if (ch === 9) offset += 4 - (offset + state.bsCount[nextLine] + (adjustTab ? 1 : 0)) % 4;
-        else offset++;
-        else break;
+        if (isSpace(ch)) {
+          if (ch === 9) offset += 4 - (offset + state.bsCount[nextLine] + (adjustTab ? 1 : 0)) % 4;
+          else offset++;
+        } else break;
         pos++;
       }
       lastLineEmpty = pos >= max;
@@ -71185,131 +71261,141 @@ function list(state, startLine, endLine, silent) {
   if (tight) markTightParagraphs(state, listTokIdx);
   return true;
 }
+var MAX_LABEL_LENGTH = 999;
+function countCodePoints(str) {
+  let length = str.length;
+  for (let i = 0; i < str.length - 1; i++) {
+    const high = str.charCodeAt(i);
+    if (high < 55296 || high > 56319) continue;
+    const low = str.charCodeAt(i + 1);
+    if (low >= 56320 && low <= 57343) {
+      length--;
+      i++;
+    }
+  }
+  return length;
+}
+function lineEnd(state, line) {
+  return Math.min(state.eMarks[line] + 1, state.src.length);
+}
+function getNextLinePos(state, nextLine) {
+  const endLine = state.lineMax;
+  if (nextLine >= endLine || state.isEmpty(nextLine)) return -1;
+  let isContinuation = false;
+  if (state.sCount[nextLine] - state.blkIndent > 3) isContinuation = true;
+  if (state.sCount[nextLine] < 0) isContinuation = true;
+  if (!isContinuation) {
+    const terminatorRules = state.md.block.ruler.getRules("reference");
+    const oldParentType = state.parentType;
+    state.parentType = "reference";
+    let terminate = false;
+    for (let i = 0, l = terminatorRules.length; i < l; i++) if (terminatorRules[i](state, nextLine, endLine, true)) {
+      terminate = true;
+      break;
+    }
+    state.parentType = oldParentType;
+    if (terminate) return -1;
+  }
+  return state.bMarks[nextLine] + state.tShift[nextLine];
+}
 function reference(state, startLine, _endLine, silent) {
+  const src = state.src;
   let pos = state.bMarks[startLine] + state.tShift[startLine];
-  let max = state.eMarks[startLine];
   let nextLine = startLine + 1;
   if (state.sCount[startLine] - state.blkIndent >= 4) return false;
-  if (state.src.charCodeAt(pos) !== 91) return false;
-  function getNextLine(nextLine2) {
-    const endLine = state.lineMax;
-    if (nextLine2 >= endLine || state.isEmpty(nextLine2)) return null;
-    let isContinuation = false;
-    if (state.sCount[nextLine2] - state.blkIndent > 3) isContinuation = true;
-    if (state.sCount[nextLine2] < 0) isContinuation = true;
-    if (!isContinuation) {
-      const terminatorRules = state.md.block.ruler.getRules("reference");
-      const oldParentType = state.parentType;
-      state.parentType = "reference";
-      let terminate = false;
-      for (let i = 0, l = terminatorRules.length; i < l; i++) if (terminatorRules[i](state, nextLine2, endLine, true)) {
-        terminate = true;
-        break;
-      }
-      state.parentType = oldParentType;
-      if (terminate) return null;
-    }
-    const pos2 = state.bMarks[nextLine2] + state.tShift[nextLine2];
-    const max2 = state.eMarks[nextLine2];
-    return state.src.slice(pos2, max2 + 1);
-  }
-  let str = state.src.slice(pos, max + 1);
-  max = str.length;
+  if (src.charCodeAt(pos) !== 91) return false;
+  let max = lineEnd(state, startLine);
+  let rawLabel = "";
   let labelEnd = -1;
-  for (pos = 1; pos < max; pos++) {
-    const ch = str.charCodeAt(pos);
+  let segmentStart = ++pos;
+  while (pos < max) {
+    if (rawLabel.length + pos - segmentStart > MAX_LABEL_LENGTH * 2) return false;
+    let ch = src.charCodeAt(pos);
     if (ch === 91) return false;
-    else if (ch === 93) {
+    if (ch === 93) {
       labelEnd = pos;
       break;
-    } else if (ch === 10) {
-      const lineContent = getNextLine(nextLine);
-      if (lineContent !== null) {
-        str += lineContent;
-        max = str.length;
-        nextLine++;
-      }
-    } else if (ch === 92) {
-      pos++;
-      if (pos < max && str.charCodeAt(pos) === 10) {
-        const lineContent = getNextLine(nextLine);
-        if (lineContent !== null) {
-          str += lineContent;
-          max = str.length;
-          nextLine++;
-        }
-      }
     }
+    if (ch === 92) ch = src.charCodeAt(++pos);
+    if (ch === 10 && pos < max) {
+      const nextPos = getNextLinePos(state, nextLine);
+      if (nextPos < 0) return false;
+      rawLabel += src.slice(segmentStart, max);
+      pos = segmentStart = nextPos;
+      max = lineEnd(state, nextLine++);
+      continue;
+    }
+    pos++;
   }
-  if (labelEnd < 0 || str.charCodeAt(labelEnd + 1) !== 58) return false;
-  for (pos = labelEnd + 2; pos < max; pos++) {
-    const ch = str.charCodeAt(pos);
+  if (labelEnd < 0 || src.charCodeAt(labelEnd + 1) !== 58) return false;
+  rawLabel += src.slice(segmentStart, labelEnd);
+  if (rawLabel.length > MAX_LABEL_LENGTH && countCodePoints(rawLabel) > MAX_LABEL_LENGTH) return false;
+  pos = labelEnd + 2;
+  while (pos < max) {
+    const ch = src.charCodeAt(pos);
     if (ch === 10) {
-      const lineContent = getNextLine(nextLine);
-      if (lineContent !== null) {
-        str += lineContent;
-        max = str.length;
-        nextLine++;
-      }
-    } else if (isSpace(ch)) {
-    } else break;
+      const nextPos = getNextLinePos(state, nextLine);
+      if (nextPos < 0) break;
+      pos = nextPos;
+      max = lineEnd(state, nextLine++);
+    } else if (isSpace(ch)) pos++;
+    else break;
   }
-  const destRes = state.md.helpers.parseLinkDestination(str, pos, max);
+  const destRes = state.md.helpers.parseLinkDestination(src, pos, max);
   if (!destRes.ok) return false;
   const href = state.md.normalizeLink(destRes.str);
   if (!state.md.validateLink(href)) return false;
   pos = destRes.pos;
   const destEndPos = pos;
+  const destEndMax = max;
   const destEndLineNo = nextLine;
-  const start = pos;
-  for (; pos < max; pos++) {
-    const ch = str.charCodeAt(pos);
+  while (pos < max) {
+    const ch = src.charCodeAt(pos);
     if (ch === 10) {
-      const lineContent = getNextLine(nextLine);
-      if (lineContent !== null) {
-        str += lineContent;
-        max = str.length;
-        nextLine++;
-      }
-    } else if (isSpace(ch)) {
-    } else break;
+      const nextPos = getNextLinePos(state, nextLine);
+      if (nextPos < 0) break;
+      pos = nextPos;
+      max = lineEnd(state, nextLine++);
+    } else if (isSpace(ch)) pos++;
+    else break;
   }
-  let titleRes = state.md.helpers.parseLinkTitle(str, pos, max);
+  const titleStart = pos;
+  let titleRes = state.md.helpers.parseLinkTitle(src, pos, max);
   while (titleRes.can_continue) {
-    const lineContent = getNextLine(nextLine);
-    if (lineContent === null) break;
-    str += lineContent;
-    pos = max;
-    max = str.length;
-    nextLine++;
-    titleRes = state.md.helpers.parseLinkTitle(str, pos, max, titleRes);
+    const nextPos = getNextLinePos(state, nextLine);
+    if (nextPos < 0) break;
+    pos = nextPos;
+    max = lineEnd(state, nextLine++);
+    titleRes = state.md.helpers.parseLinkTitle(src, pos, max, titleRes);
   }
   let title;
-  if (pos < max && start !== pos && titleRes.ok) {
+  if (titleStart !== destEndPos && titleRes.ok) {
     title = titleRes.str;
     pos = titleRes.pos;
   } else {
     title = "";
     pos = destEndPos;
+    max = destEndMax;
     nextLine = destEndLineNo;
   }
   while (pos < max) {
-    if (!isSpace(str.charCodeAt(pos))) break;
+    if (!isSpace(src.charCodeAt(pos))) break;
     pos++;
   }
-  if (pos < max && str.charCodeAt(pos) !== 10) {
+  if (pos < max && src.charCodeAt(pos) !== 10) {
     if (title) {
       title = "";
       pos = destEndPos;
+      max = destEndMax;
       nextLine = destEndLineNo;
       while (pos < max) {
-        if (!isSpace(str.charCodeAt(pos))) break;
+        if (!isSpace(src.charCodeAt(pos))) break;
         pos++;
       }
     }
   }
-  if (pos < max && str.charCodeAt(pos) !== 10) return false;
-  const label = normalizeReference(str.slice(1, labelEnd));
+  if (pos < max && src.charCodeAt(pos) !== 10) return false;
+  const label = normalizeReference(rawLabel);
   if (!label) return false;
   if (silent) return true;
   if (typeof state.env.references === "undefined") state.env.references = {};
@@ -71392,7 +71478,7 @@ var html_blocks_default = [
 ];
 var open_tag = `<[A-Za-z][A-Za-z0-9\\-]*(?:\\s+[a-zA-Z_:][a-zA-Z0-9:._-]*(?:\\s*=\\s*(?:[^"'=<>\`\\x00-\\x20]+|'[^']*'|"[^"]*"))?)*\\s*\\/?>`;
 var close_tag = "<\\/[A-Za-z][A-Za-z0-9\\-]*\\s*>";
-var HTML_TAG_RE = new RegExp(`^(?:${open_tag}|${close_tag}|<!---?>|<!--(?:[^-]|-[^-]|--[^>])*-->|<[?][\\s\\S]*?[?]>|<![A-Za-z][^>]*>|<!\\[CDATA\\[[\\s\\S]*?\\]\\]>)`);
+new RegExp(`^(?:${open_tag}|${close_tag}|<!---?>|<!--(?:[^-]|-[^-]|--[^>])*-->|<[?][\\s\\S]*?[?]>|<![A-Za-z][^>]*>|<!\\[CDATA\\[[\\s\\S]*?\\]\\]>)`);
 var HTML_OPEN_CLOSE_TAG_RE = new RegExp(`^(?:${open_tag}|${close_tag})`);
 var HTML_SEQUENCES = [
   [
@@ -71702,6 +71788,7 @@ var StateInline = class {
     _defineProperty(this, "cache", {});
     _defineProperty(this, "backticks", {});
     _defineProperty(this, "backticksScanned", false);
+    _defineProperty(this, "skipHtmlSpecial", false);
     _defineProperty(this, "linkLevel", 0);
     _defineProperty(this, "delimiters", []);
     _defineProperty(this, "_prev_delimiters", []);
@@ -71864,16 +71951,19 @@ function newline(state, silent) {
   if (state.src.charCodeAt(pos) !== 10) return false;
   const pmax = state.pending.length - 1;
   const max = state.posMax;
-  if (!silent) if (pmax >= 0 && state.pending.charCodeAt(pmax) === 32) if (pmax >= 1 && state.pending.charCodeAt(pmax - 1) === 32) {
-    let ws = pmax - 1;
-    while (ws >= 1 && state.pending.charCodeAt(ws - 1) === 32) ws--;
-    state.pending = state.pending.slice(0, ws);
-    state.push("hardbreak", "br", 0);
-  } else {
-    state.pending = state.pending.slice(0, -1);
-    state.push("softbreak", "br", 0);
+  if (!silent) {
+    if (pmax >= 0 && state.pending.charCodeAt(pmax) === 32) {
+      if (pmax >= 1 && state.pending.charCodeAt(pmax - 1) === 32) {
+        let ws = pmax - 1;
+        while (ws >= 1 && state.pending.charCodeAt(ws - 1) === 32) ws--;
+        state.pending = state.pending.slice(0, ws);
+        state.push("hardbreak", "br", 0);
+      } else {
+        state.pending = state.pending.slice(0, -1);
+        state.push("softbreak", "br", 0);
+      }
+    } else state.push("softbreak", "br", 0);
   }
-  else state.push("softbreak", "br", 0);
   pos++;
   while (pos < max && isSpace(state.src.charCodeAt(pos))) pos++;
   state.pos = pos;
@@ -72346,22 +72436,53 @@ function isLetter(ch) {
   const lc = ch | 32;
   return lc >= 97 && lc <= 122;
 }
+function scanSpecial(state, pos) {
+  const src = state.src;
+  let start;
+  let terminator;
+  if (src.startsWith("<!--", pos)) {
+    if (src.startsWith(">", pos + 4)) return pos + 5;
+    if (src.startsWith("->", pos + 4)) return pos + 6;
+    start = pos + 4;
+    terminator = "-->";
+  } else if (src.startsWith("<![CDATA[", pos)) {
+    start = pos + 9;
+    terminator = "]]>";
+  } else if (src.charCodeAt(pos + 1) === 63) {
+    start = pos + 2;
+    terminator = "?>";
+  } else if (isLetter(src.charCodeAt(pos + 2))) {
+    start = pos + 3;
+    terminator = ">";
+  } else return -1;
+  if (state.skipHtmlSpecial) return -1;
+  const end = src.indexOf(terminator, start);
+  if (end < 0) {
+    state.skipHtmlSpecial = true;
+    return -1;
+  }
+  return end + terminator.length;
+}
 function html_inline(state, silent) {
   if (!state.md.options.html) return false;
   const max = state.posMax;
   const pos = state.pos;
   if (state.src.charCodeAt(pos) !== 60 || pos + 2 >= max) return false;
+  let end;
   const ch = state.src.charCodeAt(pos + 1);
-  if (ch !== 33 && ch !== 63 && ch !== 47 && !isLetter(ch)) return false;
-  const match = state.src.slice(pos).match(HTML_TAG_RE);
-  if (!match) return false;
+  if (ch === 33 || ch === 63) end = scanSpecial(state, pos);
+  else if (ch === 47 || isLetter(ch)) {
+    const match = state.src.slice(pos).match(HTML_OPEN_CLOSE_TAG_RE);
+    end = match ? pos + match[0].length : -1;
+  } else return false;
+  if (end < 0) return false;
   if (!silent) {
     const token = state.push("html_inline", "", 0);
-    token.content = match[0];
+    token.content = state.src.slice(pos, end);
     if (isLinkOpen(token.content)) state.linkLevel++;
     if (isLinkClose(token.content)) state.linkLevel--;
   }
-  state.pos += match[0].length;
+  state.pos = end;
   return true;
 }
 var DIGITAL_RE = /^&#((?:x[a-f0-9]{1,6}|[0-9]{1,7}));/i;
@@ -79171,5 +79292,5 @@ is-plain-object/dist/is-plain-object.js:
    *)
 
 markdown-it/dist/markdown-it.mjs:
-  (*! markdown-it 15.0.2 https://github.com/markdown-it/markdown-it @license MIT *)
+  (*! markdown-it 15.0.3 https://github.com/markdown-it/markdown-it @license MIT *)
 */
